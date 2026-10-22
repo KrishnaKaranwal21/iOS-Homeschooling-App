@@ -3,6 +3,7 @@ import SwiftUI
 struct SubjectsStep: View {
     @Binding var child: Child
     @State private var showMore = false
+    @State private var alertMessage: String?
 
     private var curriculum: LevelCurriculum { Curriculum.data(for: child.level) }
 
@@ -10,7 +11,7 @@ struct SubjectsStep: View {
         VStack(alignment: .leading, spacing: 20) {
             ScreenHeader(title: "Follow their rabbit holes.")
             InterestsCard(interests: $child.interests, showMore: $showMore)
-            LevelInfoCard(curriculum: curriculum, selected: child.selectedSubjects)
+            RequirementsCard(curriculum: curriculum, selected: child.selectedSubjects)
             ForEach(curriculum.groups) { group in
                 SubjectGroupSection(group: group, curriculum: curriculum,
                                     selected: child.selectedSubjects) { option in
@@ -19,6 +20,14 @@ struct SubjectsStep: View {
             }
         }
         .onAppear(perform: syncSelection)
+        .alert("Selection rule", isPresented: Binding(
+            get: { alertMessage != nil },
+            set: { if !$0 { alertMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMessage ?? "")
+        }
     }
 
     // MARK: Selection logic
@@ -27,27 +36,43 @@ struct SubjectsStep: View {
         guard !group.locked else { return }
         let key = SubjectKey.make(group, option)
         var current = child.selectedSubjects
+        let c = curriculum.count(in: group, selected: current)
 
+        // Deselecting
         if current.contains(key) {
+            if c - 1 < group.minPick {
+                let n = group.minPick
+                alertMessage = "At least \(n) \(Curriculum.plural(n, group.unit)) must stay selected in \(group.title)."
+                return
+            }
             current.remove(key)
             child.selectedSubjects = current
             return
         }
 
-        let inGroup = group.options.filter { current.contains(SubjectKey.make(group, $0)) }
-        if let maxPick = group.maxPick {
-            if maxPick == 1, let first = inGroup.first {
-                current.remove(SubjectKey.make(group, first))
-            } else if inGroup.count >= maxPick {
-                return
-            }
+        // Selecting: total ceiling
+        let alreadyCounted = curriculum.groups.contains { g in
+            g.options.contains { $0.name == option.name && curriculum.isSelected(g, $0, in: current) }
+        }
+        let total = curriculum.uniqueTotal(selected: current)
+        if let maxTotal = curriculum.maxSubjects, !alreadyCounted, total >= maxTotal {
+            alertMessage = "You can select at most \(maxTotal) subjects in total."
+            return
         }
 
-        let alreadyCounted = curriculum.groups.contains { g in
-            g.options.contains { $0.name == option.name && current.contains(SubjectKey.make(g, $0)) }
-        }
-        if let maxTotal = curriculum.maxSubjects, !alreadyCounted,
-           curriculum.uniqueTotal(selected: current) >= maxTotal {
+        // Selecting: group ceiling
+        if let base = group.maxPick, c >= base {
+            if let full = group.maxPickAtFullLoad, c < full, let cap = curriculum.maxSubjects {
+                current.insert(key)
+                child.selectedSubjects = current
+                alertMessage = "A 3rd \(group.unit) counts only when you register all \(cap) subjects. Add more subjects to reach \(cap)."
+                return
+            }
+            if base == 1 {
+                alertMessage = "Only 1 \(group.unit) can be selected in \(group.title). Remove the current one first."
+            } else {
+                alertMessage = "Only \(base) \(Curriculum.plural(base, group.unit)) can be selected in \(group.title)."
+            }
             return
         }
 
@@ -152,23 +177,48 @@ struct OutlinedChip: View {
     }
 }
 
-// MARK: - Level info
+// MARK: - Requirements card
 
-private struct LevelInfoCard: View {
+private struct RequirementsCard: View {
     let curriculum: LevelCurriculum
     let selected: Set<String>
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("\(curriculum.level) · \(curriculum.equivalent)").font(.headline)
-            Text(curriculum.summary).font(.footnote).foregroundStyle(Theme.secondary)
-            Text(curriculum.progressText(selected: selected))
-                .font(.footnote.bold())
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(curriculum.level) · \(curriculum.equivalent)").font(.headline)
+                Text(curriculum.summary).font(.footnote).foregroundStyle(Theme.secondary)
+            }
+
+            Divider()
+
+            Text("WHAT YOU NEED").font(.caption2).tracking(0.8).foregroundStyle(Theme.secondary)
+            ForEach(curriculum.requirements(selected: selected)) { item in
+                RequirementRow(item: item)
+            }
+
+            Label("Tap a subject to add or remove it. Required subjects are added for you.",
+                  systemImage: "hand.tap")
+                .font(.footnote)
+                .foregroundStyle(Theme.secondary)
                 .padding(.top, 2)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 24).fill(Theme.lavender.opacity(0.55)))
+    }
+}
+
+private struct RequirementRow: View {
+    let item: Requirement
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: item.met ? "checkmark.circle.fill" : "circle.dashed")
+                .foregroundStyle(item.met ? Theme.ink : Theme.secondary)
+            Text(item.title).font(.subheadline.weight(.medium))
+            Spacer()
+            Text(item.detail).font(.footnote).foregroundStyle(Theme.secondary)
+        }
     }
 }
 
@@ -182,14 +232,33 @@ private struct SubjectGroupSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(group.title).font(.title3.bold())
-                if let note = group.note {
-                    Text(note).font(.footnote).foregroundStyle(Theme.secondary)
-                }
-            }
+            header
             rows
         }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(group.title).font(.title3.bold())
+                Spacer()
+                StatusPill(text: statusText, good: statusGood, locked: group.locked)
+            }
+            if let note = group.note {
+                Text(note).font(.footnote).foregroundStyle(Theme.secondary)
+            }
+        }
+    }
+
+    private var chosen: Int { curriculum.count(in: group, selected: selected) }
+
+    private var statusText: String {
+        if group.locked { return "Required" }
+        return "\(chosen) chosen · \(curriculum.rangeText(for: group, selected: selected))"
+    }
+
+    private var statusGood: Bool {
+        group.locked || curriculum.isGroupSatisfied(group, selected: selected)
     }
 
     private var rows: some View {
@@ -205,8 +274,31 @@ private struct SubjectGroupSection: View {
             }
         }
         .padding(.horizontal, 16)
-        .background(RoundedRectangle(cornerRadius: 24).fill(Color.white))
+        .background(RoundedRectangle(cornerRadius: 24).fill(group.locked ? Theme.field.opacity(0.6) : Color.white))
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(Theme.dotInactive, lineWidth: 1))
+    }
+}
+
+private struct StatusPill: View {
+    let text: String
+    let good: Bool
+    let locked: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if locked { Image(systemName: "lock.fill") }
+            Text(text)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(pillColor))
+    }
+
+    private var pillColor: Color {
+        if locked { return Theme.lavender }
+        return good ? Theme.lime : Theme.yellow
     }
 }
 
@@ -217,34 +309,51 @@ private struct SubjectRow: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                Image(systemName: SubjectIcon.symbol(for: option.name, groupId: group.id))
-                    .frame(width: 24)
-                Text(option.name)
-                if let code = option.code {
-                    Text("(\(code))").font(.caption).foregroundStyle(Theme.secondary)
-                }
-                Spacer()
-                CheckBadge(isOn: isOn)
-            }
-            .foregroundStyle(Theme.ink)
-            .padding(.vertical, 14)
-            .contentShape(Rectangle())
+        if group.locked {
+            content
+        } else {
+            Button(action: action) { content }
+                .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+    }
+
+    private var content: some View {
+        HStack(spacing: 14) {
+            Image(systemName: SubjectIcon.symbol(for: option.name, groupId: group.id))
+                .frame(width: 24)
+            Text(option.name)
+            if let code = option.code {
+                Text("(\(code))").font(.caption).foregroundStyle(Theme.secondary)
+            }
+            Spacer()
+            CheckBadge(isOn: isOn, locked: group.locked)
+        }
+        .foregroundStyle(Theme.ink)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
     }
 }
 
 private struct CheckBadge: View {
     let isOn: Bool
+    let locked: Bool
+
     var body: some View {
         ZStack {
-            Circle().fill(isOn ? Theme.pink : Color.clear)
+            Circle().fill(fillColor)
             Circle().stroke(isOn ? Color.clear : Theme.dotInactive, lineWidth: 1.5)
-            if isOn { Image(systemName: "checkmark").font(.caption.bold()).foregroundStyle(Theme.ink) }
+            if isOn {
+                Image(systemName: "checkmark")
+                    .font(.caption.bold())
+                    .foregroundStyle(locked ? Color.white : Theme.ink)
+            }
         }
         .frame(width: 28, height: 28)
+    }
+
+    private var fillColor: Color {
+        if !isOn { return Color.clear }
+        return locked ? Theme.ink : Theme.pink
     }
 }
 
