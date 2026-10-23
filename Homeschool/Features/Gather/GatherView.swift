@@ -23,9 +23,9 @@ struct GatherView: View {
                     }.buttonStyle(.plain)
                 }
                 NavigationLink { HostEventView() } label: {
-                    HStack { Text("Host an Event").font(.headline); Spacer(); Image(systemName: "arrow.right") }
-                        .padding(.horizontal, 24).frame(height: 56).foregroundStyle(.white).background(Theme.ink, in: Capsule())
+                    PrimaryButtonLabel(title: "Host an Event")
                 }
+                .buttonStyle(.plain)
             }.padding()
         }
         .background(Theme.background)

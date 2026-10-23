@@ -16,9 +16,9 @@ struct ProgressDashboardView: View {
                 TaskSection(title: "Tasks Left", tasks: left, color: .white) { state.toggle($0) }
                 TaskSection(title: "Tasks Completed", tasks: done, color: Theme.field) { state.toggle($0) }
                 NavigationLink { RoadmapOverviewView() } label: {
-                    HStack { Text("Build your Roadmap").font(.headline); Spacer(); Image(systemName: "arrow.right") }
-                        .padding(.horizontal, 24).frame(height: 56).foregroundStyle(.white).background(Theme.ink, in: Capsule())
+                    PrimaryButtonLabel(title: "Build your Roadmap")
                 }
+                .buttonStyle(.plain)
             }.padding()
         }.background(Theme.background)
     }

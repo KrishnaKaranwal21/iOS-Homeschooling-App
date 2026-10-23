@@ -5,7 +5,7 @@ enum LaunchStage { case onboarding, setup, main }
 
 final class AppState: ObservableObject {
     @Published var stage: LaunchStage = .onboarding
-    @Published var child: Child = Child.sample
+    @Published var child: Child = Child.empty
     @Published var tasks: [TaskItem] = MockData.tasks
     @Published var events: [Event] = MockData.events
 
@@ -27,5 +27,11 @@ final class AppState: ObservableObject {
     func toggle(_ task: TaskItem) {
         guard let i = tasks.firstIndex(of: task) else { return }
         tasks[i].isDone.toggle()
+    }
+
+    func resetOnboarding() {
+        UserDefaults.standard.removeObject(forKey: stageKey)
+        child = Child.empty
+        stage = .onboarding
     }
 }

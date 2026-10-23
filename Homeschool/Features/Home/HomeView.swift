@@ -15,9 +15,22 @@ struct HomeView: View {
         }
         .background(Theme.background)
         .toolbar {
+            #if DEBUG
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    state.resetOnboarding()
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+            }
+            #endif
             ToolbarItem(placement: .topBarTrailing) {
                 Menu { Text(state.child.name) } label: {
-                    HStack { AvatarView(initials: String(state.child.name.prefix(1)), color: Theme.yellow, size: 28); Text(state.child.name); Image(systemName: "chevron.down") }
+                    HStack {
+                        AvatarView(initials: String(state.child.name.prefix(1)), color: Theme.yellow, size: 28)
+                        Text(state.child.name)
+                        Image(systemName: "chevron.down")
+                    }
                 }
             }
         }
@@ -33,7 +46,7 @@ private struct WeeklyActivityCard: View {
                 Text("45 mins").foregroundStyle(Theme.secondary)
                 HStack {
                     PrimaryButton(title: "Start activity") {}
-                    Button { } label: { Label("Swap", systemImage: "arrow.2.squarepath").padding(.horizontal, 20).frame(height: 56).background(.white, in: Capsule()) }
+                    Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(height: 56).background(.white, in: Capsule()) }.buttonStyle(.plain)
                 }
             }
         }

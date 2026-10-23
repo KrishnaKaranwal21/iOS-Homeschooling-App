@@ -171,6 +171,54 @@ extension LevelCurriculum {
     }
 }
 
+// MARK: - Validation messages
+
+extension LevelCurriculum {
+    /// Short red inline message for a group, or nil when the group is fine.
+    func groupIssue(_ group: SubjectGroup, selected: Set<String>) -> String? {
+        guard !group.locked else { return nil }
+        let count = self.count(in: group, selected: selected)
+        let need = effectiveMin(group, selected: selected)
+        if count < need {
+            let missing = need - count
+            if count == 0 {
+                return "Select at least \(need) \(Curriculum.plural(need, group.unit))"
+            }
+            return "Select \(missing) more \(Curriculum.plural(missing, group.unit))"
+        }
+        if let m = allowedMax(group, selected: selected), count > m {
+            let extra = count - m
+            return "Remove \(extra) \(Curriculum.plural(extra, group.unit))"
+        }
+        if let full = group.maxPickAtFullLoad, let cap = maxSubjects,
+           let base = group.maxPick, count > base, count <= full {
+            return "Add more subjects to reach \(cap), or remove 1 \(group.unit)"
+        }
+        return nil
+    }
+
+    /// Full list of problems, shown when the learner taps Continue too early.
+    func issues(selected: Set<String>) -> [String] {
+        var list: [String] = []
+        for group in groups {
+            if let text = groupIssue(group, selected: selected) {
+                list.append("\(text) in \(group.title).")
+            }
+        }
+        if list.isEmpty {
+            let total = uniqueTotal(selected: selected)
+            if total < minSubjects {
+                let n = minSubjects - total
+                list.append("Select \(n) more subject\(n == 1 ? "" : "s") in total.")
+            } else if let m = maxSubjects, total > m {
+                let n = total - m
+                list.append("Remove \(n) subject\(n == 1 ? "" : "s"). The maximum is \(m).")
+            }
+        }
+        return list
+    }
+}
+
 // MARK: - NIOS data
 
 enum Curriculum {
@@ -208,10 +256,10 @@ enum Curriculum {
             SubjectGroup(id: "core", title: "Mandatory Subjects", note: "Academic group. Both are compulsory.",
                          options: parse(["Basic Mathematics", "Environmental Studies (EVS)"]), locked: true),
             SubjectGroup(id: "lang", title: "Language", note: "Group 1. Pick 1 or 2 languages.", unit: "language",
-                         options: parse(basicLanguages), minPick: 1, maxPick: 2, preselect: ["English"]),
+                         options: parse(basicLanguages), minPick: 1, maxPick: 2),
             SubjectGroup(id: "skill", title: "Pre-Vocational Skill", note: "Group 3. Pick exactly 1.", unit: "skill",
                          options: parse(["Computer Skills", "Creative Crafts"]),
-                         minPick: 1, maxPick: 1, preselect: ["Computer Skills"])
+                         minPick: 1, maxPick: 1)
         ])
 
     private static let levelB = LevelCurriculum(
@@ -222,11 +270,10 @@ enum Curriculum {
             SubjectGroup(id: "core", title: "Mandatory Subjects", note: "Academic group. Both are compulsory.",
                          options: parse(["Mathematics", "Environmental Studies (EVS)"]), locked: true),
             SubjectGroup(id: "lang", title: "Language", note: "Group 1. Pick 1 or 2 languages.", unit: "language",
-                         options: parse(basicLanguages), minPick: 1, maxPick: 2, maxPickAtFullLoad: 3,
-                         preselect: ["English"]),
+                         options: parse(basicLanguages), minPick: 1, maxPick: 2, maxPickAtFullLoad: 3),
             SubjectGroup(id: "skill", title: "Pre-Vocational Skill", note: "Group 3. Pick 1 or 2 skills.", unit: "skill",
                          options: parse(["Computer Skills", "Cutting & Tailoring", "Basic Agriculture", "Vermicomposting"]),
-                         minPick: 1, maxPick: 2, preselect: ["Computer Skills"])
+                         minPick: 1, maxPick: 2)
         ])
 
     private static let levelC = LevelCurriculum(
@@ -237,12 +284,11 @@ enum Curriculum {
             SubjectGroup(id: "core", title: "Mandatory Subjects", note: "Academic group. All three are compulsory.",
                          options: parse(["Mathematics", "Science", "Social Science"]), locked: true),
             SubjectGroup(id: "lang", title: "Language", note: "Group 1. Pick 1 or 2 languages.", unit: "language",
-                         options: parse(basicLanguages), minPick: 1, maxPick: 2, maxPickAtFullLoad: 3,
-                         preselect: ["English"]),
+                         options: parse(basicLanguages), minPick: 1, maxPick: 2, maxPickAtFullLoad: 3),
             SubjectGroup(id: "skill", title: "Pre-Vocational Skill", note: "Group 3. Pick 1 or 2 skills.", unit: "skill",
                          options: parse(["Computer Skills", "Cutting & Tailoring", "Basic Plumbing & Electrical Wiring",
                                          "Vermicomposting", "Yoga & Health"]),
-                         minPick: 1, maxPick: 2, preselect: ["Computer Skills"])
+                         minPick: 1, maxPick: 2)
         ])
 
     // MARK: Secondary (Grade 10)
@@ -258,7 +304,7 @@ enum Curriculum {
                                          "Urdu|206", "Gujarati|207", "Sanskrit|208", "Punjabi|209", "Assamese|210",
                                          "Nepali|231", "Odia|232", "Malayalam|233", "Kannada|234", "Arabic|235",
                                          "Persian|236", "Tamil|237"]),
-                         minPick: 1, maxPick: 2, preselect: ["English"]),
+                         minPick: 1, maxPick: 2),
             SubjectGroup(id: "gB", title: "Academic & Vocational Electives (Group B)",
                          note: "At least 4 with 1 language, at least 3 with 2 languages. The 7 subject total caps the rest.",
                          options: parse(["Mathematics|211", "Science & Technology|212", "Social Science|213",
@@ -280,7 +326,7 @@ enum Curriculum {
             SubjectGroup(id: "langA", title: "Language (Group A)", note: "Pick 1 or 2 languages.", unit: "language",
                          options: parse(["Hindi|301", "English|302", "Bengali|303", "Tamil|304", "Urdu|306",
                                          "Sanskrit|309", "Punjabi|310"]),
-                         minPick: 1, maxPick: 2, preselect: ["English"]),
+                         minPick: 1, maxPick: 2),
             SubjectGroup(id: "gB", title: "General Electives (Group B)", note: "Free choice, up to 5 subjects.",
                          options: parse(["Mathematics|311", "Home Science|321", "Economics|318",
                                          "Business Studies|319", "Accountancy|320", "Painting|332",

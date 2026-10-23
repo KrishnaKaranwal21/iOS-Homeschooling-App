@@ -5,35 +5,40 @@ struct OnboardingView: View {
     private let pages = OnboardingPage.all
     var onFinish: () -> Void = {}
 
+    private var isLast: Bool { currentPage == pages.count - 1 }
+
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button("Skip", action: onFinish)
+                        .font(.system(size: 17))
+                        .foregroundStyle(Theme.muted)
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 8)
+                .padding(.bottom, 10)
+
                 TabView(selection: $currentPage) {
                     ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
                         OnboardingPageView(page: page).tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .padding(.top, 16)
 
                 PageDots(count: pages.count, current: currentPage)
                     .padding(.top, 8)
                     .padding(.bottom, 28)
 
-                Button(action: onFinish) {
-                    HStack {
-                        Text("Get started")
-                            .font(.system(size: 20, weight: .medium))
-                        Spacer()
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 20, weight: .regular))
+                PrimaryButton(title: isLast ? "Get started" : "Next") {
+                    if isLast {
+                        onFinish()
+                    } else {
+                        withAnimation(.easeInOut) { currentPage += 1 }
                     }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 28)
-                    .frame(height: 64)
-                    .background(Theme.ink, in: Capsule())
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
