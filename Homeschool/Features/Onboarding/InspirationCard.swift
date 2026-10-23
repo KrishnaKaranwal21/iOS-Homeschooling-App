@@ -14,7 +14,7 @@ struct InspirationCard: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
-                    .background(Theme.lime, in: RoundedRectangle(cornerRadius: 8))
+                    .background(Color(hex: 0xFFC8C9), in: RoundedRectangle(cornerRadius: 8))
 
                 Text("Saturday,\noutside.")
                     .font(.system(size: 46, weight: .bold))

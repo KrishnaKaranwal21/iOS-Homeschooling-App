@@ -217,13 +217,12 @@ private struct SubjectGroupSection: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(group.title).font(.title3.bold()).foregroundStyle(Theme.obsidian)
-                Spacer()
-                StatusPill(text: statusText, locked: group.locked)
-            }
-            if let note = group.note {
-                Text(note).font(.footnote).foregroundStyle(Theme.systemGray)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(group.title)
+                    .font(.title3.bold())
+                    .foregroundStyle(Theme.obsidian)
+                Spacer(minLength: 8)
+                StatusPill(text: statusText, state: pillState)
             }
             if let issue {
                 Label(issue, systemImage: "exclamationmark.circle.fill")
@@ -235,9 +234,22 @@ private struct SubjectGroupSection: View {
 
     private var chosen: Int { curriculum.count(in: group, selected: selected) }
 
+    private var pillState: StatusPill.State {
+        if group.locked { return .required }
+        if issue != nil { return .problem }
+        return curriculum.isGroupSatisfied(group, selected: selected) && chosen > 0 ? .done : .pending
+    }
+
+    /// Short and numeric, e.g. "0 of 1–2". The long rule text is no longer repeated.
     private var statusText: String {
         if group.locked { return "Required" }
-        return "\(chosen) chosen · \(curriculum.rangeText(for: group, selected: selected))"
+        let minValue = curriculum.effectiveMin(group, selected: selected)
+        if let maxValue = group.maxPick {
+            if minValue == maxValue || minValue == 0 { return "\(chosen) of \(maxValue)" }
+            return "\(chosen) of \(minValue)–\(maxValue)"
+        }
+        if minValue > 0 { return "\(chosen) of \(minValue)+" }
+        return "\(chosen) chosen"
     }
 
     private var rows: some View {
@@ -260,19 +272,51 @@ private struct SubjectGroupSection: View {
 }
 
 private struct StatusPill: View {
+    enum State { case required, pending, done, problem }
+
     let text: String
-    let locked: Bool
+    let state: State
 
     var body: some View {
-        HStack(spacing: 4) {
-            if locked { Image(systemName: "lock.fill").font(.system(size: 10, weight: .semibold)) }
+        HStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
             Text(text)
+                .monospacedDigit()
+                .contentTransition(.numericText())
         }
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundStyle(Theme.obsidian)
+        .font(.system(size: 13, weight: .semibold))
+        .foregroundStyle(foreground)
         .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(Capsule().fill(Theme.pillFill))
+        .padding(.vertical, 6)
+        .background(Capsule().fill(background))
+        .animation(.snappy, value: text)
+        .animation(.snappy, value: state)
+    }
+
+    private var symbol: String {
+        switch state {
+        case .required: return "lock.fill"
+        case .pending:  return "circle.dashed"
+        case .done:     return "checkmark.circle.fill"
+        case .problem:  return "exclamationmark.circle.fill"
+        }
+    }
+
+    private var foreground: Color {
+        switch state {
+        case .required, .pending: return Theme.systemGray
+        case .done:               return Color.green
+        case .problem:            return Color.red
+        }
+    }
+
+    private var background: Color {
+        switch state {
+        case .required, .pending: return Theme.pillFill
+        case .done:               return Color.green.opacity(0.14)
+        case .problem:            return Color.red.opacity(0.12)
+        }
     }
 }
 

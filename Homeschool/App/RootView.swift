@@ -7,6 +7,10 @@ struct RootView: View {
         switch state.stage {
         case .onboarding:
             OnboardingView {
+                state.advance(to: .login)
+            }
+        case .login:
+            LoginView {
                 state.advance(to: .setup)
             }
         case .setup:

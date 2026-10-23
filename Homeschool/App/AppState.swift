@@ -1,7 +1,7 @@
 import SwiftUI
 import Combine
 
-enum LaunchStage { case onboarding, setup, main }
+enum LaunchStage { case onboarding, login, setup, main }
 
 final class AppState: ObservableObject {
     @Published var stage: LaunchStage = .onboarding

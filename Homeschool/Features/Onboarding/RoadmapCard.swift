@@ -56,7 +56,7 @@ struct RoadmapCard: View {
                 Text("Science").padding(.leading, 28)
                 Spacer()
                 Circle()
-                    .fill(Theme.lime)
+                    .fill(Color(hex: 0xFFC8C9))
                     .frame(width: 34, height: 34)
                     .overlay(Image(systemName: "arrow.right")
                         .font(.system(size: 14, weight: .semibold))
