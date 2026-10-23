@@ -32,7 +32,7 @@ struct ChildSetupFlowView: View {
         }
         .foregroundStyle(Theme.obsidian)
         .background(Theme.background.ignoresSafeArea())
-        .onChange(of: step) { _ in attempted = false }
+        .onChange(of: step) { attempted = false }
         .alert("Can't continue yet", isPresented: Binding(
             get: { continueAlert != nil },
             set: { if !$0 { continueAlert = nil } }
