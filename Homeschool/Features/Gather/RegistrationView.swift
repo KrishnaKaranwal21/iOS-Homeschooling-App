@@ -282,6 +282,11 @@ struct RegistrationView: View {
             registrant = saved
             isPrefilled = true
         } else {
+            if let account = state.account {
+                registrant.parentName = account.name
+                registrant.email = account.email
+                registrant.mobile = account.mobile ?? ""
+            }
             registrant.childName = state.child.name
             if let birthDate = state.child.birthDate {
                 registrant.childAge = String(AgeRules.age(of: birthDate, on: .now))

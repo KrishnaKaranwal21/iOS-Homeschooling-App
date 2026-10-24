@@ -1,18 +1,56 @@
 import SwiftUI
 
+/// First-time setup right after sign-up.
 struct ChildSetupFlowView: View {
     @Environment(AppState.self) private var state
-    @State private var step = 1
+
+    var body: some View {
+        ChildSetupSteps(child: Bindable(state).child, mode: .onboarding) {
+            state.advance(to: .main)
+        }
+    }
+}
+
+/// The three setup pages. Used for onboarding, adding another child and editing a child.
+struct ChildSetupSteps: View {
+    enum Mode { case onboarding, addChild, editChild }
+
+    @Binding var child: Child
+    var mode: Mode = .onboarding
+    var onFinish: () -> Void
+    var onCancel: (() -> Void)? = nil
+    /// Edit just one page and save, with no Back or Continue through the others.
+    var singleStep = false
+
+    @State private var step: Int
     @State private var attempted = false
     @State private var continueAlert: String?
+
+    init(child: Binding<Child>, mode: Mode = .onboarding, startStep: Int = 1, singleStep: Bool = false,
+         onCancel: (() -> Void)? = nil, onFinish: @escaping () -> Void) {
+        _child = child
+        self.mode = mode
+        self.singleStep = singleStep
+        self.onCancel = onCancel
+        self.onFinish = onFinish
+        _step = State(initialValue: startStep)
+    }
+
+    private var finishTitle: String {
+        switch mode {
+        case .onboarding: return "Go to Home"
+        case .addChild:   return child.name.trimmingCharacters(in: .whitespaces).isEmpty ? "Add child" : "Add \(child.displayName)"
+        case .editChild:  return "Save changes"
+        }
+    }
 
     private var canContinue: Bool {
         switch step {
         case 1:
-            return state.child.isBasicsComplete
+            return child.isBasicsComplete
         case 2:
-            let data = Curriculum.data(for: state.child.level)
-            return data.isComplete(selected: state.child.selectedSubjects)
+            let data = Curriculum.data(for: child.level)
+            return data.isComplete(selected: child.selectedSubjects)
         default:
             return true
         }
@@ -47,9 +85,26 @@ struct ChildSetupFlowView: View {
 
     private var header: some View {
         VStack(spacing: 14) {
+            if singleStep {
+                HStack {
+                    if let onCancel {
+                        Button("Cancel", action: onCancel)
+                            .foregroundStyle(Theme.obsidian)
+                    }
+                    Spacer()
+                    Text(step == 2 ? "Subjects" : "Learning rhythm")
+                        .scaledFont(12, weight: .semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Theme.pillFill))
+                }
+            } else {
             HStack {
                 if step > 1 {
                     Button { step -= 1 } label: { Label("Back", systemImage: "chevron.left") }
+                        .foregroundStyle(Theme.obsidian)
+                } else if let onCancel {
+                    Button("Cancel", action: onCancel)
                         .foregroundStyle(Theme.obsidian)
                 }
                 Spacer()
@@ -65,6 +120,7 @@ struct ChildSetupFlowView: View {
                         .fill(i <= step ? Theme.obsidian : Theme.checkBorder.opacity(0.5))
                         .frame(height: 3)
                 }
+            }
             }
         }
         .padding(.horizontal, 20)
@@ -87,7 +143,7 @@ struct ChildSetupFlowView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.systemGray)
                 }
-                PrimaryButton(title: step == 3 ? "Go to Home" : "Continue",
+                PrimaryButton(title: (step == 3 || singleStep) ? finishTitle : "Continue",
                               isDimmed: !canContinue) {
                     handleContinue()
                 }
@@ -111,19 +167,19 @@ struct ChildSetupFlowView: View {
 
     private var hintText: String? {
         if step == 1 {
-            return state.child.isBasicsComplete
+            return child.isBasicsComplete
                 ? nil
                 : "Enter a name, pick a date of birth and choose a level to continue."
         }
-        let data = Curriculum.data(for: state.child.level)
-        return data.hint(selected: state.child.selectedSubjects)
+        let data = Curriculum.data(for: child.level)
+        return data.hint(selected: child.selectedSubjects)
     }
 
     /// Step 2 only: a friendly note when more than the minimum number of subjects is chosen.
     private var extraNote: String? {
         guard step == 2 else { return nil }
-        return Curriculum.data(for: state.child.level)
-            .extraSubjectsNote(selected: state.child.selectedSubjects)
+        return Curriculum.data(for: child.level)
+            .extraSubjectsNote(selected: child.selectedSubjects)
     }
 
     private var hintLabel: some View {
@@ -143,8 +199,8 @@ struct ChildSetupFlowView: View {
         if step == 1 {
             return "Enter a name, pick a date of birth and choose a level to continue."
         }
-        let data = Curriculum.data(for: state.child.level)
-        let list = data.issues(selected: state.child.selectedSubjects)
+        let data = Curriculum.data(for: child.level)
+        let list = data.issues(selected: child.selectedSubjects)
         return list.isEmpty ? "Please review your selection." : list.joined(separator: "\n")
     }
 
@@ -154,19 +210,19 @@ struct ChildSetupFlowView: View {
             continueAlert = problemMessage
             return
         }
-        if step < 3 {
+        if step < 3 && !singleStep {
             withAnimation { step += 1 }
         } else {
-            state.advance(to: .main)
+            onFinish()
         }
     }
 
     @ViewBuilder
     private var stepContent: some View {
         switch step {
-        case 1: ChildBasicsStep(child: Bindable(state).child)
-        case 2: SubjectsStep(child: Bindable(state).child, showErrors: attempted)
-        default: RhythmStep(child: Bindable(state).child)
+        case 1: ChildBasicsStep(child: $child)
+        case 2: SubjectsStep(child: $child, showErrors: attempted)
+        default: RhythmStep(child: $child)
         }
     }
 }

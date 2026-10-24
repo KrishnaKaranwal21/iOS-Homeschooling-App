@@ -8,6 +8,7 @@ struct FirstHomeView: View {
 
     @State private var showFirstWeek = false
     @State private var showIdea = false
+    @State private var showAddChild = false
     @State private var exploreID: ExploreCard.ID? = ExploreCard.all.first?.id
 
     private let warmText = Color(hex: 0x9C4A4B)
@@ -71,6 +72,7 @@ struct FirstHomeView: View {
             FirstWeekSheet(days: days, hours: state.child.hoursPerDay, tasks: state.tasks)
         }
         .sheet(isPresented: $showIdea) { IdeaPreviewSheet() }
+        .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
     }
 
     // MARK: Top row and headline
@@ -82,14 +84,13 @@ struct FirstHomeView: View {
                 .foregroundStyle(Theme.secondary)
             Spacer(minLength: 8)
 
-            Menu {
-                Text(childName)
-            } label: {
+            ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
                 HStack(spacing: 7) {
-                    AvatarView(initials: String(state.child.name.prefix(1)).uppercased(),
+                    AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(),
                                color: Theme.lavender, size: 26)
-                    Text(state.child.name.isEmpty ? "Child" : state.child.name)
+                    Text(state.child.displayName)
                         .scaledFont(15, weight: .medium, maxScale: 1.3)
+                        .lineLimit(1)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 11, weight: .bold))
                 }
@@ -100,7 +101,9 @@ struct FirstHomeView: View {
                 .background(Capsule().fill(Color(hex: 0xEFEDFB)))
             }
 
-            Button {} label: {
+            NavigationLink {
+                ProfileView()
+            } label: {
                 Image(systemName: "person")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Theme.ink)

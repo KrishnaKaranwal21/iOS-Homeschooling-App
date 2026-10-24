@@ -72,12 +72,19 @@ struct MainTabView: View {
         }
     }
 
+    /// Icons are drawn into plain bitmaps so the tab bar can't swap them for another symbol variant or recolour them.
     private func icon(_ symbol: String, isSelected: Bool) -> Image {
         let color = UIColor(isSelected ? Theme.tabSelected : Theme.tabIconInactive)
-        if let image = UIImage(systemName: symbol)?.withTintColor(color, renderingMode: .alwaysOriginal) {
-            return Image(uiImage: image)
+        let config = UIImage.SymbolConfiguration(pointSize: 21, weight: .semibold)
+        guard let symbolImage = UIImage(systemName: symbol, withConfiguration: config)?
+            .withTintColor(color, renderingMode: .alwaysOriginal) else {
+            return Image(systemName: symbol)
         }
-        return Image(systemName: symbol)
+        let size = symbolImage.size
+        let bitmap = UIGraphicsImageRenderer(size: size).image { _ in
+            symbolImage.draw(in: CGRect(origin: .zero, size: size))
+        }
+        return Image(uiImage: bitmap.withRenderingMode(.alwaysOriginal)).renderingMode(.original)
     }
 
     private static func styleLabels() {

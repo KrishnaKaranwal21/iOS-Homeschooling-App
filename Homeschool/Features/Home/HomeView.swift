@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppState.self) private var state
+    @State private var showAddChild = false
 
     /// The first visit shows the welcome Home. After the family has explored other tabs, the regular Home takes over.
     var body: some View {
@@ -24,15 +25,23 @@ struct HomeView: View {
             .padding()
         }
         .background(Theme.background)
+        .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Menu { Text(state.child.name) } label: {
+                ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
                     HStack {
-                        AvatarView(initials: String(state.child.name.prefix(1)), color: Theme.yellow, size: 28)
-                        Text(state.child.name)
+                        AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(),
+                                   color: Theme.yellow, size: 28)
+                        Text(state.child.displayName)
                         Image(systemName: "chevron.down")
                     }
                 }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink { ProfileView() } label: {
+                    Image(systemName: "person")
+                }
+                .accessibilityLabel("Profile")
             }
         }
     }

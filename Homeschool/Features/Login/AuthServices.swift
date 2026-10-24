@@ -5,6 +5,7 @@ import Foundation
 struct Account: Codable, Equatable {
     var email: String
     var name: String
+    var mobile: String? = nil
 }
 
 /// Accounts kept on this device so the "existing vs new user" flow can be tested without a backend.
@@ -26,6 +27,20 @@ enum AccountStore {
         }
     }
 
+    private static let currentKey = "mock.currentEmail"
+
+    /// The account that is signed in on this device.
+    static var current: Account? {
+        guard let email = UserDefaults.standard.string(forKey: currentKey) else { return nil }
+        return all[email]
+    }
+
+    static func update(_ account: Account) {
+        var accounts = all
+        accounts[normalized(account.email)] = account
+        all = accounts
+    }
+
     static func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
@@ -43,6 +58,7 @@ enum AccountStore {
         if account.name.isEmpty, let name, !name.isEmpty { account.name = name }
         accounts[id] = account
         all = accounts
+        UserDefaults.standard.set(id, forKey: currentKey)
         return account
     }
 }

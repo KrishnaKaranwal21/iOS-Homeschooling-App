@@ -5,7 +5,26 @@ enum LaunchStage { case onboarding, login, setup, main }
 @Observable
 final class AppState {
     var stage: LaunchStage = .onboarding
-    var child: Child = Child.empty
+    /// The parent who is signed in.
+    var account: Account? = AccountStore.current
+
+    /// Every child in the family. The first one is created during setup.
+    var children: [Child] = [Child.empty] {
+        didSet { saveChildren() }
+    }
+    var selectedChildID = UUID() {
+        didSet { UserDefaults.standard.set(selectedChildID.uuidString, forKey: selectedChildKey) }
+    }
+
+    /// The child whose plan is on screen. Reading and writing go to the matching entry in `children`.
+    var child: Child {
+        get { children.first { $0.id == selectedChildID } ?? children[0] }
+        set {
+            if let index = children.firstIndex(where: { $0.id == newValue.id }) {
+                children[index] = newValue
+            }
+        }
+    }
     var tasks: [TaskItem] = MockData.tasks
     var events: [Event] = MockData.events.sorted { $0.start < $1.start }
 
@@ -17,6 +36,8 @@ final class AppState {
     /// false until the family has seen the first-time Home and moved on to another tab.
     var hasSeenFirstHome = false
 
+    private let childrenKey = "children"
+    private let selectedChildKey = "selectedChildID"
     private let stageKey = "stage"
     private let firstHomeKey = "hasSeenFirstHome"
     private let registrantKey = "savedRegistrant"
@@ -26,6 +47,16 @@ final class AppState {
         let defaults = UserDefaults.standard
         if defaults.string(forKey: stageKey) == "main" {
             stage = .main
+        }
+        // Saved children only count once setup was finished.
+        if stage == .main,
+           let data = defaults.data(forKey: childrenKey),
+           let saved = try? JSONDecoder().decode([Child].self, from: data), !saved.isEmpty {
+            children = saved
+            let savedID = defaults.string(forKey: selectedChildKey).flatMap(UUID.init(uuidString:))
+            selectedChildID = saved.contains { $0.id == savedID } ? (savedID ?? saved[0].id) : saved[0].id
+        } else {
+            selectedChildID = children[0].id
         }
         // Families who were already inside the app before this screen existed skip it.
         hasSeenFirstHome = defaults.object(forKey: firstHomeKey) as? Bool ?? (stage == .main)
@@ -63,6 +94,44 @@ final class AppState {
         guard !hasSeenFirstHome else { return }
         hasSeenFirstHome = true
         UserDefaults.standard.set(true, forKey: firstHomeKey)
+    }
+
+    // MARK: Parent account
+
+    func refreshAccount() {
+        account = AccountStore.current
+    }
+
+    func updateAccount(name: String, mobile: String) {
+        guard var current = account else { return }
+        current.name = name.trimmingCharacters(in: .whitespaces)
+        current.mobile = mobile.trimmingCharacters(in: .whitespaces)
+        AccountStore.update(current)
+        account = current
+    }
+
+    // MARK: Children
+
+    func selectChild(_ id: Child.ID) {
+        guard children.contains(where: { $0.id == id }) else { return }
+        selectedChildID = id
+    }
+
+    /// Adds a child and switches to them.
+    func addChild(_ newChild: Child) {
+        children.append(newChild)
+        selectedChildID = newChild.id
+    }
+
+    func updateChild(_ updated: Child) {
+        guard let index = children.firstIndex(where: { $0.id == updated.id }) else { return }
+        children[index] = updated
+    }
+
+    private func saveChildren() {
+        if let data = try? JSONEncoder().encode(children) {
+            UserDefaults.standard.set(data, forKey: childrenKey)
+        }
     }
 
     func toggle(_ task: TaskItem) {
@@ -124,7 +193,8 @@ final class AppState {
 
     func resetOnboarding() {
         UserDefaults.standard.removeObject(forKey: stageKey)
-        child = Child.empty
+        children = [Child.empty]
+        selectedChildID = children[0].id
         stage = .onboarding
     }
 }
