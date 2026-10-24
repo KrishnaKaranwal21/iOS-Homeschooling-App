@@ -10,7 +10,8 @@ struct RootView: View {
                 state.advance(to: .login)
             }
         case .login:
-            LoginView {
+            LoginView { returning in
+                state.setReturningUser(returning)
                 state.advance(to: .setup)
             }
         case .setup:

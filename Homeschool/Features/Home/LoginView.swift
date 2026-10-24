@@ -6,7 +6,8 @@ import SwiftUI
 struct LoginView: View {
     private enum Route { case entry, verify }
 
-    var onSuccess: () -> Void = {}
+    /// Called after signing in. `true` when the account already existed.
+    var onSuccess: (_ returning: Bool) -> Void = { _ in }
 
     @State private var route: Route = .entry
     @State private var email = ""
@@ -37,8 +38,9 @@ struct LoginView: View {
                                onBack: { go(.entry) },
                                onVerified: {
                                    // Known email signs in; unknown email is created here.
+                                   let returning = AccountStore.exists(cleanEmail)
                                    AccountStore.signInOrCreate(email: cleanEmail, name: nil)
-                                   onSuccess()
+                                   onSuccess(returning)
                                })
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -174,9 +176,10 @@ struct LoginView: View {
         Task {
             do {
                 let profile = try await SocialAuth.signIn(with: provider)
+                let returning = AccountStore.exists(profile.email)
                 AccountStore.signInOrCreate(email: profile.email, name: profile.name)
                 loadingProvider = nil
-                onSuccess()
+                onSuccess(returning)
             } catch {
                 loadingProvider = nil
                 socialError = "Couldn’t continue with \(provider.title). Please try again."

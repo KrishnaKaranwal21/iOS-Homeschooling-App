@@ -2,7 +2,17 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppState.self) private var state
+
+    /// The first visit shows the welcome Home. After the family has explored other tabs, the regular Home takes over.
     var body: some View {
+        if state.hasSeenFirstHome {
+            regularHome
+        } else {
+            FirstHomeView()
+        }
+    }
+
+    private var regularHome: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text(Date.now.formatted(.dateTime.weekday(.wide).day().month())).font(.caption).foregroundStyle(Theme.secondary)
@@ -15,15 +25,6 @@ struct HomeView: View {
         }
         .background(Theme.background)
         .toolbar {
-            #if DEBUG
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    state.resetOnboarding()
-                } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                }
-            }
-            #endif
             ToolbarItem(placement: .topBarTrailing) {
                 Menu { Text(state.child.name) } label: {
                     HStack {

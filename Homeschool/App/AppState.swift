@@ -14,7 +14,11 @@ final class AppState {
     var registrations: [Event.ID: Registration] = [:]
     private var bookmarkedKeys: Set<String> = []
 
+    /// false until the family has seen the first-time Home and moved on to another tab.
+    var hasSeenFirstHome = false
+
     private let stageKey = "stage"
+    private let firstHomeKey = "hasSeenFirstHome"
     private let registrantKey = "savedRegistrant"
     private let bookmarkKey = "bookmarkedEvents"
 
@@ -23,6 +27,8 @@ final class AppState {
         if defaults.string(forKey: stageKey) == "main" {
             stage = .main
         }
+        // Families who were already inside the app before this screen existed skip it.
+        hasSeenFirstHome = defaults.object(forKey: firstHomeKey) as? Bool ?? (stage == .main)
         if let data = defaults.data(forKey: registrantKey),
            let saved = try? JSONDecoder().decode(Registrant.self, from: data) {
             savedRegistrant = saved
@@ -44,6 +50,19 @@ final class AppState {
         if newStage == .main {
             UserDefaults.standard.set("main", forKey: stageKey)
         }
+    }
+
+    /// Called after login. A new account sees the first-time Home, a returning one goes straight to the regular Home.
+    func setReturningUser(_ returning: Bool) {
+        hasSeenFirstHome = returning
+        UserDefaults.standard.set(returning, forKey: firstHomeKey)
+    }
+
+    /// Called when the family leaves Home for the first time.
+    func markFirstHomeSeen() {
+        guard !hasSeenFirstHome else { return }
+        hasSeenFirstHome = true
+        UserDefaults.standard.set(true, forKey: firstHomeKey)
     }
 
     func toggle(_ task: TaskItem) {

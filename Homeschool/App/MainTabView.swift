@@ -1,13 +1,26 @@
 import SwiftUI
 import UIKit
 
+enum AppTab: Hashable {
+    case home, progress, gather, community, chats
+}
+
+private struct OpenTabKey: EnvironmentKey {
+    static let defaultValue: (AppTab) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    /// Lets any screen jump to another tab, for example a Home card opening Gather.
+    var openTab: (AppTab) -> Void {
+        get { self[OpenTabKey.self] }
+        set { self[OpenTabKey.self] = newValue }
+    }
+}
+
 /// The original system tab bar. Only the colours are customised:
 /// muted purple for the current page, soft lilac icons and grey labels for the rest.
 struct MainTabView: View {
-    private enum AppTab: Hashable {
-        case home, progress, gather, community, chats
-    }
-
+    @Environment(AppState.self) private var state
     @State private var selection: AppTab = .home
 
     init() {
@@ -43,6 +56,11 @@ struct MainTabView: View {
             }
         }
         .tint(Theme.tabSelected)
+        .environment(\.openTab, { selection = $0 })
+        .onChange(of: selection) { old, new in
+            // Leaving Home for the first time ends the first-time Home.
+            if old == .home && new != .home { state.markFirstHomeSeen() }
+        }
     }
 
     /// The icon is coloured by hand because the system draws unselected icons black on newer iOS versions.
