@@ -226,6 +226,26 @@ private struct DashedLine: Shape {
     }
 }
 
+/// Half-circle bites out of the left and right edges, centred exactly on the dashed divider.
+private struct TicketCutouts: View {
+    let dividerY: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .overlay(alignment: .topLeading) {
+                Circle().frame(width: 26, height: 26)
+                    .offset(x: -13, y: dividerY - 13)
+                    .blendMode(.destinationOut)
+            }
+            .overlay(alignment: .topTrailing) {
+                Circle().frame(width: 26, height: 26)
+                    .offset(x: 13, y: dividerY - 13)
+                    .blendMode(.destinationOut)
+            }
+            .compositingGroup()
+    }
+}
+
 // MARK: - "Your next gathering" ticket
 
 struct TicketCard: View {
@@ -235,24 +255,27 @@ struct TicketCard: View {
     private let tileColumn: CGFloat = 114
     private let dashColor = Color.black.opacity(0.22)
     private let warmText = Color(hex: 0x9C4A4B)
+    fileprivate static let topHeight: CGFloat = 128
+    fileprivate static let cardHeight: CGFloat = 176
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 0) {
                 dateTile
-                    .frame(width: tileColumn, height: 128)
+                    .frame(width: tileColumn, height: Self.topHeight)
                 details
                     .padding(.top, 20)
+                    .padding(.leading, 20)
                     .padding(.trailing, 16)
                 Spacer(minLength: 0)
             }
-            .frame(height: 128)
+            .frame(height: Self.topHeight)
             .overlay(alignment: .leading) {
                 DashedLine(vertical: true)
                     .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     .frame(width: 1)
                     .padding(.leading, tileColumn)
-                    .padding(.vertical, 12)
+                    .padding(.top, 14)
             }
 
             DashedLine(vertical: false)
@@ -277,22 +300,10 @@ struct TicketCard: View {
             .padding(.horizontal, 20)
             .frame(maxHeight: .infinity)
         }
-        .frame(height: 172)
+        .frame(height: Self.cardHeight)
         .background(Theme.pink)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .mask { notches }
-    }
-
-    /// Half-circle bites out of the left and right edges, like a paper ticket.
-    private var notches: some View {
-        Rectangle()
-            .overlay(alignment: .leading) {
-                Circle().frame(width: 26, height: 26).offset(x: -13).blendMode(.destinationOut)
-            }
-            .overlay(alignment: .trailing) {
-                Circle().frame(width: 26, height: 26).offset(x: 13).blendMode(.destinationOut)
-            }
-            .compositingGroup()
+        .mask { TicketCutouts(dividerY: Self.topHeight + 0.5) }
     }
 
     private var dateTile: some View {
@@ -341,16 +352,113 @@ struct TicketCard: View {
     }
 }
 
+// MARK: - Shown when there are no registrations yet
+
+struct EmptyTicketCard: View {
+    /// Scrolls to the outings below. `nil` hides the button when there is nothing to browse.
+    var onBrowse: (() -> Void)? = nil
+
+    private let tileColumn: CGFloat = 114
+    private let dashColor = Color.black.opacity(0.22)
+    private let warmText = Color(hex: 0x9C4A4B)
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .center, spacing: 0) {
+                emblem
+                    .frame(width: tileColumn, height: TicketCard.topHeight)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Nothing booked yet")
+                        .scaledFont(22, weight: .heavy, maxScale: 1.2)
+                        .tracking(-0.5)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                    Text("Reserve a spot and your ticket will show up here.")
+                        .scaledFont(14, maxScale: 1.2)
+                        .foregroundStyle(Color.black.opacity(0.45))
+                        .lineLimit(3)
+                }
+                .padding(.leading, 20)
+                .padding(.trailing, 16)
+                Spacer(minLength: 0)
+            }
+            .frame(height: TicketCard.topHeight)
+            .overlay(alignment: .leading) {
+                DashedLine(vertical: true)
+                    .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .frame(width: 1)
+                    .padding(.leading, tileColumn)
+                    .padding(.top, 14)
+            }
+
+            DashedLine(vertical: false)
+                .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .frame(height: 1)
+
+            HStack(spacing: 8) {
+                Text("Free spots can be cancelled anytime")
+                    .scaledFont(13, maxScale: 1.3)
+                    .foregroundStyle(Color.black.opacity(0.45))
+                    .lineLimit(2)
+                Spacer(minLength: 8)
+                if let onBrowse {
+                    Button(action: onBrowse) {
+                        Label("Browse", systemImage: "arrow.down")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.3)
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .gatherGlass(in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Browse outings")
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(maxHeight: .infinity)
+        }
+        .frame(height: TicketCard.cardHeight)
+        .background(Theme.pink.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .mask { TicketCutouts(dividerY: TicketCard.topHeight + 0.5) }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var emblem: some View {
+        Image(systemName: "ticket.fill")
+            .font(.system(size: 34, weight: .semibold))
+            .foregroundStyle(warmText)
+            .frame(width: 72, height: 86)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+            .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
+            .rotationEffect(.degrees(-6))
+            .accessibilityHidden(true)
+    }
+}
+
 // MARK: - "Find your next outing" card
 
 struct OutingCard: View {
     let event: Event
+    var coverHeight: CGFloat = 146
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             EventCover(event: event)
-                .frame(height: 146)
+                .frame(height: coverHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(alignment: .topTrailing) {
+                    if event.isRegistered {
+                        Label("Registered", systemImage: "checkmark.circle.fill")
+                            .scaledFont(13, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Theme.lavender))
+                            .padding(8)
+                    }
+                }
                 .overlay(alignment: .topLeading) {
                     Label(event.category, systemImage: event.symbol)
                         .scaledFont(13, weight: .medium, maxScale: 1.2)
@@ -368,6 +476,10 @@ struct OutingCard: View {
                     .lineLimit(1)
                 GatherInfoRow(icon: "calendar", text: event.shortDateText)
                 GatherInfoRow(icon: "person.2.fill", text: event.ages)
+                if coverHeight > 146 {
+                    GatherInfoRow(icon: "mappin.and.ellipse",
+                                  text: event.mode == .online ? "Online" : event.locality)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 12)
@@ -385,6 +497,7 @@ struct GatherConfirmationSheet: View {
     let event: Event
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmCancel = false
 
     var body: some View {
         NavigationStack {
@@ -431,6 +544,23 @@ struct GatherConfirmationSheet: View {
                 }
                 .buttonStyle(.plain)
 
+                if state.canCancel(event) {
+                    Button(role: .destructive) { confirmCancel = true } label: {
+                        Text("Cancel my place")
+                            .scaledFont(16, weight: .semibold, maxScale: 1.3)
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.red)
+                } else if state.registrations[event.id]?.isPaid == true {
+                    Label("Paid \(event.priceText). No refunds, even if you don't attend, so this place can't be cancelled.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .scaledFont(14, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 Spacer(minLength: 0)
 
                 PrimaryButton(title: "Done") { dismiss() }
@@ -439,6 +569,15 @@ struct GatherConfirmationSheet: View {
             .padding(.bottom, 12)
             .background(Theme.background)
             .toolbarVisibility(.hidden, for: .navigationBar)
+        }
+        .confirmationDialog("Cancel your place?", isPresented: $confirmCancel, titleVisibility: .visible) {
+            Button("Cancel my place", role: .destructive) {
+                state.cancelRegistration(for: event)
+                dismiss()
+            }
+            Button("Keep my place", role: .cancel) {}
+        } message: {
+            Text("Your spot at \(event.title) will be released. You can register again later if there's room.")
         }
         .presentationDetents([.medium, .large])
     }
@@ -455,7 +594,11 @@ struct RegistrationDetailView: View {
                 if let registration {
                     group("Registration", rows: [
                         ("Reference", registration.code),
-                        ("Registered on", registration.registeredAt.formatted(date: .abbreviated, time: .shortened))
+                        ("Registered on", registration.registeredAt.formatted(date: .abbreviated, time: .shortened)),
+                        ("Payment", registration.amountPaid.map {
+                            "Paid ₹\($0) · non-refundable"
+                        } ?? "Free · cancel any time"),
+                        ("Parent or guardian", registration.accompanying ? "Staying with child" : "Drop-off")
                     ])
                 }
 

@@ -18,6 +18,15 @@ struct EventDetailView: View {
                     .padding(.top, -14)
                 infoCard
                 hostCard
+                if !current.isFree {
+                    Label("Paid events are non-refundable, even if you don't attend.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .scaledFont(15, weight: .medium, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.chipFill))
+                }
                 Text(current.about)
                     .scaledFont(16, maxScale: 1.3)
                     .lineSpacing(4)
@@ -112,6 +121,12 @@ struct EventDetailView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            Rectangle().fill(Theme.lilacBorder).frame(height: 1).padding(.leading, 72)
+
+            infoRow(icon: current.parentPresence.symbol,
+                    title: current.parentPresence.rawValue,
+                    detail: current.parentPresence.detail)
         }
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.lilac))
     }
@@ -174,10 +189,13 @@ struct EventDetailView: View {
                 Text(current.priceText)
                     .scaledFont(26, weight: .bold, maxScale: 1.2)
                     .foregroundStyle(Theme.ink)
-                Text(current.kind.rawValue)
+                Text(priceCaption)
                     .scaledFont(15, maxScale: 1.3)
                     .foregroundStyle(Theme.gatherText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
+            .layoutPriority(-1)
             Spacer(minLength: 8)
 
             if current.isRegistered {
@@ -185,7 +203,9 @@ struct EventDetailView: View {
                     Label("Registered", systemImage: "checkmark.circle.fill")
                         .scaledFont(17, weight: .semibold, maxScale: 1.2)
                         .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 22)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 20)
                         .frame(minHeight: 56)
                         .gatherGlass(in: Capsule(), tint: Theme.lilac)
                 }
@@ -209,6 +229,11 @@ struct EventDetailView: View {
             .shadow(color: .black.opacity(0.08), radius: 16, y: 4))
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
+    }
+
+    private var priceCaption: String {
+        guard current.isRegistered else { return current.isFree ? current.kind.rawValue : "No refunds" }
+        return state.canCancel(current) ? "Cancel any time" : "Paid · no refunds"
     }
 
     private var mapsURL: URL {

@@ -17,6 +17,13 @@ struct Registration: Identifiable {
     let eventID: Event.ID
     let registrant: Registrant
     let registeredAt: Date
+    /// Rupees paid at registration. `nil` for free events.
+    var amountPaid: Int? = nil
+    /// Whether the parent or guardian stays with the child. `false` means drop-off.
+    var accompanying = true
+
+    /// Paid places cannot be cancelled and are never refunded, even if the family does not attend.
+    var isPaid: Bool { amountPaid != nil }
 
     /// Short reference shown on the confirmation, e.g. "HS-3F9A21".
     var code: String { "HS-" + id.uuidString.prefix(6).uppercased() }

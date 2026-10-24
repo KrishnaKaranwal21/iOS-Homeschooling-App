@@ -4,45 +4,69 @@ struct GatherView: View {
     @Environment(AppState.self) private var state
     @State private var query = ""
     @State private var category = "All"
-    @State private var locality = "Potheri"
-    @State private var ticketIndex = 0
-    @State private var outingID: Event.ID?
+    @State private var place: Place = .nearYou
+    @State private var showLocationPicker = false
+    @State private var ticketID: Event.ID?
     @State private var confirmation: Event?
 
-    private let categories = ["All", "Science", "Habit", "Art", "Coding", "Nature"]
-    private let localities = ["Potheri", "Guduvanchery", "Chengalpattu", "All areas"]
+    private let categories = ["All"] + Event.categories
 
     private var visibleEvents: [Event] {
         state.events.filter { event in
             (category == "All" || event.category == category)
-                && (locality == "All areas" || event.locality == locality)
+                && PlaceCatalog.matches(event, selection: place)
                 && (query.isEmpty || event.title.localizedCaseInsensitiveContains(query))
         }
     }
 
     private var registered: [Event] { visibleEvents.filter(\.isRegistered) }
-    private var outings: [Event] { visibleEvents.filter { !$0.isRegistered } }
+    private var hasNoRegistrations: Bool { !state.events.contains(where: \.isRegistered) }
+    /// Everything that matches the filters. Outside "Near you", registered events stay in the list with a badge.
+    /// In "Near you" the registered events already sit in the tickets above, so they are left out here.
+    private var outings: [Event] {
+        isNearYou ? visibleEvents.filter { !$0.isRegistered } : visibleEvents
+    }
 
-    private var outingPageCount: Int { (outings.count + 1) / 2 }
-    private var currentOutingPage: Int {
-        outings.firstIndex { $0.id == outingID }.map { $0 / 2 } ?? 0
+    /// Tickets are only shown in the default "Near you" view.
+    private var isNearYou: Bool { place.kind == .nearby }
+    private var ticketPage: Int { registered.firstIndex { $0.id == ticketID } ?? 0 }
+
+    private var outingsTitle: String {
+        switch place.kind {
+        case .nearby: return "Find your next outing"
+        case .world:  return "All gatherings"
+        default:      return "Gatherings in \(place.name)"
+        }
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            page(proxy)
+        }
+    }
+
+    private func page(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 header
-                locationChip
-                searchField
+
+                VStack(alignment: .leading, spacing: 12) {
+                    locationChip
+                    searchField
+                }
+
                 categoryChips
 
-                if registered.isEmpty && outings.isEmpty {
-                    emptyState
+                if isNearYou {
+                    if hasNoRegistrations {
+                        noRegistrations(proxy)
+                    } else if !registered.isEmpty {
+                        nextGatherings
+                    }
                 }
-                if !registered.isEmpty {
-                    nextGatherings
-                }
-                if !outings.isEmpty {
+                if outings.isEmpty {
+                    if !(isNearYou && !registered.isEmpty) { emptyState }
+                } else {
                     findOutings
                 }
             }
@@ -55,23 +79,23 @@ struct GatherView: View {
         .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
         .sheet(item: $confirmation) { GatherConfirmationSheet(event: $0) }
-        .onChange(of: registered.count) { ticketIndex = 0 }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationPickerSheet(selection: place) { place = $0 }
+        }
     }
 
     // MARK: Top of the page
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Gatherings")
-                    .scaledFont(34, weight: .bold, maxScale: 1.3)
-                    .lineLimit(1)
-                    .tracking(-1.2)
-                    .foregroundStyle(Theme.ink)
-                Text("Good company. Shared discoveries.")
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+        HStack(alignment: .center, spacing: 12) {
+            Text("Gatherings")
+                .scaledFont(34, weight: .bold, maxScale: 1.3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .tracking(-1.2)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
 
             GatherGlassContainer(spacing: 10) {
@@ -88,41 +112,51 @@ struct GatherView: View {
                 }
             }
             .buttonStyle(.plain)
-            .padding(.top, 4)
+            .overlay(alignment: .topLeading) { savedBadge }
+        }
+
+        Text("Good company. Shared discoveries.")
+            .scaledFont(15, maxScale: 1.3)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .foregroundStyle(Theme.gatherText)
         }
         .padding(.horizontal, 24)
     }
 
-    /// Opens the saved events list; shows how many are saved.
+    /// Opens the saved events list.
     private var savedIcon: some View {
         Image(systemName: state.savedEvents.isEmpty ? "bookmark" : "bookmark.fill")
             .scaledFont(17, weight: .semibold, maxScale: 1.3)
             .foregroundStyle(Theme.gatherAccent)
             .frame(width: 44, height: 44)
             .gatherGlass(in: Circle())
-            .overlay(alignment: .topTrailing) {
-                if !state.savedEvents.isEmpty {
-                    Text("\(state.savedEvents.count)")
-                        .scaledFont(11, weight: .bold, maxScale: 1.2)
-                        .foregroundStyle(Color.white)
-                        .frame(minWidth: 18, minHeight: 18)
-                        .background(Circle().fill(Theme.gatherAccent))
-                        .offset(x: 4, y: -4)
-                }
-            }
-            .accessibilityLabel("Saved events")
+            .accessibilityLabel(state.savedEvents.isEmpty
+                                ? "Saved events"
+                                : "Saved events, \(state.savedEvents.count)")
+    }
+
+    /// Drawn outside the glass container so the glass can never cover it.
+    @ViewBuilder private var savedBadge: some View {
+        if !state.savedEvents.isEmpty {
+            Text("\(state.savedEvents.count)")
+                .scaledFont(11, weight: .bold, maxScale: 1.2)
+                .foregroundStyle(Color.white)
+                .frame(minWidth: 18, minHeight: 18)
+                .background(Circle().fill(Theme.gatherAccent))
+                .overlay(Circle().stroke(Theme.background, lineWidth: 2))
+                .offset(x: 26, y: -4)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     private var locationChip: some View {
-        Menu {
-            Picker("Area", selection: $locality) {
-                ForEach(localities, id: \.self) { Text($0).tag($0) }
-            }
-        } label: {
+        Button { showLocationPicker = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "mappin.and.ellipse")
                     .foregroundStyle(Theme.gatherAccent)
-                Text(locality).fontWeight(.semibold)
+                Text(place.name).fontWeight(.semibold).lineLimit(1)
                 Image(systemName: "chevron.down").font(.footnote.weight(.bold))
             }
             .scaledFont(15, maxScale: 1.3)
@@ -131,6 +165,8 @@ struct GatherView: View {
             .frame(minHeight: 38)
             .gatherGlass(in: Capsule())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Location: \(place.name). Change location")
         .padding(.horizontal, 24)
     }
 
@@ -177,44 +213,49 @@ struct GatherView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Your next gathering")
 
-            TabView(selection: $ticketIndex) {
-                ForEach(Array(registered.enumerated()), id: \.element.id) { index, event in
-                    TicketCard(event: event) { confirmation = event }
-                        .padding(.horizontal, 24)
-                        .tag(index)
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(registered) { event in
+                        TicketCard(event: event) { confirmation = event }
+                            .padding(.horizontal, 24)
+                            .containerRelativeFrame(.horizontal)
+                            .id(event.id)
+                    }
                 }
+                .scrollTargetLayout()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 180)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $ticketID)
+            .scrollIndicators(.hidden)
 
             if registered.count > 1 {
-                GatherPageDots(count: registered.count, current: ticketIndex)
+                GatherPageDots(count: registered.count, current: ticketPage)
             }
+        }
+    }
+
+    private func noRegistrations(_ proxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionTitle("Your next gathering")
+            EmptyTicketCard(onBrowse: outings.isEmpty ? nil : {
+                withAnimation(.smooth) { proxy.scrollTo("outings", anchor: .top) }
+            })
+            .padding(.horizontal, 24)
         }
     }
 
     private var findOutings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("Find your next outing")
+            sectionTitle(outingsTitle)
+                .id("outings")
 
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 12) {
-                    ForEach(outings) { event in
-                        NavigationLink(value: event) { OutingCard(event: event) }
-                            .buttonStyle(.plain)
-                            .containerRelativeFrame(.horizontal, count: 2, spacing: 12)
-                    }
+            LazyVStack(spacing: 16) {
+                ForEach(outings) { event in
+                    NavigationLink(value: event) { OutingCard(event: event, coverHeight: 180) }
+                        .buttonStyle(.plain)
                 }
-                .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $outingID)
-            .scrollIndicators(.hidden)
-            .contentMargins(.horizontal, 24, for: .scrollContent)
-
-            if outingPageCount > 1 {
-                GatherPageDots(count: outingPageCount, current: currentOutingPage)
-            }
+            .padding(.horizontal, 24)
         }
     }
 

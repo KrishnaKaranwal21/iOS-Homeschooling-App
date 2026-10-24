@@ -35,7 +35,9 @@ private struct SavedEventRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            NavigationLink(value: event) {
+            NavigationLink {
+                EventDetailView(event: event)
+            } label: {
                 HStack(spacing: 12) {
                     EventCover(event: event)
                         .frame(width: 76, height: 76)

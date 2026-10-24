@@ -7,6 +7,11 @@ extension Theme {
     static let lilac        = Color(hex: 0xEFEBFC)
     static let lilacBorder  = Color(hex: 0xDDD7F5)
     static let chipFill     = Color(hex: 0xF0EFF8)
+
+    /// Tab bar colours, the same on every tab.
+    static let tabSelected     = Color(hex: 0x6F6A9A)
+    static let tabIconInactive = Color(hex: 0xB5AED0)
+    static let tabLabelInactive = Color(hex: 0x8E8E93)
 }
 
 /// White rounded box with a hairline border, used for form fields on the Gather screens.

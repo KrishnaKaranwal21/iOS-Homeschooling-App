@@ -13,6 +13,38 @@ struct Event: Identifiable, Hashable {
         var id: String { rawValue }
     }
 
+    /// What the host expects of parents and guardians at the event.
+    enum ParentPresence: String, CaseIterable, Identifiable {
+        case required   = "Parent/guardian required to stay"
+        case optional   = "Parent/guardian optional"
+        case notAllowed = "Drop-off only (Kids only)"
+        var id: String { rawValue }
+
+        var shortTitle: String {
+            switch self {
+            case .required:   return "Parent stays"
+            case .optional:   return "Parent optional"
+            case .notAllowed: return "Drop-off only"
+            }
+        }
+
+        var detail: String {
+            switch self {
+            case .required:   return "An adult must remain present throughout the session."
+            case .optional:   return "Feel free to stay or drop off your child."
+            case .notAllowed: return "Designed for children only; parent/guardian drop-off and pick-up."
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .required:   return "person.2.fill"
+            case .optional:   return "person.crop.circle.badge.questionmark"
+            case .notAllowed: return "figure.walk.departure"
+            }
+        }
+    }
+
     let id = UUID()
     var title: String
     /// Science, Habit, Art, Coding, Nature, or Community for events parents host.
@@ -23,10 +55,13 @@ struct Event: Identifiable, Hashable {
     var host: String
     var hostRole = "Parent host"
     var locality = "Potheri"
+    /// Country of the locality, used when filtering by country.
+    var country = "India"
     /// First line is the venue, an optional second line is the area or address.
     var location: String
     var mode: Mode = .inPerson
     var ages: String
+    var parentPresence: ParentPresence = .required
     var about: String
     /// Price in rupees. `nil` means free.
     var price: Int? = nil
@@ -39,6 +74,20 @@ struct Event: Identifiable, Hashable {
 }
 
 extension Event {
+    /// Categories a host can choose from. The Gather page adds "All" in front.
+    static let categories = ["Science", "Habit", "Art", "Coding", "Nature"]
+
+    static func symbol(for category: String) -> String {
+        switch category {
+        case "Science": return "flask"
+        case "Habit":   return "repeat"
+        case "Art":     return "paintpalette"
+        case "Coding":  return "chevron.left.forwardslash.chevron.right"
+        case "Nature":  return "leaf"
+        default:        return "person.2.fill"
+        }
+    }
+
     var day: Int { Calendar.current.component(.day, from: start) }
     var month: String { start.formatted(.dateTime.month(.abbreviated)).uppercased() }
     var weekday: String { start.formatted(.dateTime.weekday(.abbreviated)).uppercased() }

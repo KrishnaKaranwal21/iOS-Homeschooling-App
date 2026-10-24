@@ -7,6 +7,9 @@ struct HostEventView: View {
 
     @State private var title = ""
     @State private var kind: Event.Kind = .gathering
+    @State private var category: String?
+    @State private var place: Place?
+    @State private var showLocationPicker = false
     @State private var about = ""
     @State private var coverItem: PhotosPickerItem?
     @State private var coverData: Data?
@@ -15,11 +18,33 @@ struct HostEventView: View {
     @State private var ends = Calendar.current.date(bySettingHour: 11, minute: 0, second: 0, of: .now) ?? .now
     @State private var mode: Event.Mode = .inPerson
     @State private var location = ""
-    @State private var ages = "Ages 8–14"
+    @State private var agePreset = "Ages 8–14"
+    @State private var minAge = ""
+    @State private var maxAge = ""
+    @State private var parentPresence: Event.ParentPresence = .required
     @State private var paid = false
     @State private var price = ""
 
     private let ageOptions = ["Ages 4–7", "Ages 8–14", "Ages 12+", "Family friendly", "All ages"]
+    private let customAgeTag = "Custom range"
+
+    private var isCustomAge: Bool { agePreset == customAgeTag }
+    private var minAgeValue: Int? { Int(minAge.trimmingCharacters(in: .whitespaces)) }
+    private var maxAgeValue: Int? { Int(maxAge.trimmingCharacters(in: .whitespaces)) }
+
+    private var isCustomAgeValid: Bool {
+        guard let low = minAgeValue, (0...99).contains(low) else { return false }
+        if maxAge.trimmingCharacters(in: .whitespaces).isEmpty { return true }
+        guard let high = maxAgeValue else { return false }
+        return high >= low && high <= 99
+    }
+
+    /// The text saved on the event, e.g. "Ages 5–9", "Ages 10+" or "Age 7".
+    private var ages: String {
+        guard isCustomAge, let low = minAgeValue else { return agePreset }
+        guard let high = maxAgeValue else { return "Ages \(low)+" }
+        return low == high ? "Age \(low)" : "Ages \(low)–\(high)"
+    }
 
     private var familyName: String {
         let name = state.child.name.trimmingCharacters(in: .whitespaces)
@@ -29,7 +54,11 @@ struct HostEventView: View {
     private var priceValue: Int? { Int(price.trimmingCharacters(in: .whitespaces)) }
 
     private var canCreate: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && (!paid || (priceValue ?? 0) > 0)
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && category != nil
+            && (mode == .online || place != nil)
+            && (!isCustomAge || isCustomAgeValid)
+            && (!paid || (priceValue ?? 0) > 0)
     }
 
     var body: some View {
@@ -54,6 +83,9 @@ struct HostEventView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
                 .background(.bar)
+        }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationPickerSheet(allowsWorld: false, selection: place) { place = $0 }
         }
         .onChange(of: coverItem) { _, item in
             Task { coverData = try? await item?.loadTransferable(type: Data.self) }
@@ -95,8 +127,12 @@ struct HostEventView: View {
                     .gatherField()
             }
 
-            labelled("Category") {
+            labelled("Type") {
                 GatherSegmented(options: Event.Kind.allCases, selection: $kind) { $0.rawValue }
+            }
+
+            labelled("Category") {
+                categoryChips
             }
 
             labelled("A little about your event") {
@@ -108,6 +144,42 @@ struct HostEventView: View {
 
             coverPhotoRow
         }
+    }
+
+    private var categoryChips: some View {
+        FlowLayout(spacing: 10) {
+            ForEach(Event.categories, id: \.self) { name in
+                Button { category = name } label: {
+                    Label(name, systemImage: Event.symbol(for: name))
+                        .scaledFont(15, weight: name == category ? .semibold : .regular, maxScale: 1.3)
+                        .foregroundStyle(name == category ? Theme.ink : Theme.gatherText)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(name == category ? Theme.lavender : Theme.chipFill))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(name == category ? .isSelected : [])
+            }
+        }
+        .animation(.snappy, value: category)
+    }
+
+    private var areaButton: some View {
+        Button { showLocationPicker = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "mappin.and.ellipse").foregroundStyle(Theme.gatherAccent)
+                Text(place?.name ?? "Search a city or area")
+                    .foregroundStyle(place == nil ? Theme.gatherText : Theme.ink)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.gatherText)
+            }
+            .scaledFont(16, maxScale: 1.3)
+            .gatherField()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var coverPhotoRow: some View {
@@ -149,8 +221,12 @@ struct HostEventView: View {
                 GatherSegmented(options: Event.Mode.allCases, selection: $mode) { $0.rawValue }
             }
 
-            labelled(mode == .online ? "Meeting link" : "Location") {
-                TextField(mode == .online ? "Link will be shared" : "Venue, then the area on a new line",
+            if mode == .inPerson {
+                labelled("Area") { areaButton }
+            }
+
+            labelled(mode == .online ? "Meeting link" : "Venue") {
+                TextField(mode == .online ? "Link will be shared" : "Venue name and street address",
                           text: $location, axis: .vertical)
                     .scaledFont(16, maxScale: 1.3)
                     .lineLimit(2...4)
@@ -162,21 +238,70 @@ struct HostEventView: View {
     private var placeForEveryone: some View {
         section("A place for everyone") {
             labelled("Age group") {
-                Menu {
-                    Picker("Age group", selection: $ages) {
-                        ForEach(ageOptions, id: \.self) { Text($0).tag($0) }
+                VStack(alignment: .leading, spacing: 10) {
+                    Menu {
+                        Picker("Age group", selection: $agePreset) {
+                            ForEach(ageOptions + [customAgeTag], id: \.self) { Text($0).tag($0) }
+                        }
+                    } label: {
+                        HStack {
+                            Text(isCustomAge ? "Custom range" : agePreset)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Theme.gatherText)
+                        }
+                        .scaledFont(16, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                        .gatherField()
                     }
-                } label: {
-                    HStack {
-                        Text(ages)
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.gatherText)
+
+                    if isCustomAge {
+                        HStack(spacing: 12) {
+                            TextField("From", text: $minAge)
+                                .keyboardType(.numberPad)
+                                .scaledFont(16, maxScale: 1.3)
+                                .gatherField()
+                            Text("to").foregroundStyle(Theme.gatherText)
+                            TextField("To (optional)", text: $maxAge)
+                                .keyboardType(.numberPad)
+                                .scaledFont(16, maxScale: 1.3)
+                                .gatherField()
+                        }
+                        Text(isCustomAgeValid
+                             ? "Shown as “\(ages)”. Leave “To” empty for an open range."
+                             : "Enter a starting age. “To” must be the same or higher.")
+                            .scaledFont(13, maxScale: 1.3)
+                            .foregroundStyle(isCustomAgeValid ? Theme.gatherText : Color.red)
                     }
-                    .scaledFont(16, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
-                    .gatherField()
+                }
+                .animation(.snappy, value: isCustomAge)
+            }
+
+            labelled("Parents & guardians") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Menu {
+                        Picker("Parents & guardians", selection: $parentPresence) {
+                            ForEach(Event.ParentPresence.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: parentPresence.symbol)
+                                .foregroundStyle(Theme.gatherAccent)
+                            Text(parentPresence.rawValue)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Theme.gatherText)
+                        }
+                        .scaledFont(16, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                        .gatherField()
+                    }
+                    Text(parentPresence.detail)
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
                 }
             }
 
@@ -235,17 +360,20 @@ struct HostEventView: View {
 
         let event = Event(
             title: title.trimmingCharacters(in: .whitespaces),
-            category: "Community",
+            category: category ?? "Community",
             kind: kind,
             start: begin,
             end: finish,
             host: familyName,
+            locality: mode == .inPerson ? (place?.name ?? "") : "Online",
+            country: mode == .inPerson ? (place?.country ?? "") : "",
             location: location.trimmingCharacters(in: .whitespacesAndNewlines),
             mode: mode,
             ages: ages,
+            parentPresence: parentPresence,
             about: about.trimmingCharacters(in: .whitespacesAndNewlines),
             price: paid ? priceValue : nil,
-            symbol: "person.2.fill",
+            symbol: Event.symbol(for: category ?? ""),
             coverData: coverData
         )
         state.add(event)

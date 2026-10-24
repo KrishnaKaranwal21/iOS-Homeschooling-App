@@ -34,7 +34,8 @@ final class AppState {
                                 mobile: "98765 43210", childName: "Maya", childAge: "10", notes: "")
         for event in events where event.isRegistered {
             registrations[event.id] = Registration(eventID: event.id, registrant: sample,
-                                                   registeredAt: Date.now.addingTimeInterval(-3 * 86_400))
+                                                   registeredAt: Date.now.addingTimeInterval(-3 * 86_400),
+                                                   amountPaid: event.price)
         }
     }
 
@@ -52,15 +53,32 @@ final class AppState {
 
     // MARK: Events
 
-    func register(_ event: Event, as registrant: Registrant) {
+    func register(_ event: Event, as registrant: Registrant, accompanying: Bool = true) {
         guard let index = events.firstIndex(where: { $0.id == event.id }) else { return }
         events[index].isRegistered = true
-        registrations[event.id] = Registration(eventID: event.id, registrant: registrant, registeredAt: .now)
+        registrations[event.id] = Registration(eventID: event.id, registrant: registrant,
+                                               registeredAt: .now, amountPaid: event.price,
+                                               accompanying: accompanying)
 
         savedRegistrant = registrant
         if let data = try? JSONEncoder().encode(registrant) {
             UserDefaults.standard.set(data, forKey: registrantKey)
         }
+    }
+
+    /// Free registrations can be cancelled at any time. Paid ones cannot, and are not refunded.
+    func canCancel(_ event: Event) -> Bool {
+        guard event.isRegistered else { return false }
+        return !(registrations[event.id]?.isPaid ?? !event.isFree)
+    }
+
+    @discardableResult
+    func cancelRegistration(for event: Event) -> Bool {
+        guard canCancel(event),
+              let index = events.firstIndex(where: { $0.id == event.id }) else { return false }
+        events[index].isRegistered = false
+        registrations[event.id] = nil
+        return true
     }
 
     func add(_ event: Event) {
