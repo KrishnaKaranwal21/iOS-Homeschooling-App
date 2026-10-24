@@ -51,15 +51,18 @@ struct FirstHomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
+            VStack(alignment: .leading, spacing: 0) {
                 topRow
                 headline
+                    .padding(.top, 10)
                 firstWeekCard
+                    .padding(.top, 22)
                 exploreSection
+                    .padding(.top, 26)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .padding(.horizontal, 18)
+            .padding(.top, 6)
+            .padding(.bottom, 20)
         }
         .scrollIndicators(.hidden)
         .background(Theme.background)
@@ -73,52 +76,53 @@ struct FirstHomeView: View {
     // MARK: Top row and headline
 
     private var topRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Text(dateText)
-                .scaledFont(17, maxScale: 1.3)
+                .scaledFont(15, maxScale: 1.3)
                 .foregroundStyle(Theme.secondary)
             Spacer(minLength: 8)
 
             Menu {
                 Text(childName)
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 7) {
                     AvatarView(initials: String(state.child.name.prefix(1)).uppercased(),
-                               color: Theme.lavender, size: 30)
+                               color: Theme.lavender, size: 26)
                     Text(state.child.name.isEmpty ? "Child" : state.child.name)
-                        .scaledFont(17, weight: .medium, maxScale: 1.3)
+                        .scaledFont(15, weight: .medium, maxScale: 1.3)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .foregroundStyle(Theme.ink)
-                .padding(.leading, 6)
-                .padding(.trailing, 14)
-                .padding(.vertical, 6)
+                .padding(.leading, 5)
+                .padding(.trailing, 12)
+                .frame(height: 36)
                 .background(Capsule().fill(Color(hex: 0xEFEDFB)))
             }
 
             Button {} label: {
                 Image(systemName: "person")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Theme.ink)
-                    .frame(width: 46, height: 46)
+                    .frame(width: 36, height: 36)
                     .background(Circle().fill(Color(hex: 0xEFEDFB)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
         }
+        .frame(minHeight: 36)
     }
 
     private var headline: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("A little plan.\nA lighter start.")
-                .scaledFont(40, weight: .heavy, maxScale: 1.15)
-                .tracking(-1.4)
-                .lineSpacing(-4)
+                .scaledFont(32, weight: .heavy, maxScale: 1.15)
+                .tracking(-1)
+                .lineSpacing(-3)
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Let’s shape \(childName)’s first week.")
-                .scaledFont(17, maxScale: 1.3)
+                .scaledFont(16, maxScale: 1.3)
                 .foregroundStyle(Theme.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -128,96 +132,115 @@ struct FirstHomeView: View {
     // MARK: First week card
 
     private var firstWeekCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("YOUR FIRST WEEK")
-                .scaledFont(12, weight: .medium, maxScale: 1.2)
-                .tracking(0.6)
+                .scaledFont(11, weight: .medium, maxScale: 1.2)
+                .tracking(0.5)
                 .foregroundStyle(warmText)
 
             Text(programme)
-                .scaledFont(15, weight: .medium, maxScale: 1.2)
+                .scaledFont(14, weight: .medium, maxScale: 1.2)
                 .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .frame(height: 26)
                 .background(Capsule().fill(Color.white))
 
             Text("Your chosen rhythm")
-                .scaledFont(24, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.5)
+                .scaledFont(21, weight: .heavy, maxScale: 1.2)
+                .tracking(-0.4)
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 2)
 
             rhythmRow
 
-            PrimaryButton(title: "Preview first week") { showFirstWeek = true }
+            Button { showFirstWeek = true } label: {
+                Text("Preview first week")
+                    .scaledFont(16, weight: .semibold, maxScale: 1.2)
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(Capsule().fill(Theme.ink))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
 
             Text("Make changes before saving.")
-                .scaledFont(14, maxScale: 1.3)
+                .scaledFont(13, maxScale: 1.3)
                 .foregroundStyle(warmText)
                 .frame(maxWidth: .infinity)
         }
-        .padding(18)
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Theme.pink))
+        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Theme.pink))
         .overlay(alignment: .topTrailing) {
             Image("HomeMascot")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 128)
-                .offset(x: 4, y: -98)
+                .frame(width: 138)
+                .offset(x: 3, y: -66)
                 .accessibilityHidden(true)
         }
-        .padding(.top, 70)
     }
 
     private var rhythmRow: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(Array(days.enumerated()), id: \.element) { index, day in
-                    VStack(spacing: 8) {
-                        Text(day.uppercased())
-                            .scaledFont(17, weight: .heavy, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                        Capsule().fill(Color(hex: 0xF0959F)).frame(width: 26, height: 6)
-                        Text("\(state.child.hoursPerDay)h")
-                            .scaledFont(15, weight: .medium, maxScale: 1.2)
-                            .foregroundStyle(Theme.secondary)
+        GeometryReader { geo in
+            let count = max(days.count, 1)
+            let gap: CGFloat = 4
+            let fitted = (geo.size.width - gap * CGFloat(count - 1)) / CGFloat(count)
+            let tile = days.count <= 4 ? min(82, fitted) : 74
+
+            ScrollView(.horizontal) {
+                HStack(spacing: gap) {
+                    ForEach(Array(days.enumerated()), id: \.element) { index, day in
+                        VStack(spacing: 7) {
+                            Text(day.uppercased())
+                                .scaledFont(17, weight: .heavy, maxScale: 1.15)
+                                .foregroundStyle(Theme.ink)
+                            Capsule().fill(Color(hex: 0xF0959F)).frame(width: 22, height: 5)
+                            Text("\(state.child.hoursPerDay)h")
+                                .scaledFont(14, weight: .medium, maxScale: 1.15)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        .frame(width: tile, height: 82)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
+                        .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(day), \(state.child.hoursPerDay) hours")
                     }
-                    .frame(width: 70, height: 96)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white))
-                    .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("\(day), \(state.child.hoursPerDay) hours")
                 }
+                .padding(.vertical, 6)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 2)
+            .scrollIndicators(.hidden)
+            .scrollClipDisabled()
         }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
+        .frame(height: 96)
     }
 
     // MARK: Explore more
 
     private var exploreSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Explore more")
-                .scaledFont(28, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.8)
+                .scaledFont(22, weight: .heavy, maxScale: 1.2)
+                .tracking(-0.5)
                 .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 4)
                 .accessibilityAddTraits(.isHeader)
 
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 16) {
+                LazyHStack(spacing: 0) {
                     ForEach(ExploreCard.all) { card in
                         ExploreCardView(card: card) { perform(card.action) }
+                            .padding(.horizontal, 4)
                             .containerRelativeFrame(.horizontal)
                             .id(card.id)
                     }
                 }
                 .scrollTargetLayout()
             }
-            .scrollTargetBehavior(.viewAligned)
+            .scrollTargetBehavior(.paging)
             .scrollPosition(id: $exploreID)
             .scrollIndicators(.hidden)
 
@@ -227,11 +250,11 @@ struct FirstHomeView: View {
 
     private var pageDots: some View {
         let current = ExploreCard.all.firstIndex { $0.id == exploreID } ?? 0
-        return HStack(spacing: 10) {
+        return HStack(spacing: 8) {
             ForEach(ExploreCard.all.indices, id: \.self) { index in
                 Capsule()
                     .fill(index == current ? Theme.ink : Theme.dotInactive)
-                    .frame(width: index == current ? 22 : 7, height: 7)
+                    .frame(width: index == current ? 20 : 6, height: 6)
             }
         }
         .frame(maxWidth: .infinity)
@@ -241,10 +264,10 @@ struct FirstHomeView: View {
 
     private func perform(_ action: ExploreCard.Action) {
         switch action {
-        case .findPeople:      openTab(.community)
-        case .previewIdea:     showIdea = true
+        case .findPeople:       openTab(.community)
+        case .previewIdea:      showIdea = true
         case .exploreWorkshops: openTab(.gather)
-        case .viewProgress:    openTab(.progress)
+        case .viewProgress:     openTab(.progress)
         }
     }
 }
@@ -297,75 +320,78 @@ private struct ExploreCardView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 30, style: .continuous).fill(fill)
+                RoundedRectangle(cornerRadius: 26, style: .continuous).fill(fill)
                 if card.style == .grey {
-                    RoundedRectangle(cornerRadius: 30, style: .continuous)
-                        .stroke(Color(hex: 0xD9D6E5), lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .stroke(Color(hex: 0xD9D6E5), lineWidth: 1.2)
                     // Folded pink corner, like a paper tab.
                     Path { path in
-                        path.move(to: CGPoint(x: geo.size.width - 40, y: 0))
-                        path.addLine(to: CGPoint(x: geo.size.width - 14, y: 0))
-                        path.addLine(to: CGPoint(x: geo.size.width, y: 22))
+                        path.move(to: CGPoint(x: geo.size.width - 34, y: 0))
+                        path.addLine(to: CGPoint(x: geo.size.width - 12, y: 0))
+                        path.addLine(to: CGPoint(x: geo.size.width, y: 18))
                         path.closeSubpath()
                     }
                     .fill(Theme.pink.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 }
 
                 Image(card.art)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: geo.size.width * 0.38)
+                    .frame(width: geo.size.width * 0.34, height: geo.size.height * 0.7)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                    .padding(.trailing, 14)
+                    .padding(.trailing, 12)
                     .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(card.eyebrow)
-                        .scaledFont(11, weight: .medium, maxScale: 1.2)
-                        .tracking(0.6)
+                        .scaledFont(10, weight: .medium, maxScale: 1.2)
+                        .tracking(0.5)
                         .foregroundStyle(Theme.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
 
                     if let chip = card.chip {
                         Label(chip.text, systemImage: chip.symbol)
-                            .scaledFont(13, weight: .medium, maxScale: 1.2)
+                            .scaledFont(12, weight: .medium, maxScale: 1.15)
                             .foregroundStyle(Color(hex: 0x7B5FC0))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .frame(height: 22)
                             .background(Capsule().fill(Color.white))
                     }
 
                     Text(card.title)
-                        .scaledFont(22, weight: .heavy, maxScale: 1.15)
-                        .tracking(-0.6)
+                        .scaledFont(18, weight: .heavy, maxScale: 1.12)
+                        .tracking(-0.4)
                         .foregroundStyle(Theme.ink)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(card.body)
-                        .scaledFont(14, maxScale: 1.2)
+                        .scaledFont(12.5, maxScale: 1.15)
                         .foregroundStyle(Theme.secondary)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    Spacer(minLength: 4)
+                    Spacer(minLength: 2)
 
                     Button(action: onTap) {
                         Text(card.button)
-                            .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                            .scaledFont(14, weight: .semibold, maxScale: 1.15)
                             .foregroundStyle(Color.white)
-                            .padding(.horizontal, 20)
-                            .frame(minHeight: 44)
+                            .padding(.horizontal, 18)
+                            .frame(minHeight: 36)
                             .background(Capsule().fill(Theme.ink))
                     }
                     .buttonStyle(.plain)
                 }
-                .frame(width: geo.size.width * 0.62, alignment: .leading)
-                .padding(20)
+                .frame(width: geo.size.width * (card.chip == nil ? 0.62 : 0.66), alignment: .leading)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
                 .frame(maxHeight: .infinity, alignment: .topLeading)
             }
         }
-        .frame(height: 300)
+        .frame(height: 192)
     }
 }
 
