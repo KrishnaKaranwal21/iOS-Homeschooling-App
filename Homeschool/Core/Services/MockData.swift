@@ -9,11 +9,47 @@ enum MockData {
         TaskItem(subject: "English", title: "Write a diary entry describing your first day", isDone: true),
         TaskItem(subject: "Science", title: "Create a food chain using five organisms.", isDone: true)
     ]
-    static let events = [
-        Event(title: "Little Scientists' Lab", day: 17, month: "OCT", time: "10:00 AM", host: "Curious Minds Club", place: "Community hall", ages: "6–10", symbol: "flask", isRegistered: true),
-        Event(title: "Nature explorers", day: 17, month: "OCT", time: "9:00 AM", host: "Green Trails Club", place: "Riverside Park · Potheri", ages: "All", symbol: "leaf"),
-        Event(title: "Clay & create", day: 18, month: "OCT", time: "11:00 AM", host: "Makers Circle", place: "Studio 4", ages: "6–10", symbol: "paintpalette")
+    static let events: [Event] = [
+        Event(title: "Habit Training", category: "Habit", kind: .workshop,
+              start: date(11, 7, 10), end: date(11, 7, 11, 30),
+              host: "Sunita Chauhan", hostRole: "Workshop host",
+              location: "Potheri Community Hall\nSRM Nagar, Potheri",
+              ages: "Ages 8–14",
+              about: "Build small routines that stick. A relaxed, hands-on morning of habit games and a simple plan to try at home.",
+              price: 200, symbol: "repeat", coverName: "cover-habit", isRegistered: true),
+        Event(title: "Little Scientists' Lab", category: "Science", kind: .workshop,
+              start: date(11, 14, 10), end: date(11, 14, 12),
+              host: "Curious Minds Club", hostRole: "Workshop host",
+              location: "Community hall\nPotheri",
+              ages: "Ages 6–10",
+              about: "Big discoveries for little explorers. Simple experiments you can repeat at home.",
+              symbol: "flask", coverName: "cover-science", isRegistered: true),
+        Event(title: "Clay & create", category: "Art", kind: .workshop,
+              start: date(11, 8, 11), end: date(11, 8, 13),
+              host: "Makers Circle", hostRole: "Workshop host",
+              location: "Studio 4\nPotheri",
+              ages: "Ages 12+",
+              about: "Shape, press and paint your own clay pieces. All materials are provided.",
+              price: 350, symbol: "paintpalette", coverName: "cover-clay"),
+        Event(title: "Nature explorers", category: "Nature", kind: .gathering,
+              start: date(11, 12, 9), end: date(11, 12, 11),
+              host: "Green Trails Club", hostRole: "Parent host",
+              location: "Riverside Park\nPotheri",
+              ages: "Family friendly",
+              about: "Join us for a fun walk. Bring along your necessary items, as it can get adventurous.",
+              symbol: "leaf", coverName: "cover-nature"),
+        Event(title: "Little Coders Meetup", category: "Coding", kind: .gathering,
+              start: date(11, 21, 16), end: date(11, 21, 17, 30),
+              host: "Code Kids Chennai", hostRole: "Parent host", locality: "Guduvanchery",
+              location: "Library room 2\nGuduvanchery",
+              ages: "Ages 10+",
+              about: "Show what you are building, swap ideas and try a new puzzle together.",
+              symbol: "chevron.left.forwardslash.chevron.right", coverName: "cover-coding")
     ]
+
+    private static func date(_ month: Int, _ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute)) ?? .now
+    }
     static let parents = [
         Parent(name: "Sara Patel", role: "Mum to Arya, 13", tags: "Space · Creative play", distanceKm: 0.8, about: "We love following Arya's big space questions and turning everyday things into creative play."),
         Parent(name: "Daniel", role: "Dad to Leo, 11", tags: "Nature · Little inventors", distanceKm: 1.4, about: "Weekend tinkerers and trail walkers."),

@@ -19,5 +19,6 @@ struct MainTabView: View {
                 NavigationStack { ChatsListView() }
             }
         }
+        .tint(Theme.gatherAccent)
     }
 }
