@@ -160,12 +160,17 @@ private struct InterestsCard: View {
                 .frame(maxWidth: .infinity)
             FlowLayout(spacing: 10) {
                 ForEach(visible) { item in
-                    OutlinedChip(title: item.name, systemImage: item.symbol,
-                                 selected: interests.contains(item.name))
-                        .onTapGesture { toggle(item.name) }
+                    Button { toggle(item.name) } label: {
+                        OutlinedChip(title: item.name, systemImage: item.symbol,
+                                     selected: interests.contains(item.name))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(interests.contains(item.name) ? .isSelected : [])
                 }
-                OutlinedChip(title: showMore ? "Less" : "More")
-                    .onTapGesture { withAnimation { showMore.toggle() } }
+                Button { withAnimation { showMore.toggle() } } label: {
+                    OutlinedChip(title: showMore ? "Less" : "More")
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(16)
@@ -280,12 +285,12 @@ private struct StatusPill: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .scaledFont(12, weight: .semibold)
             Text(text)
                 .monospacedDigit()
                 .contentTransition(.numericText())
         }
-        .font(.system(size: 13, weight: .semibold))
+        .scaledFont(13, weight: .semibold)
         .foregroundStyle(foreground)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -338,7 +343,7 @@ private struct SubjectRow: View {
     private var content: some View {
         HStack(spacing: 12) {
             Image(systemName: SubjectIcon.symbol(for: option.name, groupId: group.id))
-                .font(.system(size: 18))
+                .scaledFont(18)
                 .frame(width: 24)
                 .foregroundStyle(Theme.obsidian)
             Text(option.name).foregroundStyle(Theme.obsidian)
@@ -364,7 +369,7 @@ private struct SelectionIndicator: View {
             Circle().stroke(isOn ? Color.clear : Theme.checkBorder, lineWidth: 1.5)
             if isOn {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledFont(12, weight: .bold)
                     .foregroundStyle(Theme.obsidian)
             }
         }

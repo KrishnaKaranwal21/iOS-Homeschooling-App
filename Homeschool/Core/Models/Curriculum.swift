@@ -171,6 +171,24 @@ extension LevelCurriculum {
     }
 }
 
+// MARK: - Friendly note when choosing more than the minimum
+
+extension LevelCurriculum {
+    /// Shown only when the selection is valid and has more subjects than the minimum.
+    /// It informs, it never discourages: choosing more is always fine up to the maximum.
+    func extraSubjectsNote(selected: Set<String>) -> String? {
+        let total = uniqueTotal(selected: selected)
+        guard total > minSubjects, isComplete(selected: selected) else { return nil }
+
+        let extra = total - minSubjects
+        let base = "Minimum is \(minSubjects). You\u{2019}ve chosen \(total), \(extra) more than the minimum."
+        guard let maxValue = maxSubjects else { return base }
+        return total < maxValue
+            ? base + " You can choose up to \(maxValue)."
+            : base + " \(maxValue) is the maximum."
+    }
+}
+
 // MARK: - Validation messages
 
 extension LevelCurriculum {

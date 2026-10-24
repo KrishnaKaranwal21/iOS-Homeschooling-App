@@ -3,39 +3,35 @@ import SwiftUI
 struct CommunityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("FIND YOUR COMMON GROUND")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Theme.ink)
-
             Text("A little less solo.")
-                .font(.system(size: 28, weight: .bold))
+                .scaledFont(28, weight: .bold, maxScale: 1.15)
                 .tracking(-0.8)
                 .foregroundStyle(Theme.ink)
-                .padding(.top, 22)
+                .padding(.top, 4)
 
             HStack {
                 SmileyFace()
                 Spacer()
                 Circle().fill(Color(hex: 0xFFC8C9))
-                    .frame(width: 58, height: 58)
+                    .frame(width: 54, height: 54)
                     .overlay(Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 24))
+                        .scaledFont(24, maxScale: 1.15)
                         .foregroundStyle(Theme.ink))
                 Spacer()
                 Circle().fill(Theme.coral)
-                    .frame(width: 58, height: 58)
+                    .frame(width: 54, height: 54)
                     .overlay(Image(systemName: "heart")
-                        .font(.system(size: 22))
+                        .scaledFont(22, maxScale: 1.15)
                         .foregroundStyle(Theme.ink))
             }
             .padding(.horizontal, 16)
-            .padding(.top, 28)
+            .padding(.top, 26)
 
             HStack(spacing: 10) {
                 Image(systemName: "leaf")
-                    .font(.system(size: 15))
+                    .scaledFont(15, maxScale: 1.15)
                 Text("Nature-walk people")
-                    .font(.system(size: 16))
+                    .scaledFont(16, maxScale: 1.15)
             }
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 18)
@@ -45,7 +41,7 @@ struct CommunityCard: View {
             .padding(.top, 24)
 
             Text("“Same here” parents")
-                .font(.system(size: 16))
+                .scaledFont(16, maxScale: 1.15)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
@@ -56,8 +52,8 @@ struct CommunityCard: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 22)
     }
 }
 
@@ -65,7 +61,7 @@ private struct SmileyFace: View {
     var body: some View {
         Circle()
             .fill(Theme.ink)
-            .frame(width: 58, height: 58)
+            .frame(width: 54, height: 54)
             .overlay(
                 VStack(spacing: 6) {
                     HStack(spacing: 8) {

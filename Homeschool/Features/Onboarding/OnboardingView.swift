@@ -15,7 +15,7 @@ struct OnboardingView: View {
                 HStack {
                     Spacer()
                     Button("Skip", action: onFinish)
-                        .font(.system(size: 17))
+                        .scaledFont(17)
                         .foregroundStyle(Theme.muted)
                 }
                 .padding(.horizontal, 32)

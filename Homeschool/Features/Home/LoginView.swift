@@ -73,11 +73,11 @@ struct LoginView: View {
 
                 VStack(spacing: 8) {
                     Text("Come on in.")
-                        .font(.system(size: 40, weight: .heavy))
+                        .scaledFont(40, weight: .heavy)
                         .tracking(-1.6)
                         .foregroundStyle(Theme.ink)
                     Text("Your family’s learning starts here.")
-                        .font(.system(size: 17))
+                        .scaledFont(17)
                         .foregroundStyle(Theme.muted)
                 }
                 .multilineTextAlignment(.center)
@@ -106,7 +106,7 @@ struct LoginView: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Email address")
-                        .font(.system(size: 16))
+                        .scaledFont(16)
                         .foregroundStyle(Theme.muted)
 
                     AuthField(icon: "envelope", error: emailError) {

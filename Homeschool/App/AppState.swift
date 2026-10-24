@@ -1,13 +1,13 @@
 import SwiftUI
-import Combine
 
 enum LaunchStage { case onboarding, login, setup, main }
 
-final class AppState: ObservableObject {
-    @Published var stage: LaunchStage = .onboarding
-    @Published var child: Child = Child.empty
-    @Published var tasks: [TaskItem] = MockData.tasks
-    @Published var events: [Event] = MockData.events
+@Observable
+final class AppState {
+    var stage: LaunchStage = .onboarding
+    var child: Child = Child.empty
+    var tasks: [TaskItem] = MockData.tasks
+    var events: [Event] = MockData.events
 
     private let stageKey = "stage"
 

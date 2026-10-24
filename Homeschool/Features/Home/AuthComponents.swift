@@ -20,7 +20,7 @@ struct AuthField<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 17))
+                    .scaledFont(17)
                     .frame(width: 24)
                     .foregroundStyle(Theme.systemGray)
                 content
@@ -68,11 +68,11 @@ struct SocialButton: View {
                 .frame(width: 26, height: 26)
 
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledFont(17, weight: .semibold)
                     .foregroundStyle(Theme.ink)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            .frame(minHeight: 56)
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
             .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Theme.lavender.opacity(0.7), lineWidth: 1))
@@ -85,7 +85,7 @@ struct SocialButton: View {
         switch kind {
         case .apple:
             Image(systemName: "apple.logo")
-                .font(.system(size: 22))
+                .scaledFont(22)
                 .foregroundStyle(Theme.ink)
         case .google:
             GoogleG()
@@ -129,7 +129,7 @@ struct OrDivider: View {
         HStack(spacing: 14) {
             Rectangle().fill(Theme.lavender.opacity(0.6)).frame(height: 1)
             Text(text)
-                .font(.system(size: 15))
+                .scaledFont(15)
                 .foregroundStyle(Theme.muted)
                 .fixedSize()
             Rectangle().fill(Theme.lavender.opacity(0.6)).frame(height: 1)

@@ -13,6 +13,8 @@ struct Child: Equatable {
     var selectedSubjects: Set<String> = []
     /// true = "Flexible order", false = "Set times".
     var flexibleOrder: Bool = true
+    /// true once the parent picks a level by hand, so a new date of birth no longer changes it.
+    var levelChosenManually: Bool = false
 
     static let weekdays = ["M", "T", "W", "T", "F", "S", "S"]
 

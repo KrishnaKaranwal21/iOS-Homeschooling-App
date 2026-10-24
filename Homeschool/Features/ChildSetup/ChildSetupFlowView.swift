@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ChildSetupFlowView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
     @State private var step = 1
     @State private var attempted = false
     @State private var continueAlert: String?
@@ -54,7 +54,7 @@ struct ChildSetupFlowView: View {
                 }
                 Spacer()
                 Text("0\(step) / 03")
-                    .font(.system(size: 12, weight: .semibold))
+                    .scaledFont(12, weight: .semibold)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Theme.pillFill))
@@ -87,7 +87,7 @@ struct ChildSetupFlowView: View {
                         .font(.caption)
                         .foregroundStyle(Theme.systemGray)
                 }
-                PrimaryButton(title: step == 3 ? "Lets build your RoadMap" : "Continue",
+                PrimaryButton(title: step == 3 ? "Go to Home" : "Continue",
                               isDimmed: !canContinue) {
                     handleContinue()
                 }
@@ -113,15 +113,22 @@ struct ChildSetupFlowView: View {
         if step == 1 {
             return state.child.isBasicsComplete
                 ? nil
-                : "Enter a name, choose a level and pick a date of birth to continue."
+                : "Enter a name, pick a date of birth and choose a level to continue."
         }
         let data = Curriculum.data(for: state.child.level)
         return data.hint(selected: state.child.selectedSubjects)
     }
 
+    /// Step 2 only: a friendly note when more than the minimum number of subjects is chosen.
+    private var extraNote: String? {
+        guard step == 2 else { return nil }
+        return Curriculum.data(for: state.child.level)
+            .extraSubjectsNote(selected: state.child.selectedSubjects)
+    }
+
     private var hintLabel: some View {
-        Label(hintText ?? "All set. Tap Continue.",
-              systemImage: hintText == nil ? "checkmark.circle.fill" : "info.circle")
+        Label(hintText ?? extraNote ?? "All set. Tap Continue.",
+              systemImage: hintText != nil ? "info.circle" : (extraNote != nil ? "plus.circle" : "checkmark.circle.fill"))
             .font(.footnote.weight(.medium))
             .foregroundStyle(hintColor)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,7 +141,7 @@ struct ChildSetupFlowView: View {
 
     private var problemMessage: String {
         if step == 1 {
-            return "Enter a name, choose a level and pick a date of birth to continue."
+            return "Enter a name, pick a date of birth and choose a level to continue."
         }
         let data = Curriculum.data(for: state.child.level)
         let list = data.issues(selected: state.child.selectedSubjects)
@@ -157,9 +164,9 @@ struct ChildSetupFlowView: View {
     @ViewBuilder
     private var stepContent: some View {
         switch step {
-        case 1: ChildBasicsStep(child: $state.child)
-        case 2: SubjectsStep(child: $state.child, showErrors: attempted)
-        default: RhythmStep(child: $state.child)
+        case 1: ChildBasicsStep(child: Bindable(state).child)
+        case 2: SubjectsStep(child: Bindable(state).child, showErrors: attempted)
+        default: RhythmStep(child: Bindable(state).child)
         }
     }
 }
@@ -169,13 +176,17 @@ struct ChildSetupFlowView: View {
 struct ChildBasicsStep: View {
     @Binding var child: Child
     @State private var draftDate = Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
+    @State private var showCalendar = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             SetupHeader(title: "Who are we planning for?", subtitle: "Start with one child. We'll keep this simple.")
             nameCard
             detailsCard
+            ageGuidance
         }
+        .animation(.snappy, value: child.level)
+        .animation(.snappy, value: child.birthDate)
     }
 
     private var nameCard: some View {
@@ -203,15 +214,15 @@ struct ChildBasicsStep: View {
             }
             divider
             HStack {
-                Text("Starting level")
-                Spacer()
-                levelMenu
-            }
-            divider
-            HStack {
                 Text("Date of birth")
                 Spacer()
                 dobPicker
+            }
+            divider
+            HStack {
+                Text("Starting level")
+                Spacer()
+                levelMenu
             }
         }
         .padding(16)
@@ -222,10 +233,15 @@ struct ChildBasicsStep: View {
         Rectangle().fill(Theme.cardBorder).frame(height: 1)
     }
 
+    // MARK: Level
+
     private var levelMenu: some View {
         Menu {
             ForEach(Curriculum.levels, id: \.self) { level in
-                Button(level) { child.level = level }
+                Button("\(level) · \(AgeRules.rule(for: level)?.grade ?? "")") {
+                    child.level = level
+                    child.levelChosenManually = true
+                }
             }
         } label: {
             HStack(spacing: 4) {
@@ -236,7 +252,7 @@ struct ChildBasicsStep: View {
         }
     }
 
-    // MARK: Date of birth (native calendar, styled like the level picker)
+    // MARK: Date of birth
 
     private var dobText: String {
         if let date = child.birthDate {
@@ -245,31 +261,69 @@ struct ChildBasicsStep: View {
         return "Select"
     }
 
+    /// Picking a day saves it, suggests a level for that age, and closes the calendar.
     private var dobBinding: Binding<Date> {
         Binding(
             get: { child.birthDate ?? draftDate },
             set: { newValue in
                 draftDate = newValue
                 child.birthDate = newValue
+                if !child.levelChosenManually {
+                    child.level = AgeRules.suggestedLevel(for: newValue)
+                }
+                showCalendar = false
             }
         )
     }
 
-    /// Our label (same look as the level menu) with the native compact date picker laid
-    /// invisibly on top, so tapping it opens the system calendar with the system transition.
     private var dobPicker: some View {
-        HStack(spacing: 4) {
-            Text(dobText)
-            Image(systemName: "chevron.up.chevron.down").font(.footnote)
+        Button { showCalendar = true } label: {
+            HStack(spacing: 4) {
+                Text(dobText)
+                Image(systemName: "chevron.up.chevron.down").font(.footnote)
+            }
+            .foregroundStyle(child.birthDate == nil ? Theme.systemGray : Theme.obsidian)
+            .frame(minWidth: 130, alignment: .trailing)
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(child.birthDate == nil ? Theme.systemGray : Theme.obsidian)
-        .frame(minWidth: 130, alignment: .trailing)
-        .overlay(alignment: .trailing) {
+        .buttonStyle(.plain)
+        .popover(isPresented: $showCalendar) {
             DatePicker("Date of birth", selection: dobBinding, in: ...Date(), displayedComponents: .date)
+                .datePickerStyle(.graphical)
                 .labelsHidden()
-                .datePickerStyle(.compact)
-                .colorMultiply(.clear)
+                .padding(12)
+                .frame(width: 330)
+                .presentationCompactAdaptation(.popover)
         }
+    }
+
+    // MARK: Age guidance (informs only, never blocks)
+
+    @ViewBuilder
+    private var ageGuidance: some View {
+        if let birthDate = child.birthDate {
+            VStack(alignment: .leading, spacing: 10) {
+                guidanceRow(icon: "graduationcap", color: Theme.systemGray,
+                            text: AgeRules.typicalNote(for: birthDate))
+
+                if !child.level.isEmpty,
+                   let warning = AgeRules.minimumAgeWarning(level: child.level, birthDate: birthDate, name: child.name) {
+                    guidanceRow(icon: "exclamationmark.triangle.fill", color: .red, text: warning, bold: true)
+                }
+            }
+            .padding(.horizontal, 4)
+            .transition(.opacity)
+        }
+    }
+
+    private func guidanceRow(icon: String, color: Color, text: String, bold: Bool = false) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: icon)
+            Text(text)
+        }
+        .font(.footnote.weight(bold ? .semibold : .regular))
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -324,16 +378,20 @@ struct RhythmStep: View {
         let isOn = child.learningDays.contains(day)
         let isWeekend = index >= 5
         let fill: Color = isOn ? Theme.pink : (isWeekend ? Theme.pillFill : Color.white)
-        return Text(Child.weekdays[index])
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(Theme.obsidian)
-            .frame(maxWidth: .infinity, minHeight: 52)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(fill))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isOn ? Color.clear : Theme.cardBorder, lineWidth: 1))
-            .onTapGesture {
-                if isOn { child.learningDays.remove(day) } else { child.learningDays.insert(day) }
-            }
+        return Button {
+            if isOn { child.learningDays.remove(day) } else { child.learningDays.insert(day) }
+        } label: {
+            Text(Child.weekdays[index])
+                .scaledFont(17, weight: .medium)
+                .foregroundStyle(Theme.obsidian)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(fill))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isOn ? Color.clear : Theme.cardBorder, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(day)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     // MARK: Weekly total
@@ -341,7 +399,7 @@ struct RhythmStep: View {
     private var weeklySummary: some View {
         HStack(spacing: 12) {
             calendarBadge
-            Text("\(weeklyHours) \(weeklyHours == 1 ? "hour" : "hours") of learning across the week")
+            Text("\(weeklyHours == 1 ? "hour" : "hours") of learning across the week")
                 .font(.subheadline)
             Spacer(minLength: 0)
         }
@@ -394,7 +452,7 @@ struct RhythmStep: View {
                 .fill(Theme.obsidian)
                 .frame(width: 26, height: 26)
             Text("\(weeklyHours)")
-                .font(.system(size: 12, weight: .bold))
+                .scaledFont(12, weight: .bold)
                 .foregroundStyle(Color.white)
         }
     }
@@ -410,7 +468,7 @@ struct StepperCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.headline)
-            Text("\(value)").font(.system(size: 56, weight: .bold))
+            Text("\(value)").scaledFont(56, weight: .bold)
             Text(unit).font(.footnote).foregroundStyle(Theme.systemGray)
             stepper.padding(.top, 8)
         }
@@ -425,14 +483,14 @@ struct StepperCard: View {
             Rectangle().fill(Theme.cardBorder).frame(width: 1, height: 24)
             stepButton("plus", enabled: value < range.upperBound) { value += 1 }
         }
-        .frame(height: 52)
+        .frame(minHeight: 52)
         .background(Capsule().fill(Color.white))
     }
 
     private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 20))
+                .scaledFont(20)
                 .foregroundStyle(enabled ? Theme.obsidian : Theme.checkBorder)
                 .frame(maxWidth: .infinity, minHeight: 52)
         }

@@ -11,7 +11,7 @@ struct PrimaryButtonLabel: View {
         Text(title)
             .font(.headline)
             .frame(maxWidth: .infinity)
-            .frame(height: 56)
+            .frame(minHeight: 56)
             .foregroundStyle(foreground)
             .background(background, in: Capsule())
             .contentShape(Capsule())

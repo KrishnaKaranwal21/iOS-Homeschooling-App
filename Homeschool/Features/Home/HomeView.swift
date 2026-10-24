@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -46,7 +46,7 @@ private struct WeeklyActivityCard: View {
                 Text("45 mins").foregroundStyle(Theme.secondary)
                 HStack {
                     PrimaryButton(title: "Start activity") {}
-                    Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(height: 56).background(.white, in: Capsule()) }.buttonStyle(.plain)
+                    Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(minHeight: 56).background(.white, in: Capsule()) }.buttonStyle(.plain)
                 }
             }
         }

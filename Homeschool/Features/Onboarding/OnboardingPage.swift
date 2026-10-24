@@ -7,14 +7,15 @@ struct OnboardingPage: Identifiable {
     let kind: Kind
     let title: String
     let subtitle: String
-    let footnote: String
+    /// Optional small line under the subtitle (the community page has one).
+    let footnote: String?
     let footnoteIcon: String?
 
     static let all: [OnboardingPage] = [
         .init(kind: .roadmap,
               title: "Less guessing.\nMore growing.",
-              subtitle: "A roadmap shaped around your child.\nA week that works for you.",
-              footnote: "Your direction. Always adjustable.",
+              subtitle: "A schedule shaped around your child and their interests, a week that works for you.",
+              footnote: nil,
               footnoteIcon: nil),
         .init(kind: .community,
               title: "Your people.\nYour kind of liking.",
@@ -24,7 +25,7 @@ struct OnboardingPage: Identifiable {
         .init(kind: .inspiration,
               title: "You don’t have to\ndo it all.",
               subtitle: "Find classes and workshops nearby.\nOr bring your own community together.",
-              footnote: "A circle of support, beyond your schedule.",
+              footnote: nil,
               footnoteIcon: nil)
     ]
 }

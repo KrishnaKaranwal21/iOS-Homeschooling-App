@@ -22,18 +22,26 @@ struct VerifyCodeView: View {
 
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 28) {
                 Button(action: onBack) {
                     Label("Back", systemImage: "chevron.left")
                 }
                 .foregroundStyle(Theme.ink)
 
-                AuthHero(eyebrow: "ALMOST THERE", symbol: "envelope")
+                VStack(alignment: .leading, spacing: 18) {
+                    Circle()
+                        .fill(Color(hex: 0xFFC8C9))
+                        .frame(width: 56, height: 56)
+                        .overlay(Image(systemName: "envelope")
+                            .scaledFont(24)
+                            .foregroundStyle(Theme.ink))
+                        .accessibilityHidden(true)
 
-                AuthTitle(
-                    title: "Check your\nemail.",
-                    subtitle: Text("We sent a 6-digit code to \(Text(email).fontWeight(.semibold).foregroundStyle(Theme.ink)). Enter it below.")
-                )
+                    AuthTitle(
+                        title: "Check your\nemail.",
+                        subtitle: Text("We sent a 6-digit code to \(Text(email).fontWeight(.semibold).foregroundStyle(Theme.ink)).")
+                    )
+                }
 
                 codeBoxes
 
@@ -48,10 +56,9 @@ struct VerifyCodeView: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .padding(.bottom, 12)
+            .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .onAppear { focused = true }
         .task(id: resendToken) {
             secondsLeft = Self.resendSeconds
@@ -90,6 +97,11 @@ struct VerifyCodeView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { focused = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Verification code")
+        .accessibilityValue(code.isEmpty ? "Empty" : code)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { focused = true }
     }
 
     private func box(at index: Int) -> some View {
@@ -98,11 +110,11 @@ struct VerifyCodeView: View {
         let isActive = focused && index == min(characters.count, Self.length - 1)
 
         return Text(digit)
-            .font(.system(size: 26, weight: .semibold))
+            .scaledFont(26, weight: .semibold)
             .monospacedDigit()
             .foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity)
-            .frame(height: 60)
+            .frame(minHeight: 60)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(borderColor(active: isActive, filled: !digit.isEmpty),
@@ -121,7 +133,7 @@ struct VerifyCodeView: View {
         HStack(spacing: 4) {
             Text("Didn’t get it?").foregroundStyle(Theme.muted)
             if secondsLeft > 0 {
-                Text("Resend in 0:\(String(format: "%02d", secondsLeft))")
+                Text("Resend in 0:\(secondsLeft.formatted(.number.precision(.integerLength(2...))))")
                     .monospacedDigit()
                     .foregroundStyle(Theme.muted)
             } else {
@@ -129,16 +141,6 @@ struct VerifyCodeView: View {
             }
         }
         .font(.subheadline)
-    }
-
-    private var bottomBar: some View {
-        PrimaryButton(title: "Verify", isDimmed: code.count < Self.length) {
-            if code.count == Self.length { verify() } else { focused = true }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .background(.bar)
     }
 
     // MARK: Logic

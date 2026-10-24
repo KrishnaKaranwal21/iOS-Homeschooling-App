@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
 
     var body: some View {
         switch state.stage {

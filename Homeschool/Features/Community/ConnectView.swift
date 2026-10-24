@@ -8,7 +8,7 @@ struct ConnectView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 16) {
                     AvatarView(initials: String(parent.name.prefix(1)), color: Theme.lime, size: 80)
-                    VStack(alignment: .leading) { Text(parent.name).font(.title.bold()); Text(parent.role); Text(String(format: "%.1f km away", parent.distanceKm)).font(.caption) }
+                    VStack(alignment: .leading) { Text(parent.name).font(.title.bold()); Text(parent.role); Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away").font(.caption) }
                 }
                 Text("A little about us").font(.title3.bold())
                 Text("“\(parent.about)”").foregroundStyle(Theme.secondary)

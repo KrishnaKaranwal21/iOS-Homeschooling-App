@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RoadmapOverviewView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -17,7 +17,7 @@ struct RoadmapOverviewView: View {
                 ForEach(MockData.roadmap) { step in
                     NavigationLink { RoadmapDetailView(step: step) } label: {
                         Card { HStack(spacing: 12) {
-                            Text(String(format: "%02d", step.id)).font(.caption.bold()).padding(8).background(Theme.pink, in: Circle())
+                            Text(step.id, format: .number.precision(.integerLength(2...))).font(.caption.bold()).padding(8).background(Theme.pink, in: Circle())
                             Image(systemName: step.symbol)
                             VStack(alignment: .leading) { Text(step.title).font(.headline); Text(step.detail).font(.caption).foregroundStyle(Theme.secondary); Text("Not started").font(.caption2) }
                             Spacer(); Image(systemName: "chevron.right")

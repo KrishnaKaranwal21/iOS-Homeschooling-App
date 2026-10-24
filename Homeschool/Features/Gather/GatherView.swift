@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct GatherView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
     @State private var query = ""
     @State private var filter = "All"
     private let filters = ["All", "Science", "Nature", "Arts"]
@@ -10,7 +10,7 @@ struct GatherView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack { ForEach(filters, id: \.self) { f in Chip(title: f, selected: f == filter).onTapGesture { filter = f } } }
+                    HStack { ForEach(filters, id: \.self) { f in Button { filter = f } label: { Chip(title: f, selected: f == filter) }.buttonStyle(.plain).accessibilityAddTraits(f == filter ? .isSelected : []) } }
                 }
                 Text("Upcoming events").font(.title3.bold())
                 ForEach(state.events.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }) { e in

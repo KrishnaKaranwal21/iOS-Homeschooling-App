@@ -16,7 +16,7 @@ struct CommunityView: View {
                         HStack { Image(systemName: "mappin.circle"); VStack(alignment: .leading) { Text("Within \(radius) km of you").font(.headline); Text("Based on your current location").font(.caption) }; Spacer(); Image(systemName: "chevron.down") }.foregroundStyle(Theme.ink)
                     }
                 }
-                HStack { ForEach(["All parents", "Shared interests"], id: \.self) { f in Chip(title: f, selected: f == filter).onTapGesture { filter = f } } }
+                HStack { ForEach(["All parents", "Shared interests"], id: \.self) { f in Button { filter = f } label: { Chip(title: f, selected: f == filter) }.buttonStyle(.plain).accessibilityAddTraits(f == filter ? .isSelected : []) } }
                 Text("People near you").font(.title3.bold())
                 ForEach(nearby) { p in
                     NavigationLink(value: p) { ParentRow(parent: p) }.buttonStyle(.plain)
@@ -34,7 +34,7 @@ struct ParentRow: View {
     var body: some View {
         Card { HStack(spacing: 12) {
             AvatarView(initials: String(parent.name.prefix(1)), color: Theme.lime)
-            VStack(alignment: .leading) { Text(parent.name).font(.headline); Text(parent.role).font(.caption); Text(parent.tags).font(.caption).foregroundStyle(Theme.secondary); Text(String(format: "%.1f km away", parent.distanceKm)).font(.caption) }
+            VStack(alignment: .leading) { Text(parent.name).font(.headline); Text(parent.role).font(.caption); Text(parent.tags).font(.caption).foregroundStyle(Theme.secondary); Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away").font(.caption) }
             Spacer()
             Text("Connect").font(.footnote.bold()).foregroundStyle(.white).padding(.horizontal, 14).padding(.vertical, 8).background(Theme.ink, in: Capsule())
         } }

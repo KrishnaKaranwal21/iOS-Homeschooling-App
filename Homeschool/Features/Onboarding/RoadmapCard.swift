@@ -1,92 +1,94 @@
 import SwiftUI
 
+/// Page 1 card: "One interest. So many directions." with the interest and starting point
+/// joined by a bracket to a pink arrow.
 struct RoadmapCard: View {
+    private let diagramWidth: CGFloat = 285
+    private let diagramHeight: CGFloat = 142
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("THE NEXT CHAPTER")
-                .font(.system(size: 14, weight: .medium))
+            Text("One interest.\nSo many directions.")
+                .scaledFont(28, weight: .bold, maxScale: 1.15)
+                .tracking(-0.8)
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 4)
 
-            Text("One interest.\nSo many directions.")
-                .font(.system(size: 28, weight: .bold))
-                .tracking(-0.8)
-                .foregroundStyle(Theme.ink)
-                .padding(.top, 28)
+            Spacer(minLength: 16)
 
-            HStack(spacing: 10) {
-                HStack(spacing: 12) {
-                    Image(systemName: "moon.stars")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.white)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("SPACE")
-                            .font(.system(size: 26, weight: .medium))
-                        Text("Their current obsession")
-                            .font(.system(size: 12))
-                    }
-                    .foregroundStyle(.white)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("STARTING POINT")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.muted)
-                    Text("Level A")
-                        .font(.system(size: 24, weight: .regular))
-                        .foregroundStyle(Theme.ink)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.white, in: RoundedRectangle(cornerRadius: 14))
+            // Shrinks a little on narrow phones instead of overflowing the card.
+            GeometryReader { geo in
+                diagram
+                    .scaleEffect(min(1, geo.size.width / diagramWidth), anchor: .topLeading)
             }
-            .padding(.top, 28)
-
-            ConnectorShape()
-                .stroke(Theme.ink.opacity(0.7), lineWidth: 1.5)
-                .frame(height: 22)
-                .padding(.horizontal, 20)
-
-            HStack {
-                Text("Maths").padding(.leading, 6)
-                Text("Science").padding(.leading, 28)
-                Spacer()
-                Circle()
-                    .fill(Color(hex: 0xFFC8C9))
-                    .frame(width: 34, height: 34)
-                    .overlay(Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.ink))
-            }
-            .font(.system(size: 18))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(Theme.barDark, in: RoundedRectangle(cornerRadius: 14))
-
-            Spacer(minLength: 0)
+            .frame(height: diagramHeight)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
-        .padding(.bottom, 24)
+        .padding(.horizontal, 22)
+        .padding(.top, 24)
+        .padding(.bottom, 22)
     }
-}
 
-/// Elbow connector: down from the "SPACE" card, across, down to the bar.
-private struct ConnectorShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let startX: CGFloat = 0
-        let endX = rect.width - 30
-        let midY = rect.midY + 2
-        p.move(to: CGPoint(x: startX, y: 0))
-        p.addLine(to: CGPoint(x: startX, y: midY))
-        p.addLine(to: CGPoint(x: endX, y: midY))
-        p.addLine(to: CGPoint(x: endX, y: rect.maxY))
-        return p
+    private var diagram: some View {
+        ZStack(alignment: .topLeading) {
+            // Bracket: black chip and white chip meet on the right, then run to the arrow.
+            Path { p in
+                p.move(to: CGPoint(x: 192, y: 32))
+                p.addLine(to: CGPoint(x: 232, y: 32))
+                p.addLine(to: CGPoint(x: 232, y: 110))
+                p.addLine(to: CGPoint(x: 114, y: 110))
+                p.move(to: CGPoint(x: 232, y: 71))
+                p.addLine(to: CGPoint(x: 254, y: 71))
+            }
+            .stroke(Theme.ink.opacity(0.7), lineWidth: 1.5)
+
+            interestChip
+                .frame(width: 192, height: 64)
+
+            startChip
+                .frame(width: 114, height: 64)
+                .offset(y: 78)
+
+            Circle()
+                .fill(Color(hex: 0xFFC8C9))
+                .frame(width: 32, height: 32)
+                .overlay(Image(systemName: "arrow.right")
+                    .scaledFont(13, weight: .semibold, maxScale: 1.15)
+                    .foregroundStyle(Theme.ink))
+                .offset(x: 253, y: 55)
+        }
+        .frame(width: diagramWidth, height: diagramHeight, alignment: .topLeading)
+    }
+
+    private var interestChip: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .scaledFont(17, maxScale: 1.15)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Their current obsession")
+                    .scaledFont(10, maxScale: 1.15)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text("CODING")
+                    .scaledFont(22, weight: .medium, maxScale: 1.15)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var startChip: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("STARTING POINT")
+                .scaledFont(9, maxScale: 1.15)
+                .foregroundStyle(Theme.muted)
+            Text("Grade 10")
+                .scaledFont(22, maxScale: 1.15)
+                .foregroundStyle(Theme.ink)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }

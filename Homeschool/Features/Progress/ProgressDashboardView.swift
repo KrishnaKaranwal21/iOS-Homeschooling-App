@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ProgressDashboardView: View {
-    @EnvironmentObject var state: AppState
+    @Environment(AppState.self) private var state
     @State private var day = "Mon"
     private let days = ["Mon", "Tue", "Thu", "Fri"]
     private var done: [TaskItem] { state.tasks.filter(\.isDone) }
@@ -26,7 +26,7 @@ struct ProgressDashboardView: View {
     private var summary: some View {
         Card(color: Theme.pink) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack { VStack(alignment: .leading) { Eyebrow("\(day)day's learning"); Text("\(done.count) of \(state.tasks.count)").font(.system(size: 56, weight: .bold)); Text("tasks completed").font(.footnote) }; Spacer(); Mascot(size: 72) }
+                HStack { VStack(alignment: .leading) { Eyebrow("\(day)day's learning"); Text("\(done.count) of \(state.tasks.count)").scaledFont(56, weight: .bold); Text("tasks completed").font(.footnote) }; Spacer(); Mascot(size: 72) }
                 ProgressView(value: Double(done.count), total: Double(max(state.tasks.count, 1))).tint(Theme.ink)
                 Text("3 hrs logged").font(.headline).frame(maxWidth: .infinity, alignment: .trailing)
             }
