@@ -51,8 +51,10 @@ struct ChatDetailView: View {
         VStack(spacing: 0) {
             if isSearching { searchBar }
             messageList(thread)
-            composerArea(thread)
         }
+        // The message bar sits in the bottom safe area, so it rises with the keyboard
+        // and stays clear of the home indicator. The title bar stays clear of the Dynamic Island.
+        .safeAreaInset(edge: .bottom, spacing: 0) { composerArea(thread) }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -153,6 +155,11 @@ struct ChatDetailView: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .defaultScrollAnchor(.bottom)
+            .onChange(of: composerFocused) { _, focused in
+                // Keep the latest message visible when the keyboard opens.
+                guard focused, let last = thread.messages.last else { return }
+                withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }
+            }
             .onChange(of: thread.messages.count) {
                 guard let last = thread.messages.last else { return }
                 withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }

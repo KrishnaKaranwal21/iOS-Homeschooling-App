@@ -3,13 +3,13 @@ import SwiftUI
 /// All conversations: search, filter chips and a swipeable list.
 struct ChatsListView: View {
     @Environment(AppState.self) private var state
-
-    private enum Filter: String, CaseIterable {
-        case all = "All", unread = "Unread", groups = "Groups", direct = "Direct", muted = "Muted"
-    }
+    @Environment(\.openTab) private var openTab
 
     @State private var query = ""
-    @State private var filter: Filter = .all
+    @State private var showLabelEditor = false
+    @State private var editingLabel: ChatLabel?
+    @State private var broadcastLabel: ChatLabel?
+    @State private var labelsThread: ThreadRef?
     @State private var openID: ChatThread.ID?
     @State private var showNewChat = false
     @State private var deleteTarget: ChatThread.ID?
@@ -17,20 +17,13 @@ struct ChatsListView: View {
     private let accent = Color(hex: 0xD9D2FF)
     private let unreadTime = Color(hex: 0x5B6B2F)
 
+    private var selectedLabel: ChatLabel { state.chats.selectedLabel }
+
     private var threads: [ChatThread] {
-        state.chats.sortedThreads.filter { thread in
-            let matchesQuery = query.isEmpty
+        state.chats.threads(for: selectedLabel).filter { thread in
+            query.isEmpty
                 || thread.title.localizedCaseInsensitiveContains(query)
                 || thread.messages.contains { $0.text.localizedCaseInsensitiveContains(query) }
-            let matchesFilter: Bool
-            switch filter {
-            case .all:    matchesFilter = true
-            case .unread: matchesFilter = thread.hasUnread
-            case .groups: matchesFilter = thread.isGroup
-            case .direct: matchesFilter = !thread.isGroup
-            case .muted:  matchesFilter = thread.isMuted
-            }
-            return matchesQuery && matchesFilter
         }
     }
 
@@ -46,6 +39,8 @@ struct ChatsListView: View {
             .padding(.horizontal, 18)
             .padding(.top, 6)
             .padding(.bottom, 8)
+
+            labelStrip
 
             if threads.isEmpty {
                 emptyState
@@ -65,6 +60,10 @@ struct ChatsListView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openID = id }
             }
         }
+        .sheet(isPresented: $showLabelEditor) { LabelEditorSheet(editing: nil) }
+        .sheet(item: $editingLabel) { label in LabelEditorSheet(editing: label) }
+        .sheet(item: $broadcastLabel) { label in BroadcastSheet(label: label) }
+        .sheet(item: $labelsThread) { ref in ThreadLabelsSheet(threadID: ref.id) }
         .confirmationDialog("Delete this chat?",
                             isPresented: Binding(get: { deleteTarget != nil },
                                                  set: { if !$0 { deleteTarget = nil } }),
@@ -119,40 +118,101 @@ struct ChatsListView: View {
         .background(Capsule().fill(Theme.field))
     }
 
+    /// A horizontal bar of filters. Tap to filter, long-press to edit, move, remove or send to everyone under it.
     private var chips: some View {
-        HStack(spacing: 8) {
-            chip(.all)
-            chip(.unread)
-            chip(.groups)
-            if filter == .direct || filter == .muted { chip(filter) }
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(state.chats.labels) { label in
+                    chip(label)
+                }
 
-            Menu {
-                Button("Direct chats") { filter = .direct }
-                Button("Muted") { filter = .muted }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Theme.secondary)
-                    .frame(width: 46, height: 36)
-                    .background(Capsule().fill(Theme.field))
+                Button { showLabelEditor = true } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Theme.secondary)
+                        .frame(width: 46, height: 36)
+                        .background(Capsule().fill(Theme.field))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add a label")
             }
-            .accessibilityLabel("More filters")
-            Spacer(minLength: 0)
+            .padding(.horizontal, 18)
         }
+        .scrollIndicators(.hidden)
+        .padding(.horizontal, -18)
     }
 
-    private func chip(_ value: Filter) -> some View {
-        let selected = filter == value
-        return Button { filter = value } label: {
-            Text(value.rawValue)
-                .scaledFont(15, weight: selected ? .semibold : .regular, maxScale: 1.2)
-                .foregroundStyle(selected ? Theme.ink : Theme.secondary)
-                .padding(.horizontal, 16)
-                .frame(height: 36)
-                .background(Capsule().fill(selected ? accent : Theme.field))
+    private func chip(_ label: ChatLabel) -> some View {
+        let selected = state.chats.selectedLabelID == label.id
+        let canBroadcast = !label.isBuiltIn || label.id == ChatLabel.favourites.id
+        let index = state.chats.labels.firstIndex(of: label) ?? 0
+
+        return Button { state.chats.select(label.id) } label: {
+            HStack(spacing: 6) {
+                if !label.isBuiltIn {
+                    Circle().fill(label.color).frame(width: 10, height: 10)
+                        .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                }
+                if label.id == ChatLabel.favourites.id {
+                    Image(systemName: "star.fill").font(.system(size: 11))
+                }
+                Text(label.name)
+                    .scaledFont(15, weight: selected ? .semibold : .regular, maxScale: 1.2)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(selected ? Theme.ink : Theme.secondary)
+            .padding(.horizontal, 16)
+            .frame(height: 36)
+            .background(Capsule().fill(selected ? accent : Theme.field))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .contextMenu {
+            if canBroadcast {
+                Button { broadcastLabel = label } label: {
+                    Label("Send to everyone here", systemImage: "paperplane")
+                }
+            }
+            if !label.isBuiltIn {
+                Button { editingLabel = label } label: { Label("Edit label", systemImage: "pencil") }
+            }
+            if label.id != ChatLabel.allID {
+                Button { state.chats.moveLabel(label.id, by: -1) } label: {
+                    Label("Move left", systemImage: "arrow.left")
+                }
+                .disabled(index <= 1)
+                Button { state.chats.moveLabel(label.id, by: 1) } label: {
+                    Label("Move right", systemImage: "arrow.right")
+                }
+                .disabled(index >= state.chats.labels.count - 1)
+                Button(role: .destructive) { state.chats.removeLabel(label.id) } label: {
+                    Label(label.isBuiltIn ? "Remove from bar" : "Delete label", systemImage: "trash")
+                }
+            }
+        }
+    }
+
+    /// Shown above the list while a custom label is selected.
+    @ViewBuilder private var labelStrip: some View {
+        if !selectedLabel.isBuiltIn && !threads.isEmpty {
+            HStack(spacing: 10) {
+                Text("\(threads.count) \(threads.count == 1 ? "chat" : "chats") in \(selectedLabel.name)")
+                    .scaledFont(14, weight: .medium, maxScale: 1.2)
+                    .foregroundStyle(Theme.secondary)
+                Spacer()
+                Button { broadcastLabel = selectedLabel } label: {
+                    Label("Send to all", systemImage: "paperplane.fill")
+                        .scaledFont(13, weight: .semibold, maxScale: 1.15)
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background(Capsule().fill(accent))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 6)
+        }
     }
 
     // MARK: List
@@ -193,6 +253,13 @@ struct ChatsListView: View {
                         .tint(Color(hex: 0x8E8E93))
                     }
                     .contextMenu {
+                        Button { labelsThread = ThreadRef(id: thread.id) } label: {
+                            Label("Labels…", systemImage: "tag")
+                        }
+                        Button { state.chats.toggleFavourite(thread.id) } label: {
+                            Label(thread.isFavourite ? "Remove from favourites" : "Add to favourites",
+                                  systemImage: thread.isFavourite ? "star.slash" : "star")
+                        }
                         Button { state.chats.togglePin(thread.id) } label: {
                             Label(thread.isPinned ? "Unpin chat" : "Pin chat", systemImage: "pin")
                         }
@@ -221,10 +288,21 @@ struct ChatsListView: View {
                 ChatAvatar(thread: thread, size: 56)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(thread.title)
-                        .scaledFont(17, weight: thread.hasUnread ? .semibold : .regular, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(thread.title)
+                            .scaledFont(17, weight: thread.hasUnread ? .semibold : .regular, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                        if thread.isFavourite {
+                            Image(systemName: "star.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Theme.tabIconInactive)
+                        }
+                        ForEach(labelColors(for: thread), id: \.self) { color in
+                            Circle().fill(color).frame(width: 9, height: 9)
+                                .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                        }
+                    }
                     HStack(spacing: 5) {
                         if let last = thread.messages.last, last.isMine {
                             ReadTicks(status: last.status)
@@ -268,6 +346,13 @@ struct ChatsListView: View {
         .accessibilityHint("Opens the conversation")
     }
 
+    private func labelColors(for thread: ChatThread) -> [Color] {
+        state.chats.customLabels
+            .filter { thread.labelIDs.contains($0.id) }
+            .prefix(3)
+            .map(\.color)
+    }
+
     @ViewBuilder
     private func unreadBadge(_ thread: ChatThread) -> some View {
         if thread.unreadCount > 0 {
@@ -282,36 +367,81 @@ struct ChatsListView: View {
         }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Spacer()
-            Image(systemName: query.isEmpty ? "bubble.left.and.bubble.right" : "magnifyingglass")
-                .font(.system(size: 40))
-                .foregroundStyle(Theme.tabIconInactive)
-            Text(query.isEmpty ? "No chats here yet" : "No results for “\(query)”")
-                .scaledFont(20, weight: .heavy, maxScale: 1.2)
-                .foregroundStyle(Theme.ink)
-            Text(query.isEmpty ? "Start a conversation with a parent near you." : "Try a name or a word from a message.")
-                .scaledFont(15, maxScale: 1.3)
-                .foregroundStyle(Theme.secondary)
-                .multilineTextAlignment(.center)
-            if query.isEmpty && filter == .all {
-                Button { showNewChat = true } label: {
-                    Text("New chat")
-                        .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 22)
-                        .frame(height: 44)
-                        .background(Capsule().fill(Theme.ink))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 6)
+    @ViewBuilder private var emptyState: some View {
+        if state.chats.threads.isEmpty {
+            welcomeCallout
+        } else {
+            VStack(spacing: 10) {
+                Spacer()
+                Image(systemName: query.isEmpty ? "tray" : "magnifyingglass")
+                    .font(.system(size: 40))
+                    .foregroundStyle(Theme.tabIconInactive)
+                Text(query.isEmpty ? "Nothing here yet" : "No results for “\(query)”")
+                    .sectionTitle()
+                Text(query.isEmpty
+                     ? (selectedLabel.isBuiltIn
+                        ? "Chats that match this filter will show up here."
+                        : "Press and hold a chat, then choose Labels to add it to \(selectedLabel.name).")
+                     : "Try a name or a word from a message.")
+                    .pageSubtitle()
+                    .multilineTextAlignment(.center)
+                Spacer()
+                Spacer()
             }
-            Spacer()
-            Spacer()
+            .padding(.horizontal, 32)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity)
+    }
+
+    /// Shown when there are no conversations at all.
+    private var welcomeCallout: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Image("HomeMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 120)
+                    .accessibilityHidden(true)
+
+                Text("Your conversations start here")
+                    .sectionTitle()
+
+                Text("Connect with parents studying the same NIOS level or join a local gathering to start a conversation.")
+                    .scaledFont(16, maxScale: 1.3)
+                    .foregroundStyle(Theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 10) {
+                    Button { showNewChat = true } label: {
+                        Text("Find parents")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Capsule().fill(Theme.ink))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { openTab(.gather) } label: {
+                        Text("Join a gathering")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Capsule().fill(Color.white))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color(hex: 0xE6E1FF)))
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
+        }
     }
 }
 

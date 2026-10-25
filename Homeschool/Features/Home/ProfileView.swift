@@ -14,6 +14,9 @@ struct ProfileView: View {
     @State private var editTarget: EditTarget?
     @State private var showAdd = false
     @State private var showParentEdit = false
+    @State private var levelTarget: Child?
+    /// Set when a level changed, so the subjects page opens once the level sheet has closed.
+    @State private var pendingSubjectsEdit: Child?
 
     private let lavenderCard = Color(hex: 0xE6E1FF)
     private let avatarColors: [Color] = [Theme.lavender, Theme.yellow, Theme.lime, Theme.pink]
@@ -22,6 +25,7 @@ struct ProfileView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                examBanner
                 parentCard
                 childrenSection
                 addChildCard
@@ -38,6 +42,14 @@ struct ProfileView: View {
         }
         .fullScreenCover(isPresented: $showAdd) { AddChildFlow() }
         .sheet(isPresented: $showParentEdit) { ParentEditSheet() }
+        .sheet(item: $levelTarget, onDismiss: {
+            if let changed = pendingSubjectsEdit {
+                pendingSubjectsEdit = nil
+                editTarget = EditTarget(child: changed, step: 2, singleStep: true)
+            }
+        }) { child in
+            LevelPickerSheet(child: child) { pendingSubjectsEdit = $0 }
+        }
     }
 
     // MARK: Header
@@ -58,6 +70,47 @@ struct ProfileView: View {
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 4)
+    }
+
+    // MARK: Exam banner
+
+    /// Shown when a child isn't registered for the exams and the last date is within a month.
+    @ViewBuilder private var examBanner: some View {
+        let urgent = state.children.filter(\.examNeedsAttention)
+        if !urgent.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(urgent) { child in
+                    HStack(spacing: 12) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Color.orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(child.displayName)’s exam form")
+                                .scaledFont(16, weight: .semibold, maxScale: 1.2)
+                                .foregroundStyle(Theme.ink)
+                            Text(bannerText(for: child))
+                                .scaledFont(14, maxScale: 1.25)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(hex: 0xFFEBD9)))
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func bannerText(for child: Child) -> String {
+        guard let days = child.daysUntilExamDeadline else { return "" }
+        switch days {
+        case ..<0: return "The last date passed \(-days) \(-days == 1 ? "day" : "days") ago. Check with NIOS."
+        case 0:    return "The last date to register is today."
+        case 1:    return "The last date to register is tomorrow."
+        default:   return "\(days) days left to register for the exams."
+        }
     }
 
     // MARK: Parent
@@ -158,22 +211,13 @@ struct ProfileView: View {
                         .tracking(-0.5)
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
-                    Text(child.programmeText)
-                        .scaledFont(13, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 12)
-                        .frame(height: 24)
-                        .background(Capsule().fill(Color.white))
+                    if isCurrent {
+                        Label("Viewing", systemImage: "checkmark.circle.fill")
+                            .scaledFont(12, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                    }
                 }
                 Spacer(minLength: 0)
-                if isCurrent {
-                    Label("Viewing", systemImage: "checkmark.circle.fill")
-                        .scaledFont(12, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 10)
-                        .frame(height: 26)
-                        .background(Capsule().fill(Color.white.opacity(0.75)))
-                }
             }
 
             HStack(spacing: 8) {
@@ -183,8 +227,8 @@ struct ProfileView: View {
             }
 
             VStack(spacing: 0) {
-                infoRow(icon: "graduationcap", title: "Level", value: levelText(child), showsChevron: true) {
-                    editTarget = EditTarget(child: child, step: 1, singleStep: false)
+                infoRow(icon: "graduationcap", title: "NIOS level", value: levelText(child), showsChevron: true) {
+                    levelTarget = child
                 }
                 divider
                 infoRow(icon: "birthday.cake", title: "Date of birth", value: dobText(child), showsChevron: true) {
@@ -200,6 +244,8 @@ struct ProfileView: View {
                 }
             }
             .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
+
+            ExamSection(child: child)
 
             HStack(spacing: 10) {
                 Button { editTarget = EditTarget(child: child, step: 1, singleStep: false) } label: {
@@ -266,7 +312,7 @@ struct ProfileView: View {
                     .scaledFont(12, weight: .medium, maxScale: 1.2)
                     .foregroundStyle(Theme.secondary)
                 Text(value)
-                    .scaledFont(15, weight: .medium, maxScale: 1.25)
+                    .scaledFont(16, weight: .medium, maxScale: 1.25)
                     .foregroundStyle(Theme.ink)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
@@ -331,10 +377,11 @@ struct ProfileView: View {
 
     private func levelText(_ child: Child) -> String {
         guard !child.level.isEmpty else { return "Not set" }
+        let name = Curriculum.displayName(for: child.level)
         if let grade = AgeRules.rules.first(where: { $0.level == child.level })?.grade {
-            return "\(child.level) · \(grade)"
+            return "\(name) · \(grade)"
         }
-        return child.level
+        return name
     }
 
     private func dobText(_ child: Child) -> String {

@@ -127,6 +127,17 @@ final class AppState {
         selectedChildID = newChild.id
     }
 
+    /// Switches a child's NIOS level. Subjects depend on the level, so they are cleared and chosen again.
+    @discardableResult
+    func changeLevel(of id: Child.ID, to level: String) -> Child? {
+        guard var changed = children.first(where: { $0.id == id }), changed.level != level else { return nil }
+        changed.level = level
+        changed.levelChosenManually = true
+        changed.selectedSubjects = []
+        updateChild(changed)
+        return changed
+    }
+
     func updateChild(_ updated: Child) {
         guard let index = children.firstIndex(where: { $0.id == updated.id }) else { return }
         children[index] = updated
@@ -136,6 +147,14 @@ final class AppState {
         if let data = try? JSONEncoder().encode(children) {
             UserDefaults.standard.set(data, forKey: childrenKey)
         }
+        syncExamReminders()
+    }
+
+    /// Re-plans the "exam form closes soon" notifications for every child who isn't registered.
+    func syncExamReminders() {
+        guard stage == .main else { return }
+        let snapshot = children
+        Task { await ExamReminders.sync(children: snapshot) }
     }
 
     func toggle(_ task: TaskItem) {

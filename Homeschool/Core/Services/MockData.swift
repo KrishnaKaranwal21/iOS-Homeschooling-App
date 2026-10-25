@@ -31,7 +31,7 @@ enum MockData {
               host: "Makers Circle", hostRole: "Workshop host",
               location: "Studio 4\nPotheri",
               ages: "Ages 12+",
-              parentPresence: .notAllowed,
+              parentPresence: .dropOffOnly,
               about: "Shape, press and paint your own clay pieces. All materials are provided.",
               price: 350, symbol: "paintpalette", coverName: "cover-clay"),
         Event(title: "Nature explorers", category: "Nature", kind: .gathering,
@@ -47,7 +47,7 @@ enum MockData {
               host: "Code Kids Chennai", hostRole: "Parent host", locality: "Guduvanchery",
               location: "Library room 2\nGuduvanchery",
               ages: "Ages 10+",
-              parentPresence: .notAllowed,
+              parentPresence: .dropOffOnly,
               about: "Show what you are building, swap ideas and try a new puzzle together.",
               symbol: "chevron.left.forwardslash.chevron.right", coverName: "cover-coding")
     ]

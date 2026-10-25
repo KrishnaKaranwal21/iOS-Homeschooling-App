@@ -296,14 +296,14 @@ struct ChildBasicsStep: View {
     private var levelMenu: some View {
         Menu {
             ForEach(Curriculum.levels, id: \.self) { level in
-                Button("\(level) · \(AgeRules.rule(for: level)?.grade ?? "")") {
+                Button("\(Curriculum.displayName(for: level)) · \(AgeRules.rule(for: level)?.grade ?? "")") {
                     child.level = level
                     child.levelChosenManually = true
                 }
             }
         } label: {
             HStack(spacing: 4) {
-                Text(child.level.isEmpty ? "Select" : child.level)
+                Text(child.level.isEmpty ? "Select" : Curriculum.displayName(for: child.level))
                 Image(systemName: "chevron.up.chevron.down").font(.footnote)
             }
             .foregroundStyle(child.level.isEmpty ? Theme.systemGray : Theme.obsidian)

@@ -28,6 +28,9 @@ struct ChatThread: Identifiable {
     var isMuted = false
     var isPinned = false
     var isBlocked = false
+    var isFavourite = false
+    /// Ids of the custom labels on this chat.
+    var labelIDs: Set<String> = []
 
     var lastDate: Date { messages.last?.date ?? .distantPast }
     var hasUnread: Bool { unreadCount > 0 || markedUnread }
@@ -100,7 +103,48 @@ enum ChatFormat {
 @MainActor
 @Observable
 final class ChatStore {
-    var threads: [ChatThread] = ChatStore.sample()
+    var threads: [ChatThread]
+
+    /// The chips above the chat list, in order. `All` is always first.
+    var labels: [ChatLabel] {
+        didSet { saveLabels() }
+    }
+
+    /// The chip that is selected. Kept here, not in the view, so it survives switching tabs and relaunching.
+    var selectedLabelID: String {
+        didSet { UserDefaults.standard.set(selectedLabelID, forKey: Keys.selected) }
+    }
+
+    private enum Keys {
+        static let labels = "chat.labels"
+        static let selected = "chat.selectedLabel"
+        static let tags = "chat.tagsByTitle"
+        static let favourites = "chat.favourites"
+    }
+
+    init() {
+        let defaults = UserDefaults.standard
+        var loaded = ChatLabel.defaultBar
+        if let data = defaults.data(forKey: Keys.labels),
+           let saved = try? JSONDecoder().decode([ChatLabel].self, from: data), !saved.isEmpty {
+            loaded = saved
+        }
+        if !loaded.contains(where: { $0.id == ChatLabel.allID }) { loaded.insert(.all, at: 0) }
+        labels = loaded
+
+        let savedSelection = defaults.string(forKey: Keys.selected) ?? ChatLabel.allID
+        selectedLabelID = loaded.contains { $0.id == savedSelection } ? savedSelection : ChatLabel.allID
+
+        // Sample chats get their saved labels back (chats are matched by name).
+        var sample = ChatStore.sample()
+        let tags = (defaults.dictionary(forKey: Keys.tags) as? [String: [String]]) ?? [:]
+        let favourites = Set(defaults.stringArray(forKey: Keys.favourites) ?? [])
+        for index in sample.indices {
+            sample[index].labelIDs = Set(tags[sample[index].title] ?? [])
+            sample[index].isFavourite = favourites.contains(sample[index].title)
+        }
+        threads = sample
+    }
 
     var sortedThreads: [ChatThread] {
         threads.sorted {
@@ -120,6 +164,120 @@ final class ChatStore {
     private func update(_ id: ChatThread.ID, _ change: (inout ChatThread) -> Void) {
         guard let index = threads.firstIndex(where: { $0.id == id }) else { return }
         change(&threads[index])
+    }
+
+    // MARK: Labels
+
+    var selectedLabel: ChatLabel {
+        labels.first { $0.id == selectedLabelID } ?? .all
+    }
+
+    func matches(_ thread: ChatThread, label: ChatLabel) -> Bool {
+        switch label.id {
+        case "all":        return true
+        case "unread":     return thread.hasUnread
+        case "groups":     return thread.isGroup
+        case "direct":     return !thread.isGroup
+        case "muted":      return thread.isMuted
+        case "favourites": return thread.isFavourite
+        default:           return thread.labelIDs.contains(label.id)
+        }
+    }
+
+    func threads(for label: ChatLabel) -> [ChatThread] {
+        sortedThreads.filter { matches($0, label: label) }
+    }
+
+    /// Built-in labels that are not on the bar right now.
+    var removedBuiltIns: [ChatLabel] {
+        ChatLabel.builtIns.filter { builtIn in !labels.contains { $0.id == builtIn.id } }
+    }
+
+    var customLabels: [ChatLabel] { labels.filter { !$0.isBuiltIn } }
+
+    func select(_ id: String) { selectedLabelID = id }
+
+    func addBuiltIn(_ label: ChatLabel) {
+        guard !labels.contains(where: { $0.id == label.id }) else { return }
+        labels.append(label)
+    }
+
+    @discardableResult
+    func addCustomLabel(name: String, colorIndex: Int) -> ChatLabel? {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              !labels.contains(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return nil }
+        let label = ChatLabel(id: UUID().uuidString, name: trimmed, colorIndex: colorIndex)
+        labels.append(label)
+        return label
+    }
+
+    func updateLabel(_ id: String, name: String, colorIndex: Int) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let index = labels.firstIndex(where: { $0.id == id }) else { return }
+        labels[index].name = trimmed
+        labels[index].colorIndex = colorIndex
+    }
+
+    /// Moves a chip one place left (-1) or right (+1). `All` stays first.
+    func moveLabel(_ id: String, by offset: Int) {
+        guard id != ChatLabel.allID,
+              let index = labels.firstIndex(where: { $0.id == id }) else { return }
+        let target = index + offset
+        guard target >= 1, target < labels.count else { return }
+        labels.swapAt(index, target)
+    }
+
+    /// Custom labels are deleted and removed from every chat. Built-in ones only leave the bar.
+    func removeLabel(_ id: String) {
+        guard id != ChatLabel.allID else { return }
+        let wasCustom = !(labels.first { $0.id == id }?.isBuiltIn ?? true)
+        labels.removeAll { $0.id == id }
+        if wasCustom {
+            for index in threads.indices { threads[index].labelIDs.remove(id) }
+            saveTags()
+        }
+        if selectedLabelID == id { selectedLabelID = ChatLabel.allID }
+    }
+
+    func toggleLabel(_ labelID: String, on threadID: ChatThread.ID) {
+        update(threadID) { thread in
+            if thread.labelIDs.contains(labelID) { thread.labelIDs.remove(labelID) }
+            else { thread.labelIDs.insert(labelID) }
+        }
+        saveTags()
+    }
+
+    func toggleFavourite(_ id: ChatThread.ID) {
+        update(id) { $0.isFavourite.toggle() }
+        saveTags()
+    }
+
+    private func saveLabels() {
+        if let data = try? JSONEncoder().encode(labels) {
+            UserDefaults.standard.set(data, forKey: Keys.labels)
+        }
+    }
+
+    private func saveTags() {
+        var tags: [String: [String]] = [:]
+        for thread in threads where !thread.labelIDs.isEmpty { tags[thread.title] = Array(thread.labelIDs) }
+        UserDefaults.standard.set(tags, forKey: Keys.tags)
+        UserDefaults.standard.set(threads.filter(\.isFavourite).map(\.title), forKey: Keys.favourites)
+    }
+
+    /// Sends the same message to every chat under a label, one by one. Blocked chats are skipped.
+    @discardableResult
+    func broadcast(_ text: String, to labelID: String) -> (sent: Int, skipped: Int) {
+        guard let label = labels.first(where: { $0.id == labelID }) else { return (0, 0) }
+        var sent = 0, skipped = 0
+        for thread in threads(for: label) {
+            if thread.isBlocked { skipped += 1 } else {
+                send(text: text, in: thread.id)
+                sent += 1
+            }
+        }
+        return (sent, skipped)
     }
 
     // MARK: Reading

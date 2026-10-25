@@ -21,16 +21,15 @@ struct EventDetailView: View {
                 if !current.isFree {
                     Label("Paid events are non-refundable, even if you don't attend.",
                           systemImage: "exclamationmark.triangle.fill")
-                        .scaledFont(15, weight: .medium, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
+                        .scaledFont(14, weight: .medium, maxScale: 1.25)
+                        .foregroundStyle(Theme.secondary)
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.chipFill))
                 }
                 Text(current.about)
-                    .scaledFont(16, maxScale: 1.3)
-                    .lineSpacing(4)
-                    .foregroundStyle(Theme.gatherText)
+                    .bodyText()
+                    .lineSpacing(3)
                     .padding(.horizontal, 6)
             }
             .padding(.horizontal, 16)
@@ -59,7 +58,7 @@ struct EventDetailView: View {
             .clipShape(GatherWaveShape())
             .overlay(alignment: .topLeading) {
                 Label(current.kind.rawValue, systemImage: "person.2.fill")
-                    .scaledFont(15, weight: .medium, maxScale: 1.2)
+                    .scaledFont(14, weight: .medium, maxScale: 1.2)
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -73,31 +72,30 @@ struct EventDetailView: View {
             dateTile
             VStack(alignment: .leading, spacing: 4) {
                 Text(current.title)
-                    .pageTitle()
+                    .detailTitle()
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 Text("\(current.mode.rawValue) · \(current.ages)")
-                    .scaledFont(16, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
+                    .rowDetail()
             }
-            .padding(.top, 22)
+            .padding(.top, 14)
         }
     }
 
     private var dateTile: some View {
         VStack(spacing: 0) {
             Text(current.month)
-                .scaledFont(16, weight: .semibold, maxScale: 1.2)
+                .scaledFont(13, weight: .semibold, maxScale: 1.2)
                 .foregroundStyle(Color(hex: 0xE5737A))
             Text(current.day.formatted(.number.precision(.integerLength(2...))))
-                .scaledFont(40, weight: .heavy, maxScale: 1.2)
+                .scaledFont(30, weight: .heavy, maxScale: 1.2)
                 .foregroundStyle(Theme.ink)
             Text(current.weekday)
-                .scaledFont(16, maxScale: 1.2)
-                .foregroundStyle(Theme.gatherText)
+                .scaledFont(13, maxScale: 1.2)
+                .foregroundStyle(Theme.secondary)
         }
-        .frame(width: 88, height: 98)
-        .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.white))
+        .frame(width: 72, height: 82)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.white))
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Theme.lilacBorder, lineWidth: 1))
         .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
@@ -132,20 +130,18 @@ struct EventDetailView: View {
     private func infoRow(icon: String, title: String, detail: String?, showsChevron: Bool = false) -> some View {
         HStack(spacing: 14) {
             Image(systemName: icon)
-                .scaledFont(18, maxScale: 1.2)
+                .scaledFont(16, maxScale: 1.2)
                 .foregroundStyle(Theme.gatherText)
-                .frame(width: 48, height: 48)
+                .frame(width: 42, height: 42)
                 .background(Circle().fill(Color.white))
                 .overlay(Circle().stroke(Theme.lilacBorder, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .scaledFont(17, weight: .medium, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
+                    .rowTitle()
                 if let detail {
                     Text(detail)
-                        .scaledFont(15, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
+                        .rowDetail()
                 }
             }
             Spacer(minLength: 0)
@@ -162,18 +158,16 @@ struct EventDetailView: View {
     private var hostCard: some View {
         HStack(spacing: 14) {
             Image(systemName: "person.fill")
-                .scaledFont(20, maxScale: 1.2)
+                .scaledFont(17, maxScale: 1.2)
                 .foregroundStyle(Theme.gatherText)
-                .frame(width: 48, height: 48)
+                .frame(width: 42, height: 42)
                 .background(Circle().fill(Color.white.opacity(0.8)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Hosted by \(current.host)")
-                    .scaledFont(17, weight: .medium, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
+                    .rowTitle()
                 Text(current.hostRole)
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
+                    .rowDetail()
             }
             Spacer(minLength: 0)
         }
@@ -185,11 +179,11 @@ struct EventDetailView: View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(current.priceText)
-                    .scaledFont(26, weight: .bold, maxScale: 1.2)
+                    .scaledFont(22, weight: .bold, maxScale: 1.2)
                     .foregroundStyle(Theme.ink)
                 Text(priceCaption)
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
+                    .scaledFont(13, maxScale: 1.25)
+                    .foregroundStyle(Theme.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
@@ -199,22 +193,22 @@ struct EventDetailView: View {
             if current.isRegistered {
                 Button { showConfirmation = true } label: {
                     Label("Registered", systemImage: "checkmark.circle.fill")
-                        .scaledFont(17, weight: .semibold, maxScale: 1.2)
+                        .scaledFont(16, weight: .semibold, maxScale: 1.2)
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                         .padding(.horizontal, 20)
-                        .frame(minHeight: 56)
+                        .frame(minHeight: 52)
                         .gatherGlass(in: Capsule(), tint: Theme.lilac)
                 }
                 .buttonStyle(.plain)
             } else {
                 NavigationLink { RegistrationView(event: current) } label: {
                     Text("Register")
-                        .scaledFont(17, weight: .semibold, maxScale: 1.2)
+                        .scaledFont(16, weight: .semibold, maxScale: 1.2)
                         .foregroundStyle(Color.white)
-                        .frame(width: 160)
-                        .frame(minHeight: 56)
+                        .frame(width: 150)
+                        .frame(minHeight: 52)
                         .gatherGlass(in: Capsule(), tint: Theme.ink)
                 }
                 .buttonStyle(.plain)

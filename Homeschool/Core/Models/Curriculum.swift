@@ -242,6 +242,15 @@ extension LevelCurriculum {
 enum Curriculum {
     static let levels = ["Level A", "Level B", "Level C", "Grade 10", "Grade 12"]
 
+    /// Names parents recognise: "Secondary" and "Senior Secondary" instead of Grade 10 and Grade 12.
+    static func displayName(for level: String) -> String {
+        switch level {
+        case "Grade 10": return "Secondary"
+        case "Grade 12": return "Senior Secondary"
+        default:         return level
+        }
+    }
+
     static func plural(_ n: Int, _ unit: String) -> String { n == 1 ? unit : unit + "s" }
 
     static func data(for level: String) -> LevelCurriculum {

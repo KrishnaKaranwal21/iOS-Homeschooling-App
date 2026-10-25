@@ -17,22 +17,22 @@ struct Event: Identifiable, Hashable {
     enum ParentPresence: String, CaseIterable, Identifiable {
         case required   = "Parent/guardian required to stay"
         case optional   = "Parent/guardian optional"
-        case notAllowed = "Drop-off only (Kids only)"
+        case dropOffOnly = "Drop-off only (No parent/guardian)"
         var id: String { rawValue }
 
         var shortTitle: String {
             switch self {
             case .required:   return "Parent stays"
             case .optional:   return "Parent optional"
-            case .notAllowed: return "Drop-off only"
+            case .dropOffOnly: return "Drop-off only"
             }
         }
 
         var detail: String {
             switch self {
             case .required:   return "An adult must remain present throughout the session."
-            case .optional:   return "Feel free to stay or drop off your child."
-            case .notAllowed: return "Designed for children only; parent/guardian drop-off and pick-up."
+            case .optional:   return "You are welcome to stay or drop off your child."
+            case .dropOffOnly: return "Independent session for learners; drop-off and pick-up only."
             }
         }
 
@@ -40,7 +40,7 @@ struct Event: Identifiable, Hashable {
             switch self {
             case .required:   return "person.2.fill"
             case .optional:   return "person.crop.circle.badge.questionmark"
-            case .notAllowed: return "figure.walk.departure"
+            case .dropOffOnly: return "figure.walk.departure"
             }
         }
     }

@@ -17,6 +17,11 @@ struct Child: Equatable, Identifiable, Codable {
     /// true once the parent picks a level by hand, so a new date of birth no longer changes it.
     var levelChosenManually: Bool = false
 
+    // The fields below are optional so children saved by earlier versions still load.
+    /// The id of the exam window the family registered for (see `ExamCalendar`).
+    var examRegisteredSession: String? = nil
+    var examRemindersSaved: Bool? = nil
+
     static let weekdays = ["M", "T", "W", "T", "F", "S", "S"]
 
     /// Blank profile used when onboarding starts: nothing is pre-filled.
@@ -45,7 +50,35 @@ extension Child {
     var programmeText: String {
         let obeLevels = ["Level A", "Level B", "Level C"]
         let program = obeLevels.contains(level) ? "\(curriculum) OBE" : curriculum
-        return level.isEmpty ? program : "\(program) · \(level)"
+        return level.isEmpty ? program : "\(program) · \(Curriculum.displayName(for: level))"
+    }
+
+    /// The next exam registration window for this child's level. `nil` for OBE, which has no common date.
+    var examWindow: ExamWindow? { ExamCalendar.nextWindow(for: level) }
+
+    /// Whether the family has registered this child for the next exams.
+    var isExamRegistered: Bool {
+        guard let window = examWindow else { return false }
+        return examRegisteredSession == window.id
+    }
+
+    var examRemindersOn: Bool {
+        get { examRemindersSaved ?? false }
+        set { examRemindersSaved = newValue }
+    }
+
+    /// Whole days from today to the last date. Negative once it has passed.
+    var daysUntilExamDeadline: Int? {
+        guard let window = examWindow else { return nil }
+        let calendar = Calendar.current
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: .now),
+                                       to: calendar.startOfDay(for: window.lastDate)).day
+    }
+
+    /// True when the child isn't registered and the last date is within a month.
+    var examNeedsAttention: Bool {
+        guard !isExamRegistered, let days = daysUntilExamDeadline else { return false }
+        return (0...30).contains(days)
     }
 
     /// Names of the chosen subjects, taken from keys like "groupId|Subject name".

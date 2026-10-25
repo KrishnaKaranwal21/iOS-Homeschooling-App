@@ -11,6 +11,7 @@ struct ChatInfoView: View {
     @State private var confirmClear = false
     @State private var confirmExit = false
     @State private var showAddMembers = false
+    @State private var showLabels = false
 
     private var thread: ChatThread? { state.chats.thread(threadID) }
 
@@ -54,6 +55,9 @@ struct ChatInfoView: View {
         .sheet(isPresented: $showAddMembers) {
             AddMembersSheet(threadID: threadID)
         }
+        .sheet(isPresented: $showLabels) {
+            ThreadLabelsSheet(threadID: threadID)
+        }
     }
 
     // MARK: Top
@@ -63,14 +67,11 @@ struct ChatInfoView: View {
             ChatAvatar(thread: thread, size: 112)
                 .padding(.top, 6)
             Text(thread.title)
-                .scaledFont(26, weight: .heavy, maxScale: 1.15)
-                .tracking(-0.5)
-                .foregroundStyle(Theme.ink)
+                .detailTitle()
                 .multilineTextAlignment(.center)
             if !thread.subtitle.isEmpty {
                 Text(thread.subtitle)
-                    .scaledFont(16, maxScale: 1.3)
-                    .foregroundStyle(Theme.secondary)
+                    .rowDetail()
             }
         }
         .frame(maxWidth: .infinity)
@@ -132,6 +133,14 @@ struct ChatInfoView: View {
             separator
             toggleRow(icon: "pin", title: "Pin chat", isOn: Binding(
                 get: { thread.isPinned }, set: { _ in state.chats.togglePin(threadID) }))
+            separator
+            toggleRow(icon: "star", title: "Favourite", isOn: Binding(
+                get: { thread.isFavourite }, set: { _ in state.chats.toggleFavourite(threadID) }))
+            separator
+            Button { showLabels = true } label: {
+                row(icon: "tag", title: "Labels", trailing: labelNames(for: thread), showsChevron: true)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -164,7 +173,7 @@ struct ChatInfoView: View {
                 .frame(width: 38, height: 38)
                 .background(Circle().fill(Theme.lavender))
             Text(name)
-                .scaledFont(17, maxScale: 1.25)
+                .scaledFont(16, maxScale: 1.25)
                 .foregroundStyle(Theme.ink)
             Spacer()
             if let detail {
@@ -213,6 +222,11 @@ struct ChatInfoView: View {
         }
     }
 
+    private func labelNames(for thread: ChatThread) -> String? {
+        let names = state.chats.customLabels.filter { thread.labelIDs.contains($0.id) }.map(\.name)
+        return names.isEmpty ? "None" : names.joined(separator: ", ")
+    }
+
     // MARK: Building blocks
 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -232,12 +246,12 @@ struct ChatInfoView: View {
                 .foregroundStyle(destructive ? Color.red : Theme.tabSelected)
                 .frame(width: 28)
             Text(title)
-                .scaledFont(17, maxScale: 1.25)
+                .scaledFont(16, maxScale: 1.25)
                 .foregroundStyle(destructive ? Color.red : Theme.ink)
             Spacer(minLength: 8)
             if let trailing {
                 Text(trailing)
-                    .scaledFont(16, maxScale: 1.25)
+                    .scaledFont(15, maxScale: 1.25)
                     .foregroundStyle(Theme.secondary)
             }
             if showsChevron {
@@ -258,7 +272,7 @@ struct ChatInfoView: View {
                 .foregroundStyle(Theme.tabSelected)
                 .frame(width: 28)
             Toggle(title, isOn: isOn)
-                .scaledFont(17, maxScale: 1.25)
+                .scaledFont(16, maxScale: 1.25)
                 .foregroundStyle(Theme.ink)
                 .tint(Theme.tabSelected)
         }

@@ -19,7 +19,7 @@ struct RegistrationView: View {
         switch event.parentPresence {
         case .required:   return true
         case .optional:   return staysWithChild
-        case .notAllowed: return false
+        case .dropOffOnly: return false
         }
     }
 
@@ -164,14 +164,14 @@ struct RegistrationView: View {
                     GatherSegmented(options: [true, false], selection: $staysWithChild) {
                         $0 ? "I’ll stay" : "Drop-off"
                     }
-                    Text("The host welcomes parents but doesn’t require them.")
+                    Text("You are welcome to stay or drop off \(childLabel).")
                         .scaledFont(13, maxScale: 1.3)
                         .foregroundStyle(Theme.gatherText)
                 }
 
-            case .notAllowed:
+            case .dropOffOnly:
                 notice(icon: "figure.walk.departure",
-                       text: "Parents can’t stay at this event. Please drop off and collect \(childLabel) on time.")
+                       text: "This is an independent session for learners. Please drop off and collect \(childLabel) on time.")
             }
 
             checkbox(consentText, isOn: $consent)
