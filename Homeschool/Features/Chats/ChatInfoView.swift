@@ -1,0 +1,375 @@
+import SwiftUI
+
+/// Chat settings, laid out like a messenger's contact or group info page.
+struct ChatInfoView: View {
+    let threadID: ChatThread.ID
+    let onSearch: () -> Void
+
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var confirmClear = false
+    @State private var confirmExit = false
+    @State private var showAddMembers = false
+
+    private var thread: ChatThread? { state.chats.thread(threadID) }
+
+    var body: some View {
+        Group {
+            if let thread {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        hero(thread)
+                        actions(thread)
+                        mediaCard(thread)
+                        settingsCard(thread)
+                        if thread.isGroup { membersCard(thread) }
+                        dangerCard(thread)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 30)
+                }
+                .scrollIndicators(.hidden)
+            } else {
+                Color.clear
+            }
+        }
+        .background(Theme.background)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
+        .onChange(of: thread == nil) { _, isGone in
+            if isGone { dismiss() }
+        }
+        .confirmationDialog("Clear all messages?", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("Clear chat", role: .destructive) { state.chats.clear(threadID) }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog(thread?.isGroup == true ? "Exit this group?" : "Delete this chat?",
+                            isPresented: $confirmExit, titleVisibility: .visible) {
+            Button(thread?.isGroup == true ? "Exit group" : "Delete chat", role: .destructive) {
+                state.chats.delete(threadID)
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showAddMembers) {
+            AddMembersSheet(threadID: threadID)
+        }
+    }
+
+    // MARK: Top
+
+    private func hero(_ thread: ChatThread) -> some View {
+        VStack(spacing: 8) {
+            ChatAvatar(thread: thread, size: 112)
+                .padding(.top, 6)
+            Text(thread.title)
+                .scaledFont(26, weight: .heavy, maxScale: 1.15)
+                .tracking(-0.5)
+                .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center)
+            if !thread.subtitle.isEmpty {
+                Text(thread.subtitle)
+                    .scaledFont(16, maxScale: 1.3)
+                    .foregroundStyle(Theme.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func actions(_ thread: ChatThread) -> some View {
+        HStack(spacing: 10) {
+            actionTile(icon: "magnifyingglass", title: "Search") {
+                dismiss()
+                onSearch()
+            }
+            actionTile(icon: thread.isMuted ? "bell.slash.fill" : "bell", title: thread.isMuted ? "Unmute" : "Mute") {
+                state.chats.toggleMute(threadID)
+            }
+            actionTile(icon: thread.isPinned ? "pin.fill" : "pin", title: thread.isPinned ? "Unpin" : "Pin") {
+                state.chats.togglePin(threadID)
+            }
+            if thread.isGroup {
+                actionTile(icon: "person.badge.plus", title: "Add") { showAddMembers = true }
+            }
+        }
+    }
+
+    private func actionTile(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(Theme.tabSelected)
+                Text(title)
+                    .scaledFont(13, weight: .medium, maxScale: 1.15)
+                    .foregroundStyle(Theme.ink)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 66)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Cards
+
+    private func mediaCard(_ thread: ChatThread) -> some View {
+        card {
+            NavigationLink {
+                MediaGalleryView(threadID: threadID)
+            } label: {
+                row(icon: "photo.on.rectangle", title: "Media",
+                    trailing: "\(thread.mediaMessages.count)", showsChevron: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func settingsCard(_ thread: ChatThread) -> some View {
+        card {
+            toggleRow(icon: "bell.slash", title: "Mute notifications", isOn: Binding(
+                get: { thread.isMuted }, set: { _ in state.chats.toggleMute(threadID) }))
+            separator
+            toggleRow(icon: "pin", title: "Pin chat", isOn: Binding(
+                get: { thread.isPinned }, set: { _ in state.chats.togglePin(threadID) }))
+        }
+    }
+
+    private func membersCard(_ thread: ChatThread) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(thread.members.count + 1) members")
+                .scaledFont(14, weight: .medium, maxScale: 1.2)
+                .foregroundStyle(Theme.secondary)
+                .padding(.horizontal, 6)
+            card {
+                Button { showAddMembers = true } label: {
+                    row(icon: "person.badge.plus", title: "Add members", trailing: nil, showsChevron: false)
+                }
+                .buttonStyle(.plain)
+                separator
+                memberRow(name: "You", detail: "Group admin", canRemove: false)
+                ForEach(thread.members, id: \.self) { member in
+                    separator
+                    memberRow(name: member, detail: nil, canRemove: true)
+                }
+            }
+        }
+    }
+
+    private func memberRow(name: String, detail: String?, canRemove: Bool) -> some View {
+        HStack(spacing: 12) {
+            Text(String(name.prefix(1)).uppercased())
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 38, height: 38)
+                .background(Circle().fill(Theme.lavender))
+            Text(name)
+                .scaledFont(17, maxScale: 1.25)
+                .foregroundStyle(Theme.ink)
+            Spacer()
+            if let detail {
+                Text(detail)
+                    .scaledFont(12, weight: .medium, maxScale: 1.2)
+                    .foregroundStyle(Theme.tabSelected)
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(Capsule().fill(Color(hex: 0xEFEDFB)))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .contextMenu {
+            if canRemove {
+                Button(role: .destructive) {
+                    state.chats.removeMember(name, from: threadID)
+                } label: {
+                    Label("Remove from group", systemImage: "person.badge.minus")
+                }
+            }
+        }
+    }
+
+    private func dangerCard(_ thread: ChatThread) -> some View {
+        card {
+            Button { confirmClear = true } label: {
+                row(icon: "trash", title: "Clear chat", trailing: nil, showsChevron: false, destructive: true)
+            }
+            .buttonStyle(.plain)
+            separator
+            if !thread.isGroup {
+                Button { state.chats.toggleBlock(threadID) } label: {
+                    row(icon: "nosign", title: thread.isBlocked ? "Unblock \(thread.title)" : "Block \(thread.title)",
+                        trailing: nil, showsChevron: false, destructive: !thread.isBlocked)
+                }
+                .buttonStyle(.plain)
+                separator
+            }
+            Button { confirmExit = true } label: {
+                row(icon: thread.isGroup ? "rectangle.portrait.and.arrow.right" : "xmark.bin",
+                    title: thread.isGroup ? "Exit group" : "Delete chat",
+                    trailing: nil, showsChevron: false, destructive: true)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: Building blocks
+
+    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0, content: content)
+            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.white))
+    }
+
+    private var separator: some View {
+        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1).padding(.leading, 52)
+    }
+
+    private func row(icon: String, title: String, trailing: String?, showsChevron: Bool,
+                     destructive: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(destructive ? Color.red : Theme.tabSelected)
+                .frame(width: 28)
+            Text(title)
+                .scaledFont(17, maxScale: 1.25)
+                .foregroundStyle(destructive ? Color.red : Theme.ink)
+            Spacer(minLength: 8)
+            if let trailing {
+                Text(trailing)
+                    .scaledFont(16, maxScale: 1.25)
+                    .foregroundStyle(Theme.secondary)
+            }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.dotInactive)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+
+    private func toggleRow(icon: String, title: String, isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.tabSelected)
+                .frame(width: 28)
+            Toggle(title, isOn: isOn)
+                .scaledFont(17, maxScale: 1.25)
+                .foregroundStyle(Theme.ink)
+                .tint(Theme.tabSelected)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Media
+
+private struct MediaGalleryView: View {
+    let threadID: ChatThread.ID
+    @Environment(AppState.self) private var state
+
+    var body: some View {
+        let items = state.chats.thread(threadID)?.mediaMessages ?? []
+        ScrollView {
+            if items.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 36))
+                        .foregroundStyle(Theme.tabIconInactive)
+                    Text("No media yet")
+                        .scaledFont(18, weight: .bold, maxScale: 1.2)
+                        .foregroundStyle(Theme.ink)
+                    Text("Photos you share in this chat will appear here.")
+                        .scaledFont(15, maxScale: 1.3)
+                        .foregroundStyle(Theme.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 120)
+                .padding(.horizontal, 40)
+                .frame(maxWidth: .infinity)
+            } else {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
+                    ForEach(items) { item in
+                        if let data = item.imageData, let image = UIImage(data: data) {
+                            Color.clear
+                                .aspectRatio(1, contentMode: .fit)
+                                .overlay {
+                                    Image(uiImage: image).resizable().scaledToFill()
+                                }
+                                .clipped()
+                                .accessibilityLabel("Photo")
+                        }
+                    }
+                }
+            }
+        }
+        .background(Theme.background)
+        .navigationTitle("Media")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Add members
+
+private struct AddMembersSheet: View {
+    let threadID: ChatThread.ID
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    @State private var selected: Set<String> = []
+
+    private var candidates: [Parent] {
+        let existing = Set(state.chats.thread(threadID)?.members ?? [])
+        return MockData.parents.filter { !existing.contains($0.name) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if candidates.isEmpty {
+                    Text("Everyone nearby is already in this group.")
+                        .foregroundStyle(Theme.secondary)
+                }
+                ForEach(candidates) { parent in
+                    Button {
+                        if selected.contains(parent.name) { selected.remove(parent.name) }
+                        else { selected.insert(parent.name) }
+                    } label: {
+                        HStack(spacing: 14) {
+                            Text(String(parent.name.prefix(2)).uppercased())
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(Theme.ink)
+                                .frame(width: 42, height: 42)
+                                .background(Circle().fill(Theme.lavender))
+                            Text(parent.name).foregroundStyle(Theme.ink)
+                            Spacer()
+                            Image(systemName: selected.contains(parent.name) ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 22))
+                                .foregroundStyle(selected.contains(parent.name) ? Theme.tabSelected : Theme.dotInactive)
+                        }
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .background(Theme.background)
+            .navigationTitle("Add members")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        state.chats.addMembers(MockData.parents.map(\.name).filter { selected.contains($0) }, to: threadID)
+                        dismiss()
+                    }
+                    .disabled(selected.isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}

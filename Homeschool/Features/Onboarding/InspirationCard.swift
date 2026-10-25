@@ -12,7 +12,7 @@ struct InspirationCard: View {
                 .background(Color(hex: 0xFFC8C9), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             Text("Saturday,\noutside.")
-                .scaledFont(40, weight: .bold, maxScale: 1.15)
+                .scaledFont(40, weight: .heavy, maxScale: 1.15)
                 .tracking(-1.4)
                 .lineSpacing(-6)
                 .foregroundStyle(Theme.ink)

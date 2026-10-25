@@ -2,9 +2,13 @@ import SwiftUI
 
 enum LaunchStage { case onboarding, login, setup, main }
 
+@MainActor
 @Observable
 final class AppState {
     var stage: LaunchStage = .onboarding
+    /// All conversations.
+    let chats = ChatStore()
+
     /// The parent who is signed in.
     var account: Account? = AccountStore.current
 

@@ -224,8 +224,7 @@ private struct SubjectGroupSection: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(group.title)
-                    .font(.title3.bold())
-                    .foregroundStyle(Theme.obsidian)
+                    .cardTitle()
                 Spacer(minLength: 8)
                 StatusPill(text: statusText, state: pillState)
             }

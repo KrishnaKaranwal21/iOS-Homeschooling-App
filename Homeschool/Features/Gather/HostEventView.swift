@@ -64,6 +64,7 @@ struct HostEventView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                Text("Host an event").pageTitle()
                 hostingCard
                 makeItYours
                 whenAndWhere
@@ -75,8 +76,7 @@ struct HostEventView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
-        .navigationTitle("Host an event")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PrimaryButton(title: "Create event", isDimmed: !canCreate, action: create)
                 .padding(.horizontal, 20)

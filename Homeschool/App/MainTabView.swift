@@ -54,6 +54,7 @@ struct MainTabView: View {
             } label: {
                 label("Chats", symbol: "bubble.left", tab: .chats)
             }
+            .badge(state.chats.totalUnread)
         }
         .tint(Theme.tabSelected)
         .environment(\.openTab, { selection = $0 })

@@ -6,6 +6,12 @@ struct SavedEventsView: View {
 
     var body: some View {
         ScrollView {
+            Text("Saved events")
+                .pageTitle()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 4)
+
             if state.savedEvents.isEmpty {
                 ContentUnavailableView("No saved events yet",
                                        systemImage: "bookmark",
@@ -24,8 +30,7 @@ struct SavedEventsView: View {
         }
         .animation(.snappy, value: state.savedEvents.count)
         .background(Theme.background)
-        .navigationTitle("Saved events")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

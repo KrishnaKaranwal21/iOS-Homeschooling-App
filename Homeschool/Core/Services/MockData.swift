@@ -61,19 +61,6 @@ enum MockData {
         Parent(name: "Preeti", role: "Mum to Ananya, 8 & Ankit, 5", tags: "Stories · Outdoor play", distanceKm: 2.6, about: "Story-time lovers."),
         Parent(name: "Sneha", role: "Mum to Noah, 7", tags: "Space · Arts & crafts", distanceKm: 4.2, about: "Arts, crafts and stargazing.")
     ]
-    static let threads = [
-        ChatThread(title: "Sara Patel", preview: "Shall we meet by the café at 10?", time: "9:36", unread: 2),
-        ChatThread(title: "Oakwood homeschool circle", preview: "Emma: I'll bring the picnic blanket!", time: "9:24", unread: 5, isGroup: true),
-        ChatThread(title: "Curious Minds Club", preview: "Leo: The moon experiment was a hit", time: "8:58", unread: 3, isGroup: true),
-        ChatThread(title: "James Wilson", preview: "Thanks! Noah can't wait to join you.", time: "8:12"),
-        ChatThread(title: "The Friday families", preview: "You: See you all next week!", time: "Thu", isGroup: true)
-    ]
-    static let messages = [
-        Message(text: "Hi Sara! I'm Asha. I spotted your profile in the homeschooling community and thought I'd say hello.", time: "9:41", isMine: true),
-        Message(text: "Hi Asha! Nice to meet you. Homeschooling can feel quiet sometimes, so it's great to connect with someone local.", time: "9:43", isMine: false),
-        Message(text: "Exactly! We just moved here. Do you have a favorite park or meetup spot nearby?", time: "9:45", isMine: true),
-        Message(text: "We love the library on Fridays and the nature walk by the creek on Wednesdays.", time: "9:47", isMine: false)
-    ]
     static let roadmap = [
         RoadmapStep(id: 1, title: "Understand homeschooling", detail: "Learn how it works and your role.", symbol: "book"),
         RoadmapStep(id: 2, title: "Explore boards and learning pathways", detail: "Compare routes for your child's goals.", symbol: "signpost.right"),

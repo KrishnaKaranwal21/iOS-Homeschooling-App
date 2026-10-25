@@ -119,14 +119,11 @@ struct FirstHomeView: View {
     private var headline: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("A little plan.\nA lighter start.")
-                .scaledFont(32, weight: .heavy, maxScale: 1.15)
-                .tracking(-1)
+                .pageTitle()
                 .lineSpacing(-3)
-                .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Let’s shape \(childName)’s first week.")
-                .scaledFont(16, maxScale: 1.3)
-                .foregroundStyle(Theme.secondary)
+                .pageSubtitle()
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
@@ -226,11 +223,8 @@ struct FirstHomeView: View {
     private var exploreSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Explore more")
-                .scaledFont(22, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.5)
-                .foregroundStyle(Theme.ink)
+                .sectionTitle()
                 .padding(.horizontal, 4)
-                .accessibilityAddTraits(.isHeader)
 
             ScrollView(.horizontal) {
                 LazyHStack(spacing: 0) {
@@ -474,8 +468,7 @@ private struct IdeaPreviewSheet: View {
                         .background(Capsule().fill(Theme.field))
 
                     Text("Turn a word problem into a comic.")
-                        .scaledFont(30, weight: .heavy, maxScale: 1.15)
-                        .tracking(-0.8)
+                        .pageTitle()
 
                     Image("HomeArtComic")
                         .resizable()

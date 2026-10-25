@@ -73,9 +73,7 @@ struct EventDetailView: View {
             dateTile
             VStack(alignment: .leading, spacing: 4) {
                 Text(current.title)
-                    .scaledFont(30, weight: .heavy, maxScale: 1.2)
-                    .tracking(-1)
-                    .foregroundStyle(Theme.ink)
+                    .pageTitle()
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                 Text("\(current.mode.rawValue) · \(current.ages)")

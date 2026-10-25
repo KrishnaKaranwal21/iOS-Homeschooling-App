@@ -47,6 +47,7 @@ struct RegistrationView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                Text("Registration").pageTitle()
                 eventCard
                 parentSection
                 childSection
@@ -60,8 +61,7 @@ struct RegistrationView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
-        .navigationTitle("Registration")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: prefill)
         .animation(.snappy, value: staysWithChild)
     }

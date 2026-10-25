@@ -5,7 +5,8 @@ struct ChildSetupFlowView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        ChildSetupSteps(child: Bindable(state).child, mode: .onboarding) {
+        @Bindable var bindableState = state
+        return ChildSetupSteps(child: $bindableState.child, mode: .onboarding) {
             state.advance(to: .main)
         }
     }
@@ -250,7 +251,8 @@ struct ChildBasicsStep: View {
             Text("FIRST NAME OR NICKNAME")
                 .font(.caption2).tracking(0.8).foregroundStyle(Theme.systemGray)
             TextField("Enter name", text: $child.name)
-                .font(.largeTitle.bold())
+                .scaledFont(32, weight: .heavy, maxScale: 1.15)
+                .tracking(-1)
                 .textInputAutocapitalization(.words)
             Text("A nickname is absolutely fine")
                 .font(.footnote)
@@ -411,7 +413,7 @@ struct RhythmStep: View {
     private var daysCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Choose your learning days").font(.headline)
+                Text("Choose your learning days").cardTitle()
                 Text("Tap the days that usually work")
                     .font(.footnote)
                     .foregroundStyle(Theme.systemGray)
@@ -468,7 +470,7 @@ struct RhythmStep: View {
 
     private var dayRunCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("How should the day run?").font(.headline)
+            Text("How should the day run?").cardTitle()
             modeToggle
         }
         .padding(16)
@@ -523,7 +525,7 @@ struct StepperCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.headline)
+            Text(title).cardTitle()
             Text("\(value)").scaledFont(56, weight: .bold)
             Text(unit).font(.footnote).foregroundStyle(Theme.systemGray)
             stepper.padding(.top, 8)

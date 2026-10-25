@@ -90,12 +90,9 @@ struct GatherView: View {
         VStack(alignment: .leading, spacing: 6) {
         HStack(alignment: .center, spacing: 12) {
             Text("Gatherings")
-                .scaledFont(34, weight: .bold, maxScale: 1.3)
+                .pageTitle()
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-                .tracking(-1.2)
-                .foregroundStyle(Theme.ink)
-                .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
 
             GatherGlassContainer(spacing: 10) {
@@ -116,10 +113,9 @@ struct GatherView: View {
         }
 
         Text("Good company. Shared discoveries.")
-            .scaledFont(15, maxScale: 1.3)
+            .pageSubtitle()
             .lineLimit(1)
             .minimumScaleFactor(0.8)
-            .foregroundStyle(Theme.gatherText)
         }
         .padding(.horizontal, 24)
     }
@@ -268,9 +264,7 @@ struct GatherView: View {
 
     private func sectionTitle(_ text: String) -> some View {
         Text(text)
-            .scaledFont(24, weight: .bold, maxScale: 1.3)
-            .tracking(-0.6)
-            .foregroundStyle(Theme.ink)
+            .sectionTitle()
             .padding(.horizontal, 24)
     }
 }

@@ -46,13 +46,9 @@ struct ProfileView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Profile")
-                    .scaledFont(32, weight: .heavy, maxScale: 1.15)
-                    .tracking(-1)
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
+                    .pageTitle()
                 Text("You, your children and their plans.")
-                    .scaledFont(16, maxScale: 1.3)
-                    .foregroundStyle(Theme.secondary)
+                    .pageSubtitle()
             }
             Spacer(minLength: 0)
             Image("HomeMascot")
@@ -129,10 +125,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
                 Text(state.children.count == 1 ? "Your child" : "Your children")
-                    .scaledFont(22, weight: .heavy, maxScale: 1.2)
-                    .tracking(-0.5)
-                    .foregroundStyle(Theme.ink)
-                    .accessibilityAddTraits(.isHeader)
+                    .sectionTitle()
                 Text("\(state.children.count)")
                     .scaledFont(13, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(Theme.ink)

@@ -4,7 +4,7 @@ struct CommunityCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("A little less solo.")
-                .scaledFont(28, weight: .bold, maxScale: 1.15)
+                .scaledFont(28, weight: .heavy, maxScale: 1.15)
                 .tracking(-0.8)
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 4)
