@@ -188,7 +188,8 @@ struct FirstHomeView: View {
         GeometryReader { geo in
             let count = max(days.count, 1)
             let gap: CGFloat = 4
-            let fitted = (geo.size.width - gap * CGFloat(count - 1)) / CGFloat(count)
+            let inset: CGFloat = 18
+            let fitted = (geo.size.width - inset * 2 - gap * CGFloat(count - 1)) / CGFloat(count)
             let tile = days.count <= 4 ? min(82, fitted) : 74
 
             ScrollView(.horizontal) {
@@ -212,9 +213,11 @@ struct FirstHomeView: View {
                 }
                 .padding(.vertical, 6)
             }
+            // The row runs edge to edge inside the pink box and scrolls without leaving it.
+            .contentMargins(.horizontal, inset, for: .scrollContent)
             .scrollIndicators(.hidden)
-            .scrollClipDisabled()
         }
+        .padding(.horizontal, -18)
         .frame(height: 96)
     }
 

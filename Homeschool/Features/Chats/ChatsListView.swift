@@ -53,6 +53,8 @@ struct ChatsListView: View {
         .navigationDestination(item: $openID) { id in
             ChatDetailView(threadID: id)
         }
+        .onAppear(perform: openPendingChat)
+        .onChange(of: state.chats.pendingOpenID) { openPendingChat() }
         .sheet(isPresented: $showNewChat) {
             NewChatSheet { id in
                 showNewChat = false
@@ -76,6 +78,13 @@ struct ChatsListView: View {
         } message: {
             Text("The messages will be removed from this device.")
         }
+    }
+
+    /// Opens a chat that another screen asked for, such as "Message host".
+    private func openPendingChat() {
+        guard let id = state.chats.pendingOpenID else { return }
+        state.chats.pendingOpenID = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { openID = id }
     }
 
     // MARK: Header

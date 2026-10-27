@@ -4,8 +4,8 @@ import MapKit
 // MARK: - Place
 
 /// A place a family can filter by or host in: a nearby area, a city, a country, or the whole world.
-struct Place: Identifiable, Hashable {
-    enum Kind: String { case nearby, area, city, country, world }
+struct Place: Identifiable, Hashable, Codable {
+    enum Kind: String, Codable { case nearby, area, city, country, world }
 
     var name: String
     var detail: String
@@ -58,11 +58,18 @@ enum PlaceCatalog {
     ]
 
     /// Whether an event is relevant to the place chosen in the filter.
-    static func matches(_ event: Event, selection: Place) -> Bool {
+    /// Area names that count as "near" a home location.
+    static func nearbyNames(around home: Place) -> Set<String> {
+        if nearby.contains(where: { $0.name == home.name }) { return Set(nearby.map(\.name)) }
+        if let areas = areasByCity[home.name] { return areas.union([home.name]) }
+        return [home.name]
+    }
+
+    static func matches(_ event: Event, selection: Place, home: Place = .potheri) -> Bool {
         if event.mode == .online { return true }
         switch selection.kind {
         case .world:   return true
-        case .nearby:  return nearby.contains { $0.name.localizedCaseInsensitiveCompare(event.locality) == .orderedSame }
+        case .nearby:  return nearbyNames(around: home).contains { $0.localizedCaseInsensitiveCompare(event.locality) == .orderedSame }
         case .country: return event.country.localizedCaseInsensitiveCompare(selection.country) == .orderedSame
         case .area:    return event.locality.localizedCaseInsensitiveCompare(selection.name) == .orderedSame
         case .city:
@@ -119,6 +126,8 @@ struct LocationPickerSheet: View {
     /// Offers "All over the world". Hosts must choose a real place, so they turn it off.
     var allowsWorld = true
     let selection: Place?
+    /// The family's home area, shown under "Near you".
+    var home: Place = .potheri
     let onSelect: (Place) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -209,7 +218,7 @@ struct LocationPickerSheet: View {
                     Text(place.name)
                         .scaledFont(16, weight: .medium, maxScale: 1.3)
                         .foregroundStyle(Theme.ink)
-                    Text(place.detail)
+                    Text(place.kind == .nearby ? "Around \(home.name)" : place.detail)
                         .scaledFont(13, maxScale: 1.3)
                         .foregroundStyle(Theme.gatherText)
                 }

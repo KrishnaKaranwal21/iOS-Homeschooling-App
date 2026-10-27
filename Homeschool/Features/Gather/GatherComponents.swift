@@ -226,26 +226,6 @@ private struct DashedLine: Shape {
     }
 }
 
-/// Half-circle bites out of the left and right edges, centred exactly on the dashed divider.
-private struct TicketCutouts: View {
-    let dividerY: CGFloat
-
-    var body: some View {
-        Rectangle()
-            .overlay(alignment: .topLeading) {
-                Circle().frame(width: 26, height: 26)
-                    .offset(x: -13, y: dividerY - 13)
-                    .blendMode(.destinationOut)
-            }
-            .overlay(alignment: .topTrailing) {
-                Circle().frame(width: 26, height: 26)
-                    .offset(x: 13, y: dividerY - 13)
-                    .blendMode(.destinationOut)
-            }
-            .compositingGroup()
-    }
-}
-
 // MARK: - "Your next gathering" ticket
 
 struct TicketCard: View {
@@ -303,7 +283,6 @@ struct TicketCard: View {
         .frame(height: Self.cardHeight)
         .background(Theme.pink)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .mask { TicketCutouts(dividerY: Self.topHeight + 0.5) }
     }
 
     private var dateTile: some View {
@@ -355,9 +334,6 @@ struct TicketCard: View {
 // MARK: - Shown when there are no registrations yet
 
 struct EmptyTicketCard: View {
-    /// Scrolls to the outings below. `nil` hides the button when there is nothing to browse.
-    var onBrowse: (() -> Void)? = nil
-
     private let tileColumn: CGFloat = 114
     private let dashColor = Color.black.opacity(0.22)
     private let warmText = Color(hex: 0x9C4A4B)
@@ -400,28 +376,15 @@ struct EmptyTicketCard: View {
                 Text("Free spots can be cancelled anytime")
                     .scaledFont(13, maxScale: 1.3)
                     .foregroundStyle(Color.black.opacity(0.45))
-                    .lineLimit(2)
-                Spacer(minLength: 8)
-                if let onBrowse {
-                    Button(action: onBrowse) {
-                        Label("Browse", systemImage: "arrow.down")
-                            .scaledFont(15, weight: .semibold, maxScale: 1.3)
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 9)
-                            .gatherGlass(in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Browse outings")
-                }
+                    .lineLimit(1)
+                Spacer(minLength: 0)
             }
             .padding(.horizontal, 20)
             .frame(maxHeight: .infinity)
         }
         .frame(height: TicketCard.cardHeight)
-        .background(Theme.pink.opacity(0.6))
+        .background(Theme.pink)
         .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .mask { TicketCutouts(dividerY: TicketCard.topHeight + 0.5) }
         .accessibilityElement(children: .combine)
     }
 

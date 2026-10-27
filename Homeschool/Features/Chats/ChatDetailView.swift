@@ -13,7 +13,13 @@ struct ChatDetailView: View {
     @State private var isSearching = false
     @State private var searchText = ""
     @State private var photoItem: PhotosPickerItem?
+    @State private var recorder = VoiceRecorder()
+    @State private var player = VoicePlayer()
+    @State private var micDenied = false
+    @State private var callMode: CallMode?
     @FocusState private var composerFocused: Bool
+
+    private static let bottomID = "chat-bottom"
 
     private var thread: ChatThread? { state.chats.thread(threadID) }
 
@@ -78,6 +84,14 @@ struct ChatDetailView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(thread.title). Chat info")
             }
+            if !thread.isGroup {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button { callMode = .video } label: { Image(systemName: "video") }
+                        .accessibilityLabel("Video call")
+                    Button { callMode = .voice } label: { Image(systemName: "phone") }
+                        .accessibilityLabel("Voice call")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { showInfo = true } label: {
@@ -99,6 +113,17 @@ struct ChatDetailView: View {
         }
         .navigationDestination(isPresented: $showInfo) {
             ChatInfoView(threadID: threadID) { startSearch() }
+        }
+        .fullScreenCover(item: $callMode) { mode in
+            CallView(thread: thread, mode: mode)
+        }
+        .alert("Microphone is off", isPresented: $micDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Allow microphone access in Settings to send voice messages.")
         }
     }
 
@@ -149,6 +174,9 @@ struct ChatDetailView: View {
                                 .id(message.id)
                         }
                     }
+
+                    // The end of the conversation. Opening a chat scrolls here, so the newest message shows first.
+                    Color.clear.frame(height: 1).id(Self.bottomID)
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -157,12 +185,17 @@ struct ChatDetailView: View {
             .defaultScrollAnchor(.bottom)
             .onChange(of: composerFocused) { _, focused in
                 // Keep the latest message visible when the keyboard opens.
-                guard focused, let last = thread.messages.last else { return }
-                withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }
+                guard focused else { return }
+                withAnimation(.snappy) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+            }
+            .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+            .task {
+                // Once more after the first layout, because long chats finish sizing a moment later.
+                try? await Task.sleep(for: .milliseconds(120))
+                proxy.scrollTo(Self.bottomID, anchor: .bottom)
             }
             .onChange(of: thread.messages.count) {
-                guard let last = thread.messages.last else { return }
-                withAnimation(.snappy) { proxy.scrollTo(last.id, anchor: .bottom) }
+                withAnimation(.snappy) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
             }
         }
     }
@@ -217,6 +250,9 @@ struct ChatDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .accessibilityLabel("Photo")
                 }
+                if message.audioData != nil {
+                    VoiceBubble(message: message, player: player)
+                }
                 if !message.text.isEmpty {
                     Text(message.text)
                         .scaledFont(17, maxScale: 1.3)
@@ -255,6 +291,29 @@ struct ChatDetailView: View {
 
     @ViewBuilder
     private func composerArea(_ thread: ChatThread) -> some View {
+        VStack(spacing: 0) {
+            prototypeButton
+            composerContent(thread)
+        }
+    }
+
+    // PROTOTYPE ONLY: shows how a received message looks. Remove with `ChatStore.simulateIncoming`.
+    private var prototypeButton: some View {
+        Button { state.chats.simulateIncoming(in: threadID) } label: {
+            Label("Prototype: show incoming message", systemImage: "arrow.down.left.circle")
+                .scaledFont(13, weight: .medium, maxScale: 1.2)
+                .foregroundStyle(Theme.secondary)
+                .padding(.horizontal, 12)
+                .frame(height: 28)
+                .background(Capsule().fill(Theme.field))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 6)
+        .background(Theme.background)
+    }
+
+    @ViewBuilder
+    private func composerContent(_ thread: ChatThread) -> some View {
         if thread.isBlocked {
             Button { state.chats.toggleBlock(threadID) } label: {
                 Text("You blocked \(thread.title). Tap to unblock.")
@@ -273,41 +332,106 @@ struct ChatDetailView: View {
     private var composer: some View {
         let hasText = !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
-        return HStack(alignment: .bottom, spacing: 10) {
-            PhotosPicker(selection: $photoItem, matching: .images) {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Theme.field))
-            }
-            .accessibilityLabel("Attach a photo")
-            .onChange(of: photoItem) { _, item in loadPhoto(item) }
+        return Group {
+            if recorder.isRecording {
+                recordingBar
+            } else {
+                HStack(alignment: .bottom, spacing: 10) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                            .frame(width: 42, height: 42)
+                            .background(Circle().fill(Theme.field))
+                    }
+                    .accessibilityLabel("Attach a photo")
+                    .onChange(of: photoItem) { _, item in loadPhoto(item) }
 
-            TextField("Message", text: $draft, axis: .vertical)
-                .lineLimit(1...5)
-                .scaledFont(17, maxScale: 1.3)
-                .foregroundStyle(Theme.ink)
-                .focused($composerFocused)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .frame(minHeight: 42)
-                .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
+                    TextField("Message", text: $draft, axis: .vertical)
+                        .lineLimit(1...5)
+                        .scaledFont(17, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                        .focused($composerFocused)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .frame(minHeight: 42)
+                        .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
 
-            Button(action: sendDraft) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(hasText ? Color.white : Theme.secondary)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(hasText ? Theme.ink : Theme.field))
+                    if hasText {
+                        Button(action: sendDraft) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(Color.white)
+                                .frame(width: 42, height: 42)
+                                .background(Circle().fill(Theme.ink))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Send")
+                    } else {
+                        Button {
+                            composerFocused = false
+                            Task { if !(await recorder.start()) { micDenied = true } }
+                        } label: {
+                            Image(systemName: "mic.fill")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Theme.ink)
+                                .frame(width: 42, height: 42)
+                                .background(Circle().fill(Theme.lavender))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Record a voice message")
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .disabled(!hasText)
-            .accessibilityLabel("Send")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .background(Theme.background)
+    }
+
+    /// Shown while a voice message is being recorded: delete on the left, send on the right.
+    private var recordingBar: some View {
+        HStack(spacing: 10) {
+            Button { recorder.cancel() } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.red)
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(Theme.field))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete recording")
+
+            HStack(spacing: 10) {
+                Circle().fill(Color.red).frame(width: 10, height: 10)
+                Text(ChatFormat.duration(recorder.elapsed))
+                    .scaledFont(17, weight: .medium, maxScale: 1.3)
+                    .foregroundStyle(Theme.ink)
+                    .monospacedDigit()
+                Spacer()
+                Text("Recording")
+                    .scaledFont(14, maxScale: 1.3)
+                    .foregroundStyle(Theme.secondary)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 42)
+            .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
+
+            Button(action: sendRecording) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(Theme.ink))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Send voice message")
+        }
+    }
+
+    private func sendRecording() {
+        guard let note = recorder.stop() else { return }
+        state.chats.sendVoiceNote(note.data, duration: note.duration, in: threadID)
     }
 
     private func sendDraft() {

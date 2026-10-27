@@ -8,7 +8,10 @@ struct AuthTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .pageTitle()
+                .scaledFont(32, weight: .bold, maxScale: 1.15)
+                .tracking(-1)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
             subtitle
                 .scaledFont(16, maxScale: 1.3)
                 .foregroundStyle(Theme.muted)

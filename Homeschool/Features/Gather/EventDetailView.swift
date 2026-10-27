@@ -4,6 +4,7 @@ struct EventDetailView: View {
     let event: Event
     @Environment(AppState.self) private var state
     @State private var showConfirmation = false
+    @State private var showContactHost = false
 
     /// Latest copy from the app state, so the Register button reflects a new registration.
     private var current: Event {
@@ -18,19 +19,11 @@ struct EventDetailView: View {
                     .padding(.top, -14)
                 infoCard
                 hostCard
-                if !current.isFree {
-                    Label("Paid events are non-refundable, even if you don't attend.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .scaledFont(14, weight: .medium, maxScale: 1.25)
-                        .foregroundStyle(Theme.secondary)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.chipFill))
-                }
                 Text(current.about)
                     .bodyText()
                     .lineSpacing(3)
                     .padding(.horizontal, 6)
+                faqSection
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
@@ -41,13 +34,19 @@ struct EventDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button { state.toggleBookmark(current) } label: {
                     Image(systemName: state.isBookmarked(current) ? "bookmark.fill" : "bookmark")
+                        .foregroundStyle(Theme.ink)
                 }
+                // A tinted circle from the system, so there is no second white ring around the button.
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.circle)
+                .tint(Theme.lavender)
                 .sensoryFeedback(.selection, trigger: state.isBookmarked(current))
                 .accessibilityLabel(state.isBookmarked(current) ? "Remove from saved events" : "Save event")
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .sheet(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
+        .sheet(isPresented: $showContactHost) { ContactHostSheet(event: current) }
     }
 
     // MARK: Pieces
@@ -169,10 +168,62 @@ struct EventDetailView: View {
                 Text(current.hostRole)
                     .rowDetail()
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+            Button { showContactHost = true } label: {
+                Label("Message", systemImage: "bubble.left")
+                    .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Capsule().fill(Color.white))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Message the host")
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Theme.pink.opacity(0.65)))
+    }
+
+    // MARK: FAQs
+
+    private var faqSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("FAQs")
+                .sectionTitle()
+                .padding(.horizontal, 6)
+
+            VStack(spacing: 0) {
+                let faqs = current.allFAQs
+                ForEach(Array(faqs.enumerated()), id: \.element.id) { index, faq in
+                    DisclosureGroup {
+                        Text(faq.answer)
+                            .rowDetail()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.bottom, 12)
+                    } label: {
+                        Text(faq.question)
+                            .rowTitle()
+                            .multilineTextAlignment(.leading)
+                            .padding(.vertical, 12)
+                    }
+                    .tint(Theme.secondary)
+                    if index < faqs.count - 1 {
+                        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.white))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.lilacBorder, lineWidth: 1))
+
+            Button { showContactHost = true } label: {
+                Label("Still have a question? Message the host", systemImage: "bubble.left.and.text.bubble.right")
+                    .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                    .foregroundStyle(Theme.tabSelected)
+                    .padding(.horizontal, 6)
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var bottomBar: some View {
@@ -224,8 +275,8 @@ struct EventDetailView: View {
     }
 
     private var priceCaption: String {
-        guard current.isRegistered else { return current.isFree ? current.kind.rawValue : "No refunds" }
-        return state.canCancel(current) ? "Cancel any time" : "Paid · no refunds"
+        guard current.isRegistered else { return current.kind.rawValue }
+        return state.canCancel(current) ? "Cancel any time" : "Paid"
     }
 
     private var mapsURL: URL {

@@ -4,13 +4,9 @@ struct HomeView: View {
     @Environment(AppState.self) private var state
     @State private var showAddChild = false
 
-    /// The first visit shows the welcome Home. After the family has explored other tabs, the regular Home takes over.
+    /// Home screen 2 is hidden for now, so everyone sees the first Home. `regularHome` below is kept for when it is redesigned.
     var body: some View {
-        if state.hasSeenFirstHome {
-            regularHome
-        } else {
-            FirstHomeView()
-        }
+        FirstHomeView()
     }
 
     private var regularHome: some View {

@@ -62,8 +62,9 @@ struct LevelPickerSheet: View {
 
 // MARK: - Exam registration
 
-/// Whether the child is registered for the next NIOS exams, the last date for their level, and a reminder switch.
-struct ExamSection: View {
+/// Rows for a child's NIOS exams, made to sit inside a grouped list: registered or not, the last date for the level,
+/// and a reminder switch.
+struct ExamRows: View {
     let child: Child
     @Environment(AppState.self) private var state
     @Environment(\.openURL) private var openURL
@@ -76,141 +77,57 @@ struct ExamSection: View {
         state.updateChild(changed)
     }
 
-    private var divider: some View {
-        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1).padding(.leading, 52)
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
+        Group {
             if let window = child.examWindow {
-                registeredRow(window)
-                if !child.isExamRegistered {
-                    divider
-                    lastDateRow(window)
-                    divider
-                    reminderRow
-                }
-            } else {
-                obeRow
-            }
-        }
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
-        .task { notificationStatus = await ExamReminders.authorizationStatus() }
-    }
-
-    // MARK: Rows
-
-    private func registeredRow(_ window: ExamWindow) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.tabSelected)
-                .frame(width: 28)
-            Toggle(isOn: Binding(
-                get: { child.isExamRegistered },
-                set: { value in update { $0.examRegisteredSession = value ? window.id : nil } })) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(window.session)
-                        .scaledFont(12, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(Theme.secondary)
-                    Text(child.isExamRegistered ? "Registered" : "Not registered yet")
-                        .scaledFont(16, weight: .medium, maxScale: 1.25)
-                        .foregroundStyle(Theme.ink)
-                }
-            }
-            .tint(Theme.tabSelected)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    private func lastDateRow(_ window: ExamWindow) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "calendar.badge.clock")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(child.examNeedsAttention ? Color.orange : Theme.tabSelected)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Last date to register")
-                    .scaledFont(12, weight: .medium, maxScale: 1.2)
-                    .foregroundStyle(Theme.secondary)
-                Text(window.lastDate.formatted(date: .long, time: .omitted))
-                    .scaledFont(16, weight: .medium, maxScale: 1.25)
-                    .foregroundStyle(Theme.ink)
-                HStack(spacing: 6) {
-                    Text(countdownText)
-                        .scaledFont(13, weight: .medium, maxScale: 1.25)
-                        .foregroundStyle(countdownColor)
-                    if !window.isConfirmed {
-                        Text("· Expected")
-                            .scaledFont(13, maxScale: 1.25)
-                            .foregroundStyle(Theme.secondary)
+                Toggle(isOn: Binding(
+                    get: { child.isExamRegistered },
+                    set: { value in update { $0.examRegisteredSession = value ? window.id : nil } })) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Registered for exams")
+                        Text(window.session)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
-            }
-            Spacer(minLength: 8)
-            Button { openURL(ExamCalendar.noticeURL) } label: {
-                Image(systemName: "arrow.up.right.square")
-                    .font(.system(size: 17))
-                    .foregroundStyle(Theme.tabSelected)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Check the NIOS notice")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
 
-    private var reminderRow: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Image(systemName: "bell.badge")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Theme.tabSelected)
-                    .frame(width: 28)
-                Toggle(isOn: Binding(
-                    get: { child.examRemindersOn && notificationStatus != .denied },
-                    set: { setReminders($0) })) {
-                    Text("Remind me")
-                        .scaledFont(16, weight: .medium, maxScale: 1.25)
-                        .foregroundStyle(Theme.ink)
+                if !child.isExamRegistered {
+                    LabeledContent {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(window.lastDate.formatted(date: .abbreviated, time: .omitted))
+                            Text(countdownText + (window.isConfirmed ? "" : " · expected"))
+                                .font(.footnote)
+                                .foregroundStyle(countdownColor)
+                        }
+                    } label: {
+                        Text("Last date to register")
+                    }
+
+                    Button { openURL(ExamCalendar.noticeURL) } label: {
+                        Label("Check the NIOS notice", systemImage: "arrow.up.right.square")
+                    }
+
+                    Toggle("Remind me", isOn: Binding(
+                        get: { child.examRemindersOn && notificationStatus != .denied },
+                        set: { setReminders($0) }))
+
+                    if notificationStatus == .denied {
+                        Button("Notifications are off. Open Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                        }
+                        .font(.footnote)
+                    }
                 }
-                .tint(Theme.tabSelected)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-
-            if notificationStatus == .denied {
-                Button("Notifications are off. Open Settings") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            } else {
+                Label {
+                    Text(ExamCalendar.obeNote)
+                        .font(.subheadline)
+                } icon: {
+                    Image(systemName: "info.circle")
                 }
-                .scaledFont(13, weight: .semibold, maxScale: 1.25)
-                .foregroundStyle(Theme.tabSelected)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 54)
-                .padding(.bottom, 12)
             }
         }
-    }
-
-    private var obeRow: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "info.circle")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.tabSelected)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("NIOS exams")
-                    .scaledFont(12, weight: .medium, maxScale: 1.2)
-                    .foregroundStyle(Theme.secondary)
-                Text(ExamCalendar.obeNote)
-                    .scaledFont(16, weight: .medium, maxScale: 1.25)
-                    .foregroundStyle(Theme.ink)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .task { notificationStatus = await ExamReminders.authorizationStatus() }
     }
 
     // MARK: Helpers
@@ -238,8 +155,8 @@ struct ExamSection: View {
     }
 
     private var countdownColor: Color {
-        guard let days = child.daysUntilExamDeadline else { return Theme.ink }
-        if days <= 7 { return Color.red }
-        return days <= 30 ? Color.orange : Theme.secondary
+        guard let days = child.daysUntilExamDeadline else { return .secondary }
+        if days <= 7 { return .red }
+        return days <= 30 ? .orange : .secondary
     }
 }

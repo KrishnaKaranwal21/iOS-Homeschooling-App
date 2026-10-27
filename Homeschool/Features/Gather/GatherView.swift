@@ -8,18 +8,24 @@ struct GatherView: View {
     @State private var showLocationPicker = false
     @State private var ticketID: Event.ID?
     @State private var confirmation: Event?
+    @State private var showHost = false
+    @State private var showProfile = false
+    @State private var showProfilePrompt = false
 
     private let categories = ["All"] + Event.categories
 
     private var visibleEvents: [Event] {
         state.events.filter { event in
             (category == "All" || event.category == category)
-                && PlaceCatalog.matches(event, selection: place)
+                && PlaceCatalog.matches(event, selection: place, home: state.homeLocation)
                 && (query.isEmpty || event.title.localizedCaseInsensitiveContains(query))
         }
     }
 
-    private var registered: [Event] { visibleEvents.filter(\.isRegistered) }
+    /// Everything the family has registered for. It ignores the category, search and area, so it never changes when you filter.
+    private var registered: [Event] {
+        state.events.filter(\.isRegistered).sorted { $0.start < $1.start }
+    }
     private var hasNoRegistrations: Bool { !state.events.contains(where: \.isRegistered) }
     /// Everything that matches the filters. Outside "Near you", registered events stay in the list with a badge.
     /// In "Near you" the registered events already sit in the tickets above, so they are left out here.
@@ -55,15 +61,16 @@ struct GatherView: View {
                     searchField
                 }
 
-                categoryChips
-
                 if isNearYou {
                     if hasNoRegistrations {
-                        noRegistrations(proxy)
-                    } else if !registered.isEmpty {
+                        noRegistrations
+                    } else {
                         nextGatherings
                     }
                 }
+
+                categoryChips
+
                 if outings.isEmpty {
                     if !(isNearYou && !registered.isEmpty) { emptyState }
                 } else {
@@ -79,9 +86,22 @@ struct GatherView: View {
         .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
         .sheet(item: $confirmation) { GatherConfirmationSheet(event: $0) }
-        .sheet(isPresented: $showLocationPicker) {
-            LocationPickerSheet(selection: place) { place = $0 }
+        .navigationDestination(isPresented: $showHost) { HostEventView() }
+        .navigationDestination(isPresented: $showProfile) { ProfileView() }
+        .sheet(isPresented: $showProfilePrompt) {
+            CompleteProfileSheet(missing: state.missingProfileItems) {
+                showProfilePrompt = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showProfile = true }
+            }
         }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationPickerSheet(selection: place, home: state.homeLocation) { place = $0 }
+        }
+    }
+
+    /// Hosting needs a complete profile, so families can see who is hosting.
+    private func startHosting() {
+        if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
     }
 
     // MARK: Top of the page
@@ -98,7 +118,7 @@ struct GatherView: View {
             GatherGlassContainer(spacing: 10) {
                 HStack(spacing: 10) {
                     NavigationLink { SavedEventsView() } label: { savedIcon }
-                    NavigationLink { HostEventView() } label: {
+                    Button { startHosting() } label: {
                         Label("Host", systemImage: "plus")
                             .scaledFont(17, weight: .semibold, maxScale: 1.3)
                             .foregroundStyle(Theme.gatherAccent)
@@ -124,9 +144,9 @@ struct GatherView: View {
     private var savedIcon: some View {
         Image(systemName: state.savedEvents.isEmpty ? "bookmark" : "bookmark.fill")
             .scaledFont(17, weight: .semibold, maxScale: 1.3)
-            .foregroundStyle(Theme.gatherAccent)
+            .foregroundStyle(Theme.ink)
             .frame(width: 44, height: 44)
-            .gatherGlass(in: Circle())
+            .background(Circle().fill(Theme.lavender))
             .accessibilityLabel(state.savedEvents.isEmpty
                                 ? "Saved events"
                                 : "Saved events, \(state.savedEvents.count)")
@@ -139,7 +159,7 @@ struct GatherView: View {
                 .scaledFont(11, weight: .bold, maxScale: 1.2)
                 .foregroundStyle(Color.white)
                 .frame(minWidth: 18, minHeight: 18)
-                .background(Circle().fill(Theme.gatherAccent))
+                .background(Circle().fill(Theme.ink))
                 .overlay(Circle().stroke(Theme.background, lineWidth: 2))
                 .offset(x: 26, y: -4)
                 .allowsHitTesting(false)
@@ -230,20 +250,32 @@ struct GatherView: View {
         }
     }
 
-    private func noRegistrations(_ proxy: ScrollViewProxy) -> some View {
+    private var noRegistrations: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Your next gathering")
-            EmptyTicketCard(onBrowse: outings.isEmpty ? nil : {
-                withAnimation(.smooth) { proxy.scrollTo("outings", anchor: .top) }
-            })
-            .padding(.horizontal, 24)
+            EmptyTicketCard()
+                .padding(.horizontal, 24)
         }
+    }
+
+    /// "5 gatherings · 3 workshops available"
+    private var availabilityText: String {
+        let gatherings = outings.filter { $0.kind == .gathering }.count
+        let workshops = outings.filter { $0.kind == .workshop }.count
+        let gatheringText = "\(gatherings) \(gatherings == 1 ? "gathering" : "gatherings")"
+        let workshopText = "\(workshops) \(workshops == 1 ? "workshop" : "workshops")"
+        return "\(gatheringText) · \(workshopText) available"
     }
 
     private var findOutings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            sectionTitle(outingsTitle)
-                .id("outings")
+            VStack(alignment: .leading, spacing: 4) {
+                sectionTitle(outingsTitle)
+                    .id("outings")
+                Text(availabilityText)
+                    .caption()
+                    .padding(.horizontal, 24)
+            }
 
             LazyVStack(spacing: 16) {
                 ForEach(outings) { event in

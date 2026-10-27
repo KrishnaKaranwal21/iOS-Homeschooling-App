@@ -1,5 +1,12 @@
 import Foundation
 
+/// A question and answer the host adds to their event.
+struct EventFAQ: Identifiable, Hashable {
+    let id = UUID()
+    var question: String
+    var answer: String
+}
+
 struct Event: Identifiable, Hashable {
     enum Kind: String, CaseIterable, Identifiable {
         case gathering = "Gathering"
@@ -63,6 +70,8 @@ struct Event: Identifiable, Hashable {
     var ages: String
     var parentPresence: ParentPresence = .required
     var about: String
+    /// Questions the host answered ahead of time.
+    var faqs: [EventFAQ] = []
     /// Price in rupees. `nil` means free.
     var price: Int? = nil
     var symbol: String
@@ -75,7 +84,7 @@ struct Event: Identifiable, Hashable {
 
 extension Event {
     /// Categories a host can choose from. The Gather page adds "All" in front.
-    static let categories = ["Science", "Habit", "Art", "Coding", "Nature"]
+    static let categories = ["Science", "Habit", "Art", "Coding", "Nature", "Others"]
 
     static func symbol(for category: String) -> String {
         switch category {
@@ -84,8 +93,28 @@ extension Event {
         case "Art":     return "paintpalette"
         case "Coding":  return "chevron.left.forwardslash.chevron.right"
         case "Nature":  return "leaf"
+        case "Others":  return "sparkles"
         default:        return "person.2.fill"
         }
+    }
+
+    /// The host's own answers first, then the basics every family asks about.
+    var allFAQs: [EventFAQ] {
+        var standard: [EventFAQ] = [
+            EventFAQ(question: "Who is this for?",
+                     answer: "This session is planned for \(ages.lowercased() == "all ages" ? "all ages" : ages.lowercased())."),
+            EventFAQ(question: "Can I stay with my child?",
+                     answer: "\(parentPresence.rawValue). \(parentPresence.detail)"),
+            EventFAQ(question: "Can I cancel my place?",
+                     answer: isFree
+                        ? "Yes. Free places can be cancelled any time from your registration."
+                        : "Paid places can’t be cancelled. The \(priceText) fee is non-refundable, even if you can’t attend.")
+        ]
+        standard.append(EventFAQ(question: mode == .online ? "How do we join?" : "Where do we meet?",
+                                 answer: mode == .online
+                                    ? "This is an online session. The host shares the meeting link in the details."
+                                    : location.replacingOccurrences(of: "\n", with: ", ")))
+        return faqs + standard
     }
 
     var day: Int { Calendar.current.component(.day, from: start) }

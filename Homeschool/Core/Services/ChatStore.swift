@@ -13,6 +13,9 @@ struct ChatMessage: Identifiable, Equatable {
     var sender: String? = nil
     var status: MessageStatus = .read
     var imageData: Data? = nil
+    /// A recorded voice note.
+    var audioData: Data? = nil
+    var audioDuration: TimeInterval = 0
 }
 
 struct ChatThread: Identifiable {
@@ -55,7 +58,12 @@ struct ChatThread: Identifiable {
     /// The line shown in the chat list.
     var preview: String {
         guard let last = messages.last else { return "No messages yet" }
-        let body = last.imageData != nil && last.text.isEmpty ? "Photo" : last.text
+        let body: String
+        if last.audioData != nil {
+            body = "Voice message (\(ChatFormat.duration(last.audioDuration)))"
+        } else {
+            body = last.imageData != nil && last.text.isEmpty ? "Photo" : last.text
+        }
         if last.isMine { return "You: \(body)" }
         if isGroup, let sender = last.sender { return "\(sender): \(body)" }
         return body
@@ -90,6 +98,12 @@ enum ChatFormat {
         return days < 7 ? weekdayFormatter.string(from: date) : shortFormatter.string(from: date)
     }
 
+    /// 0:07, 1:32
+    static func duration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return "\(total / 60):\(String(format: "%02d", total % 60))"
+    }
+
     static func dayHeader(_ date: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Today" }
@@ -120,6 +134,7 @@ final class ChatStore {
         static let selected = "chat.selectedLabel"
         static let tags = "chat.tagsByTitle"
         static let favourites = "chat.favourites"
+        static let seedSamples = "chat.seedSamples"
     }
 
     init() {
@@ -135,7 +150,19 @@ final class ChatStore {
         let savedSelection = defaults.string(forKey: Keys.selected) ?? ChatLabel.allID
         selectedLabelID = loaded.contains { $0.id == savedSelection } ? savedSelection : ChatLabel.allID
 
-        // Sample chats get their saved labels back (chats are matched by name).
+        // A new account has no conversations. Sample chats only exist for a returning login.
+        threads = defaults.bool(forKey: Keys.seedSamples) ? ChatStore.savedSample() : []
+    }
+
+    /// Starts from an empty inbox, or from the sample conversations.
+    func reload(withSamples: Bool) {
+        UserDefaults.standard.set(withSamples, forKey: Keys.seedSamples)
+        threads = withSamples ? ChatStore.savedSample() : []
+    }
+
+    /// Sample chats with the labels and favourites the family saved earlier (matched by name).
+    private static func savedSample() -> [ChatThread] {
+        let defaults = UserDefaults.standard
         var sample = ChatStore.sample()
         let tags = (defaults.dictionary(forKey: Keys.tags) as? [String: [String]]) ?? [:]
         let favourites = Set(defaults.stringArray(forKey: Keys.favourites) ?? [])
@@ -143,7 +170,7 @@ final class ChatStore {
             sample[index].labelIDs = Set(tags[sample[index].title] ?? [])
             sample[index].isFavourite = favourites.contains(sample[index].title)
         }
-        threads = sample
+        return sample
     }
 
     var sortedThreads: [ChatThread] {
@@ -153,9 +180,13 @@ final class ChatStore {
         }
     }
 
-    var totalUnread: Int {
-        threads.filter { !$0.isMuted }.reduce(0) { $0 + ($1.unreadCount > 0 ? $1.unreadCount : ($1.markedUnread ? 1 : 0)) }
+    /// How many chats have something unread (not how many messages). Muted chats aren't counted.
+    var unreadChatCount: Int {
+        threads.filter { $0.hasUnread && !$0.isMuted }.count
     }
+
+    /// A chat to open as soon as the Chats tab appears, for example after messaging an event host.
+    var pendingOpenID: ChatThread.ID?
 
     func thread(_ id: ChatThread.ID) -> ChatThread? {
         threads.first { $0.id == id }
@@ -310,7 +341,15 @@ final class ChatStore {
     func send(text: String, imageData: Data? = nil, in id: ChatThread.ID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || imageData != nil else { return }
-        let message = ChatMessage(text: trimmed, date: .now, isMine: true, status: .sent, imageData: imageData)
+        deliver(ChatMessage(text: trimmed, date: .now, isMine: true, status: .sent, imageData: imageData), in: id)
+    }
+
+    func sendVoiceNote(_ data: Data, duration: TimeInterval, in id: ChatThread.ID) {
+        deliver(ChatMessage(text: "", date: .now, isMine: true, status: .sent,
+                            audioData: data, audioDuration: duration), in: id)
+    }
+
+    private func deliver(_ message: ChatMessage, in id: ChatThread.ID) {
         update(id) { $0.messages.append(message) }
 
         // Ticks move on like in any messenger: sent, then delivered, then read.
@@ -340,6 +379,30 @@ final class ChatStore {
         let thread = ChatThread(title: parent.name, about: parent.role)
         threads.append(thread)
         return thread.id
+    }
+
+    /// Opens the chat with an event host, creating it the first time.
+    func startChat(withHost name: String, role: String) -> ChatThread.ID {
+        if let existing = threads.first(where: { !$0.isGroup && $0.title == name }) { return existing.id }
+        let thread = ChatThread(title: name, about: role)
+        threads.append(thread)
+        return thread.id
+    }
+
+    // PROTOTYPE ONLY: adds a message from the other person so the received-message style can be seen.
+    // Remove this together with the "Show incoming message" button in ChatDetailView.
+    func simulateIncoming(in id: ChatThread.ID) {
+        let samples = [
+            "Thanks for getting in touch! Happy to help.",
+            "Sounds great. See you there!",
+            "Of course. Let me check and get back to you shortly.",
+            "Yes, that works for us too."
+        ]
+        update(id) { thread in
+            let sender = thread.isGroup ? thread.members.randomElement() : nil
+            thread.messages.append(ChatMessage(text: samples.randomElement() ?? samples[0], date: .now,
+                                               isMine: false, sender: sender))
+        }
     }
 
     func createGroup(title: String, members: [String]) -> ChatThread.ID {

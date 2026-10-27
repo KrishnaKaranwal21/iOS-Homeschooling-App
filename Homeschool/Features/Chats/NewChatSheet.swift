@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Pick a parent to message, or start a group.
+/// Start a chat: a "New group" row on top, then parents listed A to Z, like a messenger's contact list.
 struct NewChatSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
@@ -9,7 +9,15 @@ struct NewChatSheet: View {
     @State private var query = ""
 
     private var parents: [Parent] {
-        MockData.parents.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        MockData.parents
+            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Parents grouped under the first letter of their name.
+    private var sections: [(letter: String, parents: [Parent])] {
+        let grouped = Dictionary(grouping: parents) { String($0.name.prefix(1)).uppercased() }
+        return grouped.keys.sorted().map { ($0, grouped[$0] ?? []) }
     }
 
     var body: some View {
@@ -20,49 +28,77 @@ struct NewChatSheet: View {
                         NavigationLink {
                             NewGroupView(onOpen: onOpen)
                         } label: {
-                            HStack(spacing: 14) {
-                                Image(systemName: "person.3.fill")
-                                    .foregroundStyle(Theme.ink)
-                                    .frame(width: 46, height: 46)
-                                    .background(Circle().fill(Color(hex: 0xE6E1FF)))
-                                Text("New group")
-                                    .scaledFont(17, weight: .medium, maxScale: 1.2)
-                            }
+                            actionRow(symbol: "person.3.fill", title: "New group")
+                        }
+                        ShareLink(item: "Join me on Homeschool to meet families near you.") {
+                            actionRow(symbol: "square.and.arrow.up", title: "Invite parents")
                         }
                     }
+                    .listRowBackground(Color.clear)
                 }
 
-                Section("Parents near you") {
-                    ForEach(parents) { parent in
-                        Button {
-                            onOpen(state.chats.startChat(with: parent))
-                        } label: {
-                            HStack(spacing: 14) {
-                                Text(String(parent.name.prefix(2)).uppercased())
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(Theme.ink)
-                                    .frame(width: 46, height: 46)
-                                    .background(Circle().fill(Theme.lavender))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(parent.name).scaledFont(17, weight: .medium, maxScale: 1.2)
-                                    Text("\(parent.role) · \(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km")
-                                        .scaledFont(14, maxScale: 1.2)
-                                        .foregroundStyle(Theme.secondary)
-                                }
+                if parents.isEmpty {
+                    Text("No parents found for “\(query)”")
+                        .rowDetail()
+                        .listRowBackground(Color.clear)
+                }
+
+                ForEach(sections, id: \.letter) { section in
+                    Section {
+                        ForEach(section.parents) { parent in
+                            Button {
+                                onOpen(state.chats.startChat(with: parent))
+                            } label: {
+                                parentRow(parent)
                             }
-                            .foregroundStyle(Theme.ink)
+                            .listRowBackground(Color.clear)
                         }
+                    } header: {
+                        Text(section.letter)
+                            .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.secondary)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+            .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("New chat")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "Search parents")
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search parents")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
+    }
+
+    private func actionRow(symbol: String, title: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(Theme.lavender))
+            Text(title).rowTitle()
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func parentRow(_ parent: Parent) -> some View {
+        HStack(spacing: 14) {
+            Text(String(parent.name.prefix(2)).uppercased())
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(Theme.lavender))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(parent.name).rowTitle()
+                Text("\(parent.role) · \(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away")
+                    .rowDetail()
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
     }
 }
 
@@ -95,9 +131,7 @@ private struct NewGroupView: View {
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Theme.lavender))
-                            Text(parent.name)
-                                .scaledFont(17, maxScale: 1.2)
-                                .foregroundStyle(Theme.ink)
+                            Text(parent.name).rowTitle()
                             Spacer()
                             Image(systemName: selected.contains(parent.name) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selected.contains(parent.name) ? Theme.tabSelected : Theme.dotInactive)

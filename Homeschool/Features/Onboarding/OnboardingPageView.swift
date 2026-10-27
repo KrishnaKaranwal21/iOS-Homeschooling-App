@@ -7,7 +7,7 @@ struct OnboardingPageView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(page.title)
-                .scaledFont(40, weight: .heavy, maxScale: 1.3)
+                .scaledFont(40, weight: .bold, maxScale: 1.3)
                 .tracking(-1.6)
                 .lineSpacing(-6)
                 .foregroundStyle(Theme.ink)

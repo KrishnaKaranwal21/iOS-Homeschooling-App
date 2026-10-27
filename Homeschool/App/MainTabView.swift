@@ -22,6 +22,8 @@ extension EnvironmentValues {
 struct MainTabView: View {
     @Environment(AppState.self) private var state
     @State private var selection: AppTab = .home
+    /// Changing a tab's number rebuilds it, which returns it to its first page.
+    @State private var resetCounts: [AppTab: Int] = [:]
 
     init() {
         Self.styleLabels()
@@ -30,37 +32,40 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selection) {
             Tab(value: AppTab.home) {
-                NavigationStack { HomeView() }
+                NavigationStack { HomeView() }.id(resetCounts[.home, default: 0])
             } label: {
                 label("Home", symbol: "house.fill", tab: .home)
             }
             Tab(value: AppTab.progress) {
-                NavigationStack { ProgressDashboardView() }
+                NavigationStack { ProgressDashboardView() }.id(resetCounts[.progress, default: 0])
             } label: {
                 label("Progress", symbol: "chart.bar.fill", tab: .progress)
             }
             Tab(value: AppTab.gather) {
-                NavigationStack { GatherView() }
+                NavigationStack { GatherView() }.id(resetCounts[.gather, default: 0])
             } label: {
                 label("Gather", symbol: "calendar", tab: .gather)
             }
             Tab(value: AppTab.community) {
-                NavigationStack { CommunityView() }
+                NavigationStack { CommunityView() }.id(resetCounts[.community, default: 0])
             } label: {
                 label("Community", symbol: "person.3.fill", tab: .community)
             }
             Tab(value: AppTab.chats) {
-                NavigationStack { ChatsListView() }
+                NavigationStack { ChatsListView() }.id(resetCounts[.chats, default: 0])
             } label: {
                 label("Chats", symbol: "bubble.left", tab: .chats)
             }
-            .badge(state.chats.totalUnread)
+            .badge(state.chats.unreadChatCount)
         }
         .tint(Theme.tabSelected)
+        .task { state.refreshLiveLocation() }
         .environment(\.openTab, { selection = $0 })
         .onChange(of: selection) { old, new in
             // Leaving Home for the first time ends the first-time Home.
             if old == .home && new != .home { state.markFirstHomeSeen() }
+            // Coming back to a tab shows its first page, not the last page you had open.
+            resetCounts[old, default: 0] += 1
         }
     }
 

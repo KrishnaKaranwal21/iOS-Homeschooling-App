@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Family profile: the parent's details, every child with their plan, and a way to edit or add one.
+/// Family profile, laid out like the Settings app: a grouped list with a large title.
 struct ProfileView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
 
     private struct EditTarget: Identifiable {
         let id = UUID()
@@ -11,37 +12,70 @@ struct ProfileView: View {
         let singleStep: Bool
     }
 
+    private enum ProfileSection: String, CaseIterable, Identifiable {
+        case parent = "Parent", children = "Children", settings = "Settings"
+        var id: String { rawValue }
+    }
+
     @State private var editTarget: EditTarget?
     @State private var showAdd = false
     @State private var showParentEdit = false
+    @State private var showLocationPicker = false
     @State private var levelTarget: Child?
     /// Set when a level changed, so the subjects page opens once the level sheet has closed.
     @State private var pendingSubjectsEdit: Child?
+    @State private var jump: ProfileSection = .parent
 
-    private let lavenderCard = Color(hex: 0xE6E1FF)
     private let avatarColors: [Color] = [Theme.lavender, Theme.yellow, Theme.lime, Theme.pink]
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
+        ScrollViewReader { proxy in
+            List {
                 examBanner
-                parentCard
-                childrenSection
-                addChildCard
+
+                profileHeader
+                    .id("profile-\(ProfileSection.parent.rawValue)")
+
+                parentSection
+
+                childrenSections
+
+                Section {
+                    Button { showAdd = true } label: {
+                        Label("Add a child", systemImage: "plus.circle.fill")
+                    }
+                }
+
+                settingsSection
+                    .id("profile-\(ProfileSection.settings.rawValue)")
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 4)
-            .padding(.bottom, 28)
+            .listStyle(.insetGrouped)
+            .tint(Theme.tabSelected)
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.large)
+            // Shortcuts to the three parts of a long page.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                Picker("Jump to", selection: $jump) {
+                    ForEach(ProfileSection.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+            .onChange(of: jump) { _, section in
+                withAnimation(.smooth) { proxy.scrollTo("profile-\(section.rawValue)", anchor: .top) }
+            }
         }
-        .scrollIndicators(.hidden)
-        .background(Theme.background)
-        .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(item: $editTarget) { target in
             EditChildFlow(child: target.child, startStep: target.step, singleStep: target.singleStep)
         }
         .fullScreenCover(isPresented: $showAdd) { AddChildFlow() }
         .sheet(isPresented: $showParentEdit) { ParentEditSheet() }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationPickerSheet(allowsWorld: false, selection: state.homeLocation,
+                                home: state.homeLocation) { state.homeLocation = $0 }
+        }
         .sheet(item: $levelTarget, onDismiss: {
             if let changed = pendingSubjectsEdit {
                 pendingSubjectsEdit = nil
@@ -50,56 +84,37 @@ struct ProfileView: View {
         }) { child in
             LevelPickerSheet(child: child) { pendingSubjectsEdit = $0 }
         }
-    }
-
-    // MARK: Header
-
-    private var header: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Profile")
-                    .pageTitle()
-                Text("You, your children and their plans.")
-                    .pageSubtitle()
+        .onChange(of: state.locationService.status) { _, status in
+            // If location access was refused, the switch goes back off and a city is needed.
+            if status == .denied, state.usesLiveLocation {
+                state.usesLiveLocation = false
+                showLocationPicker = true
             }
-            Spacer(minLength: 0)
-            Image("HomeMascot")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 92)
-                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 4)
     }
 
-    // MARK: Exam banner
+    // MARK: Exam reminder
 
-    /// Shown when a child isn't registered for the exams and the last date is within a month.
     @ViewBuilder private var examBanner: some View {
         let urgent = state.children.filter(\.examNeedsAttention)
         if !urgent.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            Section {
                 ForEach(urgent) { child in
-                    HStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(Color.orange)
+                    Label {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(child.displayName)’s exam form")
-                                .scaledFont(16, weight: .semibold, maxScale: 1.2)
-                                .foregroundStyle(Theme.ink)
+                                .font(.headline)
                             Text(bannerText(for: child))
-                                .scaledFont(14, maxScale: 1.25)
-                                .foregroundStyle(Theme.secondary)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
                         }
-                        Spacer(minLength: 0)
+                    } icon: {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .foregroundStyle(.orange)
                     }
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(hex: 0xFFEBD9)))
-            .accessibilityElement(children: .combine)
+            .listRowBackground(Color(hex: 0xFFEBD9))
         }
     }
 
@@ -121,259 +136,191 @@ struct ProfileView: View {
     }
 
     private var parentInitial: String {
-        let source = state.account?.name.trimmingCharacters(in: .whitespaces).nonEmpty
-            ?? state.account?.email ?? "P"
-        return String(source.prefix(1)).uppercased()
+        let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
+        return String((name.isEmpty ? (state.account?.email ?? "P") : name).prefix(1)).uppercased()
     }
 
-    private var parentCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                Text(parentInitial)
-                    .scaledFont(24, weight: .heavy, maxScale: 1.15)
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 56, height: 56)
-                    .background(Circle().fill(Color.white))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("PARENT OR GUARDIAN")
-                        .scaledFont(11, weight: .medium, maxScale: 1.2)
-                        .tracking(0.5)
-                        .foregroundStyle(Theme.secondary)
-                    Text(parentName)
-                        .scaledFont(22, weight: .heavy, maxScale: 1.15)
-                        .tracking(-0.4)
+    private var profileHeader: some View {
+        Section {
+            Button { showParentEdit = true } label: {
+                HStack(spacing: 14) {
+                    Text(parentInitial)
+                        .font(.title.weight(.semibold))
                         .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(Theme.lavender))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(parentName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text(state.account?.email ?? "")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
-                Spacer(minLength: 8)
-                Button { showParentEdit = true } label: {
-                    Text("Edit")
-                        .scaledFont(14, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 16)
-                        .frame(height: 34)
-                        .background(Capsule().fill(Color.white))
-                }
-                .buttonStyle(.plain)
+                .padding(.vertical, 4)
             }
-
-            VStack(spacing: 0) {
-                infoRow(icon: "envelope", title: "Email",
-                        value: state.account?.email ?? "Not set", showsChevron: false)
-                divider
-                infoRow(icon: "phone", title: "Mobile",
-                        value: (state.account?.mobile).flatMap { $0.isEmpty ? nil : $0 } ?? "Add a number",
-                        showsChevron: true) { showParentEdit = true }
-            }
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
+            .accessibilityLabel("\(parentName). Edit your details")
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(lavenderCard))
+    }
+
+    private var parentSection: some View {
+        Section("Parent or guardian") {
+            Button { showParentEdit = true } label: {
+                LabeledContent("Mobile",
+                               value: (state.account?.mobile).flatMap { $0.isEmpty ? nil : $0 } ?? "Add a number")
+            }
+            .foregroundStyle(.primary)
+            LabeledContent("Email", value: state.account?.email ?? "Not set")
+        }
     }
 
     // MARK: Children
 
-    private var childrenSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Text(state.children.count == 1 ? "Your child" : "Your children")
-                    .sectionTitle()
-                Text("\(state.children.count)")
-                    .scaledFont(13, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 10)
-                    .frame(height: 24)
-                    .background(Capsule().fill(Theme.lavender))
-            }
-            .padding(.horizontal, 4)
-
-            ForEach(Array(state.children.enumerated()), id: \.element.id) { index, child in
-                childCard(child, color: avatarColors[index % avatarColors.count])
-            }
+    @ViewBuilder private var childrenSections: some View {
+        ForEach(Array(state.children.enumerated()), id: \.element.id) { index, child in
+            // Only the first child carries the "Children" shortcut id, so no two rows share one.
+            childSection(child, color: avatarColors[index % avatarColors.count])
+                .id(index == 0 ? "profile-\(ProfileSection.children.rawValue)" : child.id.uuidString)
         }
     }
 
-    private func childCard(_ child: Child, color: Color) -> some View {
+    private func childSection(_ child: Child, color: Color) -> some View {
         let isCurrent = child.id == state.selectedChildID
 
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Text(String(child.displayName.prefix(1)).uppercased())
-                    .scaledFont(22, weight: .heavy, maxScale: 1.15)
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(color))
-                    .overlay(Circle().stroke(Color.white, lineWidth: 3))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(child.displayName)
-                        .scaledFont(24, weight: .heavy, maxScale: 1.15)
-                        .tracking(-0.5)
+        return Section {
+            Button { openHome(with: child) } label: {
+                HStack(spacing: 14) {
+                    Text(String(child.displayName.prefix(1)).uppercased())
+                        .font(.title2.weight(.semibold))
                         .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
+                        .frame(width: 52, height: 52)
+                        .background(Circle().fill(color))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(child.displayName)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text(child.programmeText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
                     if isCurrent {
-                        Label("Viewing", systemImage: "checkmark.circle.fill")
-                            .scaledFont(12, weight: .semibold, maxScale: 1.2)
+                        Text("Viewing")
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Theme.lavender))
                     }
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
                 }
-                Spacer(minLength: 0)
+                .padding(.vertical, 4)
+            }
+            .accessibilityLabel("\(child.displayName). Open Home")
+
+            editRow("NIOS level", value: levelText(child)) { levelTarget = child }
+            editRow("Date of birth", value: dobText(child)) {
+                editTarget = EditTarget(child: child, step: 1, singleStep: false)
+            }
+            editRow("Subjects", value: subjectsText(child)) {
+                editTarget = EditTarget(child: child, step: 2, singleStep: true)
+            }
+            editRow("Learning rhythm", value: rhythmText(child)) {
+                editTarget = EditTarget(child: child, step: 3, singleStep: true)
             }
 
-            HStack(spacing: 8) {
-                statTile(title: "Age", value: ageValue(child))
-                statTile(title: "Subjects", value: "\(child.selectedSubjects.count)")
-                statTile(title: "Per week", value: "\(child.learningDays.count * child.hoursPerDay)h")
+            ExamRows(child: child)
+
+            Button { editTarget = EditTarget(child: child, step: 1, singleStep: false) } label: {
+                Label("Edit all details", systemImage: "pencil")
             }
-
-            VStack(spacing: 0) {
-                infoRow(icon: "graduationcap", title: "NIOS level", value: levelText(child), showsChevron: true) {
-                    levelTarget = child
-                }
-                divider
-                infoRow(icon: "birthday.cake", title: "Date of birth", value: dobText(child), showsChevron: true) {
-                    editTarget = EditTarget(child: child, step: 1, singleStep: false)
-                }
-                divider
-                infoRow(icon: "books.vertical", title: "Subjects", value: subjectsText(child), showsChevron: true) {
-                    editTarget = EditTarget(child: child, step: 2, singleStep: true)
-                }
-                divider
-                infoRow(icon: "calendar", title: "Learning rhythm", value: rhythmText(child), showsChevron: true) {
-                    editTarget = EditTarget(child: child, step: 3, singleStep: true)
-                }
-            }
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
-
-            ExamSection(child: child)
-
-            HStack(spacing: 10) {
-                Button { editTarget = EditTarget(child: child, step: 1, singleStep: false) } label: {
-                    Text("Edit details")
-                        .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Color.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Capsule().fill(Theme.ink))
-                }
-                .buttonStyle(.plain)
-
-                if !isCurrent {
-                    Button { state.selectChild(child.id) } label: {
-                        Text("Switch to \(child.displayName)")
-                            .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .background(Capsule().fill(Color.white))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+        } header: {
+            Text(state.children.count == 1 ? "Your child" : child.displayName)
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous)
-            .fill(isCurrent ? Theme.pink : Color(hex: 0xF1EFFA)))
     }
 
-    private func statTile(title: String, value: String) -> some View {
-        VStack(spacing: 3) {
-            Text(value)
-                .scaledFont(20, weight: .heavy, maxScale: 1.15)
-                .foregroundStyle(Theme.ink)
-            Text(title)
-                .scaledFont(12, weight: .medium, maxScale: 1.2)
-                .foregroundStyle(Theme.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white))
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: Shared rows
-
-    private var divider: some View {
-        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1).padding(.leading, 52)
-    }
-
-    @ViewBuilder
-    private func infoRow(icon: String, title: String, value: String, showsChevron: Bool,
-                         action: (() -> Void)? = nil) -> some View {
-        let content = HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Theme.tabSelected)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
+    private func editRow(_ title: String, value: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            LabeledContent {
+                HStack(spacing: 6) {
+                    Text(value)
+                        .multilineTextAlignment(.trailing)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            } label: {
                 Text(title)
-                    .scaledFont(12, weight: .medium, maxScale: 1.2)
-                    .foregroundStyle(Theme.secondary)
-                Text(value)
-                    .scaledFont(16, weight: .medium, maxScale: 1.25)
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-            }
-            Spacer(minLength: 8)
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.dotInactive)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-
-        if let action {
-            Button(action: action) { content }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(title), \(value). Edit")
-        } else {
-            content.accessibilityElement(children: .combine)
-        }
+        .foregroundStyle(.primary)
+        .accessibilityLabel("\(title), \(value). Edit")
     }
 
-    // MARK: Add a child
+    /// Picks the child and goes back to Home.
+    private func openHome(with child: Child) {
+        state.selectChild(child.id)
+        dismiss()
+    }
 
-    private var addChildCard: some View {
-        Button { showAdd = true } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(lavenderCard))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Add a child")
-                        .scaledFont(18, weight: .bold, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                    Text("Set up another learner’s plan.")
-                        .scaledFont(14, maxScale: 1.25)
-                        .foregroundStyle(Theme.secondary)
+    // MARK: Settings
+
+    private var settingsSection: some View {
+        Section {
+            Toggle("Show my approximate live location", isOn: Binding(
+                get: { state.usesLiveLocation },
+                set: { on in
+                    state.setLiveLocation(on)
+                    // Without live location the family chooses a city.
+                    if !on { showLocationPicker = true }
+                }))
+
+            if state.usesLiveLocation {
+                LabeledContent("Area") {
+                    if state.locationService.status == .locating {
+                        ProgressView()
+                    } else {
+                        Text(state.homeLocation.name)
+                    }
                 }
-                Spacer(minLength: 0)
+            } else {
+                Button { showLocationPicker = true } label: {
+                    LabeledContent {
+                        HStack(spacing: 6) {
+                            Text(state.homeLocation.name)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                    } label: {
+                        Text("City")
+                    }
+                }
+                .foregroundStyle(.primary)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .stroke(Theme.tabIconInactive, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+
+            Picker("Community distance", selection: Binding(
+                get: { state.communityRadiusKm },
+                set: { state.communityRadiusKm = $0 })) {
+                ForEach([1, 2, 3, 5, 10, 20], id: \.self) { Text("\($0) km").tag($0) }
+            }
+        } header: {
+            Text("Settings")
+        } footer: {
+            Text(state.usesLiveLocation
+                 ? "Only your approximate area is used, never your exact position. “Near you” in Gather and the Community list follow it."
+                 : "Choose your city. “Near you” in Gather and the Community list use it.")
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: Text helpers
-
-    private func ageValue(_ child: Child) -> String {
-        guard let birthDate = child.birthDate else { return "–" }
-        return "\(AgeRules.age(of: birthDate, on: .now))"
-    }
 
     private func levelText(_ child: Child) -> String {
         guard !child.level.isEmpty else { return "Not set" }
@@ -392,20 +339,16 @@ struct ProfileView: View {
     private func subjectsText(_ child: Child) -> String {
         let names = child.subjectNames
         guard !names.isEmpty else { return "None chosen yet" }
-        let shown = names.prefix(3).joined(separator: ", ")
-        return names.count > 3 ? "\(shown) +\(names.count - 3) more" : shown
+        let shown = names.prefix(2).joined(separator: ", ")
+        return names.count > 2 ? "\(shown) +\(names.count - 2)" : shown
     }
 
     private func rhythmText(_ child: Child) -> String {
         let order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         let days = order.filter { child.learningDays.contains($0) }
         guard !days.isEmpty else { return "No days chosen" }
-        return "\(days.joined(separator: ", ")) · \(child.hoursPerDay)h a day"
+        return "\(days.count) days · \(child.hoursPerDay)h"
     }
-}
-
-private extension String {
-    var nonEmpty: String? { isEmpty ? nil : self }
 }
 
 // MARK: - Edit parent details
@@ -420,43 +363,29 @@ private struct ParentEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    field("Full name") {
-                        TextField("Your full name", text: $name)
-                            .textContentType(.name)
-                    }
-                    field("Mobile number") {
-                        TextField("+91 98765 43210", text: $mobile)
-                            .textContentType(.telephoneNumber)
-                            .keyboardType(.phonePad)
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Email address")
-                            .scaledFont(15, maxScale: 1.3)
-                        Text(state.account?.email ?? "")
-                            .scaledFont(17, maxScale: 1.3)
-                            .foregroundStyle(Theme.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .gatherField()
-                        Text("Your email is how you sign in, so it can’t be changed here.")
-                            .scaledFont(13, maxScale: 1.3)
-                            .foregroundStyle(Theme.secondary)
-                    }
-
-                    PrimaryButton(title: "Save") {
+            Form {
+                Section("Your details") {
+                    TextField("Full name", text: $name)
+                        .textContentType(.name)
+                    PhoneField(number: $mobile)
+                    LabeledContent("Email", value: state.account?.email ?? "")
+                }
+                Section {
+                } footer: {
+                    Text("Your email is how you sign in, so it can’t be changed here.")
+                }
+            }
+            .navigationTitle("Your details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
                         state.updateAccount(name: name, mobile: mobile)
                         dismiss()
                     }
-                    .padding(.top, 6)
                 }
-                .foregroundStyle(Theme.ink)
-                .padding(24)
             }
-            .background(Theme.background)
-            .navigationTitle("Your details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .onAppear {
                 guard !loaded else { return }
                 loaded = true
@@ -464,15 +393,6 @@ private struct ParentEditSheet: View {
                 mobile = state.account?.mobile ?? ""
             }
         }
-        .presentationDetents([.large])
-    }
-
-    private func field<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(label).scaledFont(15, maxScale: 1.3)
-            content()
-                .scaledFont(17, maxScale: 1.3)
-                .gatherField()
-        }
+        .presentationDetents([.medium, .large])
     }
 }

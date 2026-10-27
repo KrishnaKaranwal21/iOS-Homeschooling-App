@@ -120,9 +120,7 @@ struct RegistrationView: View {
                     .autocorrectionDisabled()
             }
             field("Mobile number") {
-                TextField("+91 98765 43210", text: $registrant.mobile)
-                    .textContentType(.telephoneNumber)
-                    .keyboardType(.phonePad)
+                PhoneField(number: $registrant.mobile)
             }
         }
     }

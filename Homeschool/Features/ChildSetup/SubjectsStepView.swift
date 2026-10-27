@@ -400,7 +400,9 @@ private enum SubjectIcon {
     ]
 
     static func symbol(for name: String, groupId: String) -> String {
-        if let s = map[name] { return s }
-        return groupId.hasPrefix("lang") ? "character.book.closed" : "book.closed"
+        let fallback = groupId.hasPrefix("lang") ? "character.book.closed" : "book.closed"
+        // Never show a blank icon: if a symbol name isn't available on this iOS version, use the fallback.
+        if let s = map[name], UIImage(systemName: s) != nil { return s }
+        return fallback
     }
 }

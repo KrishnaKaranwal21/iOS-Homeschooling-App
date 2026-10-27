@@ -66,6 +66,8 @@ struct ChildSetupSteps: View {
                     .padding(.top, 6)
                     .padding(.bottom, 12)
             }
+            // A new identity per page, so each page opens at the top instead of keeping the last scroll position.
+            .id(step)
             // The scroll view reserves room for the bar, and content scrolls beneath its blur.
             .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         }

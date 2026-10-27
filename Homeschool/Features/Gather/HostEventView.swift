@@ -22,6 +22,7 @@ struct HostEventView: View {
     @State private var minAge = ""
     @State private var maxAge = ""
     @State private var parentPresence: Event.ParentPresence = .required
+    @State private var faqDrafts: [FAQDraft] = []
     @State private var paid = false
     @State private var price = ""
 
@@ -69,6 +70,7 @@ struct HostEventView: View {
                 makeItYours
                 whenAndWhere
                 placeForEveryone
+                faqEditor
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -334,6 +336,53 @@ struct HostEventView: View {
         }
     }
 
+    // MARK: FAQs
+
+    private struct FAQDraft: Identifiable {
+        let id = UUID()
+        var question = ""
+        var answer = ""
+    }
+
+    /// Questions families often ask. Hosts can answer up to five of their own.
+    private var faqEditor: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Questions and answers").cardTitle()
+            Text("Optional. Answer what families usually ask, such as what to bring.")
+                .caption()
+
+            ForEach($faqDrafts) { $draft in
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        TextField("Question", text: $draft.question)
+                            .scaledFont(16, weight: .medium, maxScale: 1.3)
+                        Button(role: .destructive) {
+                            faqDrafts.removeAll { $0.id == draft.id }
+                        } label: {
+                            Image(systemName: "trash").foregroundStyle(Color.red)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove this question")
+                    }
+                    TextField("Answer", text: $draft.answer, axis: .vertical)
+                        .lineLimit(2...5)
+                        .scaledFont(15, maxScale: 1.3)
+                }
+                .gatherField(minHeight: 52)
+            }
+
+            if faqDrafts.count < 5 {
+                Button { faqDrafts.append(FAQDraft()) } label: {
+                    Label("Add a question", systemImage: "plus.circle.fill")
+                        .scaledFont(16, weight: .semibold, maxScale: 1.2)
+                        .foregroundStyle(Theme.tabSelected)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func labelled<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
@@ -372,6 +421,10 @@ struct HostEventView: View {
             ages: ages,
             parentPresence: parentPresence,
             about: about.trimmingCharacters(in: .whitespacesAndNewlines),
+            faqs: faqDrafts
+                .map { EventFAQ(question: $0.question.trimmingCharacters(in: .whitespacesAndNewlines),
+                                answer: $0.answer.trimmingCharacters(in: .whitespacesAndNewlines)) }
+                .filter { !$0.question.isEmpty && !$0.answer.isEmpty },
             price: paid ? priceValue : nil,
             symbol: Event.symbol(for: category ?? ""),
             coverData: coverData

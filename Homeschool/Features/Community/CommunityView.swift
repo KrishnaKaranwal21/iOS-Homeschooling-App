@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct CommunityView: View {
-    @State private var radius = 5
+    @Environment(AppState.self) private var state
+    private var radius: Int { state.communityRadiusKm }
     @State private var filter = "All parents"
     private var nearby: [Parent] { MockData.parents.filter { $0.distanceKm <= Double(radius) } }
 
@@ -9,13 +10,24 @@ struct CommunityView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ScreenHeader(title: "Community", subtitle: "Like minded families near you.")
-                Card(color: Theme.pink) {
-                    Menu {
-                        Picker("Radius", selection: $radius) { ForEach([1, 2, 3, 5, 10, 20], id: \.self) { Text("\($0) km").tag($0) } }
-                    } label: {
-                        HStack { Image(systemName: "mappin.circle"); VStack(alignment: .leading) { Text("Within \(radius) km of you").font(.headline); Text("Based on your current location").font(.caption) }; Spacer(); Image(systemName: "chevron.down") }.foregroundStyle(Theme.ink)
+                // The location and distance are set in Profile, under Settings.
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Card(color: Theme.pink) {
+                        HStack {
+                            Image(systemName: "mappin.circle")
+                            VStack(alignment: .leading) {
+                                Text("Within \(radius) km of \(state.homeLocation.name)").font(.headline)
+                                Text("Change in Profile › Settings").font(.caption)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .foregroundStyle(Theme.ink)
                     }
                 }
+                .buttonStyle(.plain)
                 HStack { ForEach(["All parents", "Shared interests"], id: \.self) { f in Button { filter = f } label: { Chip(title: f, selected: f == filter) }.buttonStyle(.plain).accessibilityAddTraits(f == filter ? .isSelected : []) } }
                 Text("People near you").font(.title3.bold())
                 ForEach(nearby) { p in

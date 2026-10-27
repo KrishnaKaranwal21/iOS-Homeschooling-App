@@ -6,6 +6,24 @@ enum LaunchStage { case onboarding, login, setup, main }
 @Observable
 final class AppState {
     var stage: LaunchStage = .onboarding
+    /// The family's home area. "Near you" in Gather and the Community list use it.
+    var homeLocation: Place = .potheri {
+        didSet {
+            if let data = try? JSONEncoder().encode(homeLocation) {
+                UserDefaults.standard.set(data, forKey: "homeLocation")
+            }
+        }
+    }
+    /// When on, the home area follows the phone's approximate location. When off, the family picks a city.
+    var usesLiveLocation = false {
+        didSet { UserDefaults.standard.set(usesLiveLocation, forKey: "usesLiveLocation") }
+    }
+    let locationService = LocationService()
+
+    var communityRadiusKm = 5 {
+        didSet { UserDefaults.standard.set(communityRadiusKm, forKey: "communityRadiusKm") }
+    }
+
     /// All conversations.
     let chats = ChatStore()
 
@@ -62,6 +80,13 @@ final class AppState {
         } else {
             selectedChildID = children[0].id
         }
+        if let data = defaults.data(forKey: "homeLocation"),
+           let saved = try? JSONDecoder().decode(Place.self, from: data) {
+            homeLocation = saved
+        }
+        usesLiveLocation = defaults.bool(forKey: "usesLiveLocation")
+        let savedRadius = defaults.integer(forKey: "communityRadiusKm")
+        if savedRadius > 0 { communityRadiusKm = savedRadius }
         // Families who were already inside the app before this screen existed skip it.
         hasSeenFirstHome = defaults.object(forKey: firstHomeKey) as? Bool ?? (stage == .main)
         if let data = defaults.data(forKey: registrantKey),
@@ -72,7 +97,7 @@ final class AppState {
 
         // Sample data: the events already marked as registered get a sample registration.
         let sample = Registrant(parentName: "Asha Patel", email: "asha.patel@example.com",
-                                mobile: "98765 43210", childName: "Maya", childAge: "10", notes: "")
+                                mobile: "+91 98765 43210", childName: "Maya", childAge: "10", notes: "")
         for event in events where event.isRegistered {
             registrations[event.id] = Registration(eventID: event.id, registrant: sample,
                                                    registeredAt: Date.now.addingTimeInterval(-3 * 86_400),
@@ -91,6 +116,8 @@ final class AppState {
     func setReturningUser(_ returning: Bool) {
         hasSeenFirstHome = returning
         UserDefaults.standard.set(returning, forKey: firstHomeKey)
+        // A new account starts with no conversations. A returning one gets the sample chats.
+        chats.reload(withSamples: returning)
     }
 
     /// Called when the family leaves Home for the first time.
@@ -112,6 +139,37 @@ final class AppState {
         current.mobile = mobile.trimmingCharacters(in: .whitespaces)
         AccountStore.update(current)
         account = current
+    }
+
+    // MARK: Location
+
+    func setLiveLocation(_ on: Bool) {
+        usesLiveLocation = on
+        guard on else { return }
+        refreshLiveLocation()
+    }
+
+    /// Looks up the approximate area again. Does nothing unless the live location switch is on.
+    func refreshLiveLocation() {
+        guard usesLiveLocation else { return }
+        locationService.onPlace = { [weak self] place in self?.homeLocation = place }
+        locationService.request()
+    }
+
+    // MARK: Profile completeness
+
+    /// What is still missing before someone can host: the parent's name and mobile, and each child's name, level and birth date.
+    var missingProfileItems: [String] {
+        var missing: [String] = []
+        if (account?.name ?? "").trimmingCharacters(in: .whitespaces).isEmpty { missing.append("Your name") }
+        if (account?.mobile ?? "").trimmingCharacters(in: .whitespaces).isEmpty { missing.append("Your mobile number") }
+        for child in children {
+            let label = child.name.trimmingCharacters(in: .whitespaces).isEmpty ? "your child" : child.name
+            if child.name.trimmingCharacters(in: .whitespaces).isEmpty { missing.append("Your child’s name") }
+            if child.level.isEmpty { missing.append("NIOS level for \(label)") }
+            if child.birthDate == nil { missing.append("Date of birth for \(label)") }
+        }
+        return missing
     }
 
     // MARK: Children

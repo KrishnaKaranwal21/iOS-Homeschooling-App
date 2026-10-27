@@ -75,7 +75,7 @@ struct LoginView: View {
 
                 VStack(spacing: 8) {
                     Text("Come on in.")
-                        .scaledFont(40, weight: .heavy)
+                        .scaledFont(40, weight: .bold)
                         .tracking(-1.6)
                         .foregroundStyle(Theme.ink)
                     Text("Your family’s learning starts here.")
