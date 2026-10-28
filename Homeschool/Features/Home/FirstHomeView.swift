@@ -190,7 +190,7 @@ struct FirstHomeView: View {
         .padding(.top, compact ? 10 : 12)
         .padding(.bottom, compact ? 10 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Theme.pink))
+        .background(Theme.pink, in: .rect(cornerRadius: 28))
         .overlay(alignment: .topTrailing) {
             Image("HomeMascot")
                 .resizable()
@@ -202,40 +202,45 @@ struct FirstHomeView: View {
     }
 
     private func rhythmRow(compact: Bool) -> some View {
-        GeometryReader { geo in
-            let count = max(days.count, 1)
-            let gap: CGFloat = 4
-            let inset: CGFloat = 18
-            let fitted = (geo.size.width - inset * 2 - gap * CGFloat(count - 1)) / CGFloat(count)
-            let tile = days.count <= 4 ? min(82, fitted) : 74
+        let gap: CGFloat = 4
+        let inset: CGFloat = 18
 
-            ScrollView(.horizontal) {
-                HStack(spacing: gap) {
-                    ForEach(Array(days.enumerated()), id: \.element) { index, day in
-                        VStack(spacing: 7) {
-                            Text(day.uppercased())
-                                .scaledFont(17, weight: .heavy, maxScale: 1.15)
-                                .foregroundStyle(Theme.ink)
-                            Capsule().fill(Color(hex: 0xF0959F)).frame(width: 22, height: 5)
-                            Text("\(state.child.hoursPerDay)h")
-                                .scaledFont(14, weight: .medium, maxScale: 1.15)
-                                .foregroundStyle(Theme.secondary)
-                        }
-                        .frame(width: tile, height: compact ? 70 : 76)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
-                        .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(day), \(state.child.hoursPerDay) hours")
+        return ScrollView(.horizontal) {
+            HStack(spacing: gap) {
+                ForEach(Array(days.enumerated()), id: \.element) { index, day in
+                    VStack(spacing: 7) {
+                        Text(day.uppercased())
+                            .scaledFont(17, weight: .heavy, maxScale: 1.15)
+                            .foregroundStyle(Theme.ink)
+                        Capsule().fill(Color(hex: 0xF0959F)).frame(width: 22, height: 5)
+                        Text("\(state.child.hoursPerDay)h")
+                            .scaledFont(14, weight: .medium, maxScale: 1.15)
+                            .foregroundStyle(Theme.secondary)
                     }
+                    .containerRelativeFrame(.horizontal) { width, _ in
+                        tileWidth(in: width, gap: gap, inset: inset)
+                    }
+                    .frame(height: compact ? 70 : 76)
+                    .background(Color.white, in: .rect(cornerRadius: 14))
+                    .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(day), \(state.child.hoursPerDay) hours")
                 }
-                .padding(.vertical, 6)
             }
-            // The row runs edge to edge inside the pink box and scrolls without leaving it.
-            .contentMargins(.horizontal, inset, for: .scrollContent)
-            .scrollIndicators(.hidden)
+            .padding(.vertical, 6)
         }
+        // The row runs edge to edge inside the pink box and scrolls without leaving it.
+        .contentMargins(.horizontal, inset, for: .scrollContent)
+            .scrollIndicators(.hidden)
         .padding(.horizontal, -18)
         .frame(height: compact ? 84 : 90)
+    }
+
+    /// Tile width for the day row: fills the row when there are few days, a fixed size when many.
+    private func tileWidth(in containerWidth: CGFloat, gap: CGFloat, inset: CGFloat) -> CGFloat {
+        let count = CGFloat(max(days.count, 1))
+        let fitted = (containerWidth - inset * 2 - gap * (count - 1)) / count
+        return days.count <= 4 ? min(82, fitted) : 74
     }
 
     // MARK: Explore more
@@ -404,11 +409,11 @@ private struct ExploreCardView: View {
     var body: some View {
         Color.clear
             .aspectRatio(designWidth / designHeight, contentMode: .fit)
-            .overlay {
-                GeometryReader { geo in
-                    let s = geo.size.width / designWidth
+            .overlay(alignment: .topLeading) {
+                    // Built at design size, then scaled to the card's real width below.
+                    let s: CGFloat = 1
                     let layout = card.layout
-                    let shape = RoundedRectangle(cornerRadius: 135 * s, style: .continuous)
+                    let shape: RoundedRectangle = .rect(cornerRadius: 135 * s)
 
                     ZStack(alignment: .topLeading) {
                         shape.fill(layout.fill)
@@ -457,9 +462,11 @@ private struct ExploreCardView: View {
                             shape.strokeBorder(border, lineWidth: 7 * s)
                         }
                     }
-                    .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                    .frame(width: designWidth, height: designHeight, alignment: .topLeading)
                     .clipShape(shape)
-                }
+            }
+            .visualEffect { content, proxy in
+                content.scaleEffect(proxy.size.width / designWidth, anchor: .topLeading)
             }
     }
 
@@ -552,7 +559,7 @@ private struct FirstWeekSheet: View {
                         }
                         .padding(16)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.white))
+                        .background(Color.white, in: .rect(cornerRadius: 22))
                     }
                 }
                 .padding(24)
@@ -611,7 +618,8 @@ private struct IdeaPreviewSheet: View {
                         }
                     }
 
-                    PrimaryButton(title: "Got it") { dismiss() }
+                    Button("Got it") { dismiss() }
+                        .buttonStyle(.primaryHomeschool)
                         .padding(.top, 8)
                 }
                 .foregroundStyle(Theme.ink)

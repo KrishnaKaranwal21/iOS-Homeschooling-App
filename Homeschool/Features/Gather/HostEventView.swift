@@ -12,7 +12,7 @@ struct HostEventView: View {
     @State private var showLocationPicker = false
     @State private var about = ""
     @State private var coverItem: PhotosPickerItem?
-    @State private var coverData: Data?
+    @State private var coverImage: PickedImage?
     @State private var date = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
     @State private var starts = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now) ?? .now
     @State private var ends = Calendar.current.date(bySettingHour: 11, minute: 0, second: 0, of: .now) ?? .now
@@ -80,7 +80,8 @@ struct HostEventView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            PrimaryButton(title: "Create event", isDimmed: !canCreate, action: create)
+            Button("Create event", action: create)
+                .buttonStyle(.primaryHomeschool(isDimmed: !canCreate))
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -90,7 +91,13 @@ struct HostEventView: View {
             LocationPickerSheet(allowsWorld: false, selection: place) { place = $0 }
         }
         .onChange(of: coverItem) { _, item in
-            Task { coverData = try? await item?.loadTransferable(type: Data.self) }
+            Task {
+                if let image = try? await item?.loadTransferable(type: Image.self) {
+                    coverImage = PickedImage(image: image)
+                } else {
+                    coverImage = nil
+                }
+            }
         }
     }
 
@@ -118,7 +125,7 @@ struct HostEventView: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.pink))
+        .background(Theme.pink, in: .rect(cornerRadius: 20))
     }
 
     private var makeItYours: some View {
@@ -187,12 +194,12 @@ struct HostEventView: View {
     private var coverPhotoRow: some View {
         PhotosPicker(selection: $coverItem, matching: .images) {
             HStack(spacing: 12) {
-                if let coverData, let image = UIImage(data: coverData) {
-                    Image(uiImage: image)
+                if let coverImage {
+                    coverImage.image
                         .resizable()
                         .scaledToFill()
                         .frame(width: 44, height: 44)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(.rect(cornerRadius: 10))
                     Text("Change cover photo")
                 } else {
                     Image(systemName: "photo.badge.plus")
@@ -427,7 +434,8 @@ struct HostEventView: View {
                 .filter { !$0.question.isEmpty && !$0.answer.isEmpty },
             price: paid ? priceValue : nil,
             symbol: Event.symbol(for: category ?? ""),
-            coverData: coverData
+            coverImage: coverImage,
+            isHostedByMe: true
         )
         state.add(event)
         dismiss()

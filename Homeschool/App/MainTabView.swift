@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 enum AppTab: Hashable {
     case home, progress, gather, community, chats
@@ -21,13 +20,10 @@ extension EnvironmentValues {
 /// muted purple for the current page, soft lilac icons and grey labels for the rest.
 struct MainTabView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.displayScale) private var displayScale
     @State private var selection: AppTab = .home
     /// Changing a tab's number rebuilds it, which returns it to its first page.
     @State private var resetCounts: [AppTab: Int] = [:]
-
-    init() {
-        Self.styleLabels()
-    }
 
     var body: some View {
         TabView(selection: $selection) {
@@ -79,40 +75,16 @@ struct MainTabView: View {
     }
 
     /// Icons are drawn into plain bitmaps so the tab bar can't swap them for another symbol variant or recolour them.
+    /// `ImageRenderer` is SwiftUI's own renderer, so no UIKit is needed.
     private func icon(_ symbol: String, isSelected: Bool) -> Image {
-        let color = UIColor(isSelected ? Theme.tabSelected : Theme.tabIconInactive)
-        let config = UIImage.SymbolConfiguration(pointSize: 21, weight: .semibold)
-        guard let symbolImage = UIImage(systemName: symbol, withConfiguration: config)?
-            .withTintColor(color, renderingMode: .alwaysOriginal) else {
-            return Image(systemName: symbol)
-        }
-        let size = symbolImage.size
-        let bitmap = UIGraphicsImageRenderer(size: size).image { _ in
-            symbolImage.draw(in: CGRect(origin: .zero, size: size))
-        }
-        return Image(uiImage: bitmap.withRenderingMode(.alwaysOriginal)).renderingMode(.original)
-    }
-
-    private static func styleLabels() {
-        let selected = UIColor(Theme.tabSelected)
-        let icon = UIColor(Theme.tabIconInactive)
-        let label = UIColor(Theme.tabLabelInactive)
-
-        let appearance = UITabBarAppearance()
-        appearance.configureWithDefaultBackground()
-        for item in [appearance.stackedLayoutAppearance,
-                     appearance.inlineLayoutAppearance,
-                     appearance.compactInlineLayoutAppearance] {
-            item.normal.iconColor = icon
-            item.normal.titleTextAttributes = [.foregroundColor: label]
-            item.selected.iconColor = selected
-            item.selected.titleTextAttributes = [.foregroundColor: selected]
-        }
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().unselectedItemTintColor = icon
-
-        UITabBarItem.appearance().setTitleTextAttributes([.foregroundColor: label], for: .normal)
-        UITabBarItem.appearance().setTitleTextAttributes([.foregroundColor: selected], for: .selected)
+        let color = isSelected ? Theme.tabSelected : Theme.tabIconInactive
+        let renderer = ImageRenderer(content:
+            Image(systemName: symbol)
+                .font(.system(size: 21, weight: .semibold))
+                .foregroundStyle(color)
+                .padding(2))
+        renderer.scale = displayScale
+        guard let bitmap = renderer.cgImage else { return Image(systemName: symbol) }
+        return Image(decorative: bitmap, scale: displayScale).renderingMode(.original)
     }
 }

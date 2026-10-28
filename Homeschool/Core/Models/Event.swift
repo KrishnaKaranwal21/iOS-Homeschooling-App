@@ -1,10 +1,21 @@
-import Foundation
+import SwiftUI
 
 /// A question and answer the host adds to their event.
 struct EventFAQ: Identifiable, Hashable {
     let id = UUID()
     var question: String
     var answer: String
+}
+
+/// A question a family asked the host. The host answers it, and can add it to the event's public FAQs.
+struct EventQuestion: Identifiable, Hashable {
+    let id = UUID()
+    var asker: String
+    var text: String
+    var date: Date
+    var answer: String? = nil
+
+    var isAnswered: Bool { answer != nil }
 }
 
 struct Event: Identifiable, Hashable {
@@ -78,8 +89,14 @@ struct Event: Identifiable, Hashable {
     /// Name of an image in the asset catalog. The cover falls back to a colour when it is missing.
     var coverName: String? = nil
     /// Photo picked by a parent when hosting.
-    var coverData: Data? = nil
+    var coverImage: PickedImage? = nil
     var isRegistered = false
+    /// True when the signed-in parent created this event. The detail page then shows the host's tools.
+    var isHostedByMe = false
+    /// How many families have registered (shown to the host).
+    var registeredCount = 0
+    /// Questions families sent to the host.
+    var questions: [EventQuestion] = []
 }
 
 extension Event {
@@ -141,6 +158,16 @@ extension Event {
 
     var isFree: Bool { price == nil }
 
+    var unansweredCount: Int { questions.filter { !$0.isAnswered }.count }
+
+    /// Unanswered questions first, then the newest answered ones.
+    var sortedQuestions: [EventQuestion] {
+        questions.sorted {
+            if $0.isAnswered != $1.isAnswered { return !$0.isAnswered }
+            return $0.date > $1.date
+        }
+    }
+
     var priceText: String {
         guard let price else { return "Free" }
         return price.formatted(.currency(code: "INR").precision(.fractionLength(0)))
@@ -150,4 +177,14 @@ extension Event {
         let lines = location.split(separator: "\n", maxSplits: 1).map(String.init)
         return (lines.first ?? location, lines.count > 1 ? lines[1] : nil)
     }
+}
+
+/// A photo the person picked, kept as a SwiftUI `Image` (loaded with `PhotosPickerItem.loadTransferable(type: Image.self)`).
+/// `Image` is not `Hashable`/`Equatable`, so identity is the wrapper's own id.
+struct PickedImage: Identifiable, Hashable {
+    let id = UUID()
+    let image: Image
+
+    static func == (lhs: PickedImage, rhs: PickedImage) -> Bool { lhs.id == rhs.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
 }

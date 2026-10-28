@@ -15,10 +15,8 @@ struct ProgressDashboardView: View {
                 summary
                 TaskSection(title: "Tasks Left", tasks: left, color: .white) { state.toggle($0) }
                 TaskSection(title: "Tasks Completed", tasks: done, color: Theme.field) { state.toggle($0) }
-                NavigationLink { RoadmapOverviewView() } label: {
-                    PrimaryButtonLabel(title: "Build your Roadmap")
-                }
-                .buttonStyle(.plain)
+                NavigationLink("Build your Roadmap") { RoadmapOverviewView() }
+                    .buttonStyle(.primaryHomeschool)
             }.padding()
         }.background(Theme.background)
     }

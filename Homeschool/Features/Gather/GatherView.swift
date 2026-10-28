@@ -56,17 +56,22 @@ struct GatherView: View {
             VStack(alignment: .leading, spacing: 22) {
                 header
 
-                VStack(alignment: .leading, spacing: 12) {
-                    locationChip
-                    searchField
-                }
-
                 if isNearYou {
                     if hasNoRegistrations {
                         noRegistrations
                     } else {
                         nextGatherings
                     }
+                }
+
+                questionAlerts
+
+                // The heading comes first, then the area, the search and the category labels.
+                VStack(alignment: .leading, spacing: 12) {
+                    sectionTitle(outingsTitle)
+                        .id("outings")
+                    locationChip
+                    searchField
                 }
 
                 categoryChips
@@ -250,6 +255,43 @@ struct GatherView: View {
         }
     }
 
+    /// Tells the host when families have asked questions about an event they host.
+    @ViewBuilder private var questionAlerts: some View {
+        let waiting = state.hostedEventsWithQuestions
+        if !waiting.isEmpty {
+            VStack(spacing: 10) {
+                ForEach(waiting) { event in
+                    NavigationLink(value: event) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "bubble.left.and.exclamationmark.bubble.right.fill")
+                                .scaledFont(18, maxScale: 1.2)
+                                .foregroundStyle(Theme.ink)
+                                .frame(width: 42, height: 42)
+                                .background(Color.white, in: .circle)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(event.unansweredCount == 1
+                                     ? "1 new question"
+                                     : "\(event.unansweredCount) new questions")
+                                    .rowTitle()
+                                Text("On “\(event.title)”. Tap to answer.")
+                                    .rowDetail()
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Theme.gatherText)
+                        }
+                        .padding(14)
+                        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
     private var noRegistrations: some View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Your next gathering")
@@ -269,13 +311,9 @@ struct GatherView: View {
 
     private var findOutings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                sectionTitle(outingsTitle)
-                    .id("outings")
-                Text(availabilityText)
-                    .caption()
-                    .padding(.horizontal, 24)
-            }
+            Text(availabilityText)
+                .caption()
+                .padding(.horizontal, 24)
 
             LazyVStack(spacing: 16) {
                 ForEach(outings) { event in

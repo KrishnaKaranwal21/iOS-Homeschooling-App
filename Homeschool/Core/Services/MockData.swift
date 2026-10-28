@@ -49,7 +49,31 @@ enum MockData {
               ages: "Ages 10+",
               parentPresence: .dropOffOnly,
               about: "Show what you are building, swap ideas and try a new puzzle together.",
-              symbol: "chevron.left.forwardslash.chevron.right", coverName: "cover-coding")
+              symbol: "chevron.left.forwardslash.chevron.right", coverName: "cover-coding"),
+        // Hosted by the signed-in parent, with questions from families (two still waiting for an answer).
+        Event(title: "Backyard Bird Watch", category: "Nature", kind: .gathering,
+              start: date(11, 15, 7, 30), end: date(11, 15, 9),
+              host: "Asha Patel", hostRole: "Parent host",
+              location: "Lake View Park\nPotheri",
+              ages: "Ages 6–12",
+              parentPresence: .required,
+              about: "An early-morning walk to spot and sketch local birds. We share binoculars and a simple bird checklist.",
+              faqs: [
+                EventFAQ(question: "What should we bring?",
+                         answer: "Water, a hat and a notebook. Binoculars are shared, but bring your own if you have a pair."),
+                EventFAQ(question: "What if it rains?",
+                         answer: "We move to the community hall next door and look at bird photos and nests instead.")
+              ],
+              symbol: "leaf", isHostedByMe: true, registeredCount: 6,
+              questions: [
+                EventQuestion(asker: "Sara Patel", text: "Is the walk suitable for a 5 year old?",
+                              date: Date.now.addingTimeInterval(-3_600)),
+                EventQuestion(asker: "Daniel", text: "Is there parking near the park entrance?",
+                              date: Date.now.addingTimeInterval(-26 * 3_600)),
+                EventQuestion(asker: "Meera", text: "Do we need to register siblings separately?",
+                              date: Date.now.addingTimeInterval(-3 * 86_400),
+                              answer: "No, one registration covers siblings. Just add their names in the notes.")
+              ])
     ]
 
     private static func date(_ month: Int, _ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {

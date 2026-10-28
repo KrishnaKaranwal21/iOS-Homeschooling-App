@@ -72,7 +72,7 @@ struct RegistrationView: View {
         HStack(spacing: 16) {
             EventCover(event: event)
                 .frame(width: 84, height: 84)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .clipShape(.rect(cornerRadius: 18))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -95,7 +95,7 @@ struct RegistrationView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Theme.lilac))
+        .background(Theme.lilac, in: .rect(cornerRadius: 28))
         .accessibilityElement(children: .combine)
     }
 
@@ -190,12 +190,12 @@ struct RegistrationView: View {
 
     private var confirmArea: some View {
         VStack(spacing: 12) {
-            PrimaryButton(title: event.isFree ? "Confirm registration" : "Pay \(event.priceText) & confirm",
-                          isDimmed: !isValid) {
+            Button(event.isFree ? "Confirm registration" : "Pay \(event.priceText) & confirm") {
                 guard isValid else { return }
                 state.register(event, as: registrant, accompanying: isAccompanying)
                 dismiss()
             }
+            .buttonStyle(.primaryHomeschool(isDimmed: !isValid))
 
             Text(event.isFree
                  ? "Your confirmation will be sent by email. You can cancel any time."
@@ -239,10 +239,8 @@ struct RegistrationView: View {
                     .foregroundStyle(Theme.ink)
                     .opacity(isOn.wrappedValue ? 1 : 0)
                     .frame(width: 30, height: 30)
-                    .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(isOn.wrappedValue ? Theme.lavender : Color.white))
-                    .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(isOn.wrappedValue ? Color.clear : Theme.lilacBorder, lineWidth: 1.5))
+                    .background(isOn.wrappedValue ? Theme.lavender : Color.white, in: .rect(cornerRadius: 9))
+                    .roundedStroke(isOn.wrappedValue ? Color.clear : Theme.lilacBorder, cornerRadius: 9, lineWidth: 1.5)
                 Text(text)
                     .scaledFont(15, maxScale: 1.3)
                     .foregroundStyle(Theme.ink)
@@ -266,7 +264,7 @@ struct RegistrationView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.chipFill))
+        .background(Theme.chipFill, in: .rect(cornerRadius: 18))
     }
 
     // MARK: Prefill

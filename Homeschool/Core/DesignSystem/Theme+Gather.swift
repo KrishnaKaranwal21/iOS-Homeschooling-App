@@ -22,9 +22,8 @@ struct GatherFieldStyle: ViewModifier {
         content
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Theme.cardBorder, lineWidth: 1))
+            .background(Color.white, in: .rect(cornerRadius: 16))
+            .roundedStroke(Theme.cardBorder, cornerRadius: 16, lineWidth: 1)
     }
 }
 

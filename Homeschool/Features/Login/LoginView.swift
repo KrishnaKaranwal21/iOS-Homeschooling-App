@@ -51,26 +51,23 @@ struct LoginView: View {
     /// Height of everything on this screen except the illustration (titles, buttons, email block).
     private let fixedContentHeight: CGFloat = 525
 
-    /// The illustration takes whatever room is left, so the page fits without scrolling.
-    private func illustrationHeight(in available: CGFloat) -> CGFloat {
-        min(max(available - fixedContentHeight, 120), 320)
-    }
-
     private var entry: some View {
-        GeometryReader { geo in
-            entryContent(illustrationHeight: illustrationHeight(in: geo.size.height))
-        }
-        .onSubmit(sendCode)
+        entryContent
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onSubmit(sendCode)
     }
 
-    private func entryContent(illustrationHeight: CGFloat) -> some View {
+    private var entryContent: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 0) {
                 Image("LoginIllustration")
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
-                    .frame(height: illustrationHeight)
+                    // The illustration takes whatever room is left, so the page fits without scrolling.
+                    .containerRelativeFrame(.vertical) { length, _ in
+                        min(max(length - fixedContentHeight, 120), 320)
+                    }
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {
@@ -145,7 +142,8 @@ struct LoginView: View {
 
     private var sendSection: some View {
         VStack(spacing: 14) {
-            PrimaryButton(title: "Send code", action: sendCode)
+            Button("Send code", action: sendCode)
+                .buttonStyle(.primaryHomeschool)
 
             Text("By continuing, you agree to our [Terms of Service](https://example.com/terms) and [Privacy Policy](https://example.com/privacy).")
                 .font(.footnote)

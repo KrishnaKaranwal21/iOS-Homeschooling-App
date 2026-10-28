@@ -234,7 +234,7 @@ struct BroadcastSheet: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .frame(minHeight: 42)
-                        .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
+                        .background(Theme.field, in: .rect(cornerRadius: 21))
 
                     Button(action: send) {
                         Image(systemName: "paperplane.fill")

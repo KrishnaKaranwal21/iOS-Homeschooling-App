@@ -16,7 +16,7 @@ struct OnboardingPageView: View {
 
             card
                 .frame(height: 300)
-                .background(Theme.lavender, in: RoundedRectangle(cornerRadius: 40, style: .continuous))
+                .background(Theme.lavender, in: .rect(cornerRadius: 40))
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
 

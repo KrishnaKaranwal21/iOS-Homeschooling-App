@@ -17,11 +17,12 @@ struct RoadmapCard: View {
             Spacer(minLength: 16)
 
             // Shrinks a little on narrow phones instead of overflowing the card.
-            GeometryReader { geo in
-                diagram
-                    .scaleEffect(min(1, geo.size.width / diagramWidth), anchor: .topLeading)
-            }
-            .frame(height: diagramHeight)
+            Color.clear
+                .frame(height: diagramHeight)
+                .overlay(alignment: .topLeading) { diagram }
+                .visualEffect { content, proxy in
+                    content.scaleEffect(min(1, proxy.size.width / diagramWidth), anchor: .topLeading)
+                }
         }
         .padding(.horizontal, 22)
         .padding(.top, 24)
@@ -75,7 +76,7 @@ struct RoadmapCard: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Theme.ink, in: .rect(cornerRadius: 12))
     }
 
     private var startChip: some View {
@@ -89,6 +90,6 @@ struct RoadmapCard: View {
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(.white, in: .rect(cornerRadius: 12))
     }
 }

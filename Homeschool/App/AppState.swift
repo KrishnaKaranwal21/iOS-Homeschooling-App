@@ -8,20 +8,18 @@ final class AppState {
     var stage: LaunchStage = .onboarding
     /// The family's home area. "Near you" in Gather and the Community list use it.
     var homeLocation: Place = .potheri {
-        didSet {
-            if let data = try? JSONEncoder().encode(homeLocation) {
-                UserDefaults.standard.set(data, forKey: "homeLocation")
-            }
-        }
+        didSet { storedHomeLocation = Self.encode(homeLocation) }
     }
     /// When on, the home area follows the phone's approximate location. When off, the family picks a city.
-    var usesLiveLocation = false {
-        didSet { UserDefaults.standard.set(usesLiveLocation, forKey: "usesLiveLocation") }
+    var usesLiveLocation: Bool {
+        get { access(keyPath: \.usesLiveLocation); return storedUsesLiveLocation }
+        set { withMutation(keyPath: \.usesLiveLocation) { storedUsesLiveLocation = newValue } }
     }
     let locationService = LocationService()
 
-    var communityRadiusKm = 5 {
-        didSet { UserDefaults.standard.set(communityRadiusKm, forKey: "communityRadiusKm") }
+    var communityRadiusKm: Int {
+        get { access(keyPath: \.communityRadiusKm); return storedCommunityRadiusKm }
+        set { withMutation(keyPath: \.communityRadiusKm) { storedCommunityRadiusKm = newValue } }
     }
 
     /// All conversations.
@@ -35,7 +33,7 @@ final class AppState {
         didSet { saveChildren() }
     }
     var selectedChildID = UUID() {
-        didSet { UserDefaults.standard.set(selectedChildID.uuidString, forKey: selectedChildKey) }
+        didSet { storedSelectedChildID = selectedChildID.uuidString }
     }
 
     /// The child whose plan is on screen. Reading and writing go to the matching entry in `children`.
@@ -58,42 +56,48 @@ final class AppState {
     /// false until the family has seen the first-time Home and moved on to another tab.
     var hasSeenFirstHome = false
 
-    private let childrenKey = "children"
-    private let selectedChildKey = "selectedChildID"
-    private let stageKey = "stage"
-    private let firstHomeKey = "hasSeenFirstHome"
-    private let registrantKey = "savedRegistrant"
-    private let bookmarkKey = "bookmarkedEvents"
+    // MARK: Persistence
+    // `@AppStorage` replaces direct `UserDefaults.standard` calls. `@Observable` classes need
+    // `@ObservationIgnored` on property wrappers, so observed properties above either mirror
+    // into these (`didSet`) or wrap them with `access`/`withMutation` (the scalar settings).
+    @ObservationIgnored @AppStorage("stage") private var storedStage: String?
+    @ObservationIgnored @AppStorage("hasSeenFirstHome") private var storedHasSeenFirstHome: Bool?
+    @ObservationIgnored @AppStorage("usesLiveLocation") private var storedUsesLiveLocation = false
+    @ObservationIgnored @AppStorage("communityRadiusKm") private var storedCommunityRadiusKm = 5
+    @ObservationIgnored @AppStorage("selectedChildID") private var storedSelectedChildID = ""
+    @ObservationIgnored @AppStorage("children") private var storedChildren = Data()
+    @ObservationIgnored @AppStorage("homeLocation") private var storedHomeLocation = Data()
+    @ObservationIgnored @AppStorage("savedRegistrant") private var storedRegistrant = Data()
+    @ObservationIgnored @AppStorage("bookmarkedEvents") private var storedBookmarks = Data()
+
+    private static func encode<T: Encodable>(_ value: T) -> Data {
+        (try? JSONEncoder().encode(value)) ?? Data()
+    }
+
+    private static func decode<T: Decodable>(_ type: T.Type, from data: Data) -> T? {
+        data.isEmpty ? nil : try? JSONDecoder().decode(type, from: data)
+    }
 
     init() {
-        let defaults = UserDefaults.standard
-        if defaults.string(forKey: stageKey) == "main" {
+        if storedStage == "main" {
             stage = .main
         }
         // Saved children only count once setup was finished.
         if stage == .main,
-           let data = defaults.data(forKey: childrenKey),
-           let saved = try? JSONDecoder().decode([Child].self, from: data), !saved.isEmpty {
+           let saved = Self.decode([Child].self, from: storedChildren), !saved.isEmpty {
             children = saved
-            let savedID = defaults.string(forKey: selectedChildKey).flatMap(UUID.init(uuidString:))
+            let savedID = UUID(uuidString: storedSelectedChildID)
             selectedChildID = saved.contains { $0.id == savedID } ? (savedID ?? saved[0].id) : saved[0].id
         } else {
             selectedChildID = children[0].id
         }
-        if let data = defaults.data(forKey: "homeLocation"),
-           let saved = try? JSONDecoder().decode(Place.self, from: data) {
+        if let saved = Self.decode(Place.self, from: storedHomeLocation) {
             homeLocation = saved
         }
-        usesLiveLocation = defaults.bool(forKey: "usesLiveLocation")
-        let savedRadius = defaults.integer(forKey: "communityRadiusKm")
-        if savedRadius > 0 { communityRadiusKm = savedRadius }
         // Families who were already inside the app before this screen existed skip it.
-        hasSeenFirstHome = defaults.object(forKey: firstHomeKey) as? Bool ?? (stage == .main)
-        if let data = defaults.data(forKey: registrantKey),
-           let saved = try? JSONDecoder().decode(Registrant.self, from: data) {
-            savedRegistrant = saved
-        }
-        bookmarkedKeys = Set(defaults.stringArray(forKey: bookmarkKey) ?? [])
+        hasSeenFirstHome = storedHasSeenFirstHome ?? (stage == .main)
+        savedRegistrant = Self.decode(Registrant.self, from: storedRegistrant)
+        bookmarkedKeys = Set(Self.decode([String].self, from: storedBookmarks) ?? [])
 
         // Sample data: the events already marked as registered get a sample registration.
         let sample = Registrant(parentName: "Asha Patel", email: "asha.patel@example.com",
@@ -108,14 +112,14 @@ final class AppState {
     func advance(to newStage: LaunchStage) {
         stage = newStage
         if newStage == .main {
-            UserDefaults.standard.set("main", forKey: stageKey)
+            storedStage = "main"
         }
     }
 
     /// Called after login. A new account sees the first-time Home, a returning one goes straight to the regular Home.
     func setReturningUser(_ returning: Bool) {
         hasSeenFirstHome = returning
-        UserDefaults.standard.set(returning, forKey: firstHomeKey)
+        storedHasSeenFirstHome = returning
         // A new account starts with no conversations. A returning one gets the sample chats.
         chats.reload(withSamples: returning)
     }
@@ -124,7 +128,7 @@ final class AppState {
     func markFirstHomeSeen() {
         guard !hasSeenFirstHome else { return }
         hasSeenFirstHome = true
-        UserDefaults.standard.set(true, forKey: firstHomeKey)
+        storedHasSeenFirstHome = true
     }
 
     // MARK: Parent account
@@ -202,9 +206,7 @@ final class AppState {
     }
 
     private func saveChildren() {
-        if let data = try? JSONEncoder().encode(children) {
-            UserDefaults.standard.set(data, forKey: childrenKey)
-        }
+        storedChildren = Self.encode(children)
         syncExamReminders()
     }
 
@@ -230,9 +232,7 @@ final class AppState {
                                                accompanying: accompanying)
 
         savedRegistrant = registrant
-        if let data = try? JSONEncoder().encode(registrant) {
-            UserDefaults.standard.set(data, forKey: registrantKey)
-        }
+        storedRegistrant = Self.encode(registrant)
     }
 
     /// Free registrations can be cancelled at any time. Paid ones cannot, and are not refunded.
@@ -248,6 +248,23 @@ final class AppState {
         events[index].isRegistered = false
         registrations[event.id] = nil
         return true
+    }
+
+    /// The host answers a family's question. With `publish`, it also joins the event's public FAQs.
+    func answerQuestion(_ questionID: EventQuestion.ID, on eventID: Event.ID, answer: String, publish: Bool) {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let e = events.firstIndex(where: { $0.id == eventID }),
+              let q = events[e].questions.firstIndex(where: { $0.id == questionID }) else { return }
+        events[e].questions[q].answer = trimmed
+        if publish {
+            events[e].faqs.append(EventFAQ(question: events[e].questions[q].text, answer: trimmed))
+        }
+    }
+
+    /// Events I host that still have questions waiting for an answer.
+    var hostedEventsWithQuestions: [Event] {
+        events.filter { $0.isHostedByMe && $0.unansweredCount > 0 }
     }
 
     func add(_ event: Event) {
@@ -269,11 +286,11 @@ final class AppState {
         if !bookmarkedKeys.insert(event.storageKey).inserted {
             bookmarkedKeys.remove(event.storageKey)
         }
-        UserDefaults.standard.set(Array(bookmarkedKeys), forKey: bookmarkKey)
+        storedBookmarks = Self.encode(bookmarkedKeys.sorted())
     }
 
     func resetOnboarding() {
-        UserDefaults.standard.removeObject(forKey: stageKey)
+        storedStage = nil
         children = [Child.empty]
         selectedChildID = children[0].id
         stage = .onboarding

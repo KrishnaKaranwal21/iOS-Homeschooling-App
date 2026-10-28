@@ -13,6 +13,7 @@ struct ChatsListView: View {
     @State private var openID: ChatThread.ID?
     @State private var showNewChat = false
     @State private var deleteTarget: ChatThread.ID?
+    @State private var isConfirmingDelete = false
 
     private let accent = Color(hex: 0xD9D2FF)
     private let unreadTime = Color(hex: 0x5B6B2F)
@@ -67,15 +68,15 @@ struct ChatsListView: View {
         .sheet(item: $broadcastLabel) { label in BroadcastSheet(label: label) }
         .sheet(item: $labelsThread) { ref in ThreadLabelsSheet(threadID: ref.id) }
         .confirmationDialog("Delete this chat?",
-                            isPresented: Binding(get: { deleteTarget != nil },
-                                                 set: { if !$0 { deleteTarget = nil } }),
-                            titleVisibility: .visible) {
+                            isPresented: $isConfirmingDelete,
+                            titleVisibility: .visible,
+                            presenting: deleteTarget) { id in
             Button("Delete chat", role: .destructive) {
-                if let id = deleteTarget { state.chats.delete(id) }
+                state.chats.delete(id)
                 deleteTarget = nil
             }
             Button("Cancel", role: .cancel) { deleteTarget = nil }
-        } message: {
+        } message: { _ in
             Text("The messages will be removed from this device.")
         }
     }
@@ -252,7 +253,7 @@ struct ChatsListView: View {
                         .tint(Color(hex: 0xB5AED0))
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) { deleteTarget = thread.id } label: {
+                        Button(role: .destructive) { deleteTarget = thread.id; isConfirmingDelete = true } label: {
                             Label("Delete", systemImage: "trash")
                         }
                         Button { state.chats.toggleMute(thread.id) } label: {
@@ -278,7 +279,7 @@ struct ChatsListView: View {
                         Button { state.chats.markUnread(thread.id) } label: {
                             Label("Mark as unread", systemImage: "envelope.badge")
                         }
-                        Button(role: .destructive) { deleteTarget = thread.id } label: {
+                        Button(role: .destructive) { deleteTarget = thread.id; isConfirmingDelete = true } label: {
                             Label("Delete chat", systemImage: "trash")
                         }
                     }
@@ -447,7 +448,7 @@ struct ChatsListView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Color(hex: 0xE6E1FF)))
+            .background(Color(hex: 0xE6E1FF), in: .rect(cornerRadius: 28))
             .padding(.horizontal, 18)
             .padding(.top, 12)
         }

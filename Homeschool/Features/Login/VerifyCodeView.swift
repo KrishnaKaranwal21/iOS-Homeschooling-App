@@ -92,11 +92,10 @@ struct VerifyCodeView: View {
                 .foregroundStyle(.clear)
                 .tint(.clear)
                 .opacity(0.02)
-                .allowsHitTesting(false)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onChange(of: code) { _, newValue in handleChange(newValue) }
         }
-        .contentShape(Rectangle())
-        .onTapGesture { focused = true }
+        .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Verification code")
         .accessibilityValue(code.isEmpty ? "Empty" : code)
@@ -115,10 +114,8 @@ struct VerifyCodeView: View {
             .foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 60)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(borderColor(active: isActive, filled: !digit.isEmpty),
-                        lineWidth: isActive || showError ? 1.5 : 1))
+            .background(Color.white, in: .rect(cornerRadius: 16))
+            .roundedStroke(borderColor(active: isActive, filled: !digit.isEmpty), cornerRadius: 16, lineWidth: isActive || showError ? 1.5 : 1)
     }
 
     private func borderColor(active: Bool, filled: Bool) -> Color {

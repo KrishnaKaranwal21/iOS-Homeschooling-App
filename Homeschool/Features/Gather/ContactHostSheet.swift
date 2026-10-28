@@ -63,10 +63,11 @@ struct ContactHostSheet: View {
                     Text("The host replies in Chats.")
                         .caption()
 
-                    PrimaryButton(title: "Send message", isDimmed: !canSend) {
+                    Button("Send message") {
                         guard canSend else { return }
                         send()
                     }
+                    .buttonStyle(.primaryHomeschool(isDimmed: !canSend))
                 }
                 .padding(24)
             }
@@ -116,11 +117,12 @@ struct CompleteProfileSheet: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
+            .background(Color.white, in: .rect(cornerRadius: 20))
 
             Spacer(minLength: 0)
 
-            PrimaryButton(title: "Complete profile", action: onComplete)
+            Button("Complete profile", action: onComplete)
+                .buttonStyle(.primaryHomeschool)
             Button("Not now") { dismiss() }
                 .scaledFont(16, weight: .medium, maxScale: 1.2)
                 .foregroundStyle(Theme.secondary)

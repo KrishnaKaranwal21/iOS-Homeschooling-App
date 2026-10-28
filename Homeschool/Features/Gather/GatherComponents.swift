@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 // MARK: - Cover image
 
@@ -28,17 +27,18 @@ struct EventCover: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let data = event.coverData, let image = UIImage(data: data) {
-            Image(uiImage: image).resizable().scaledToFill()
-        } else if let name = event.coverName, UIImage(named: name) != nil {
-            Image(name).resizable().scaledToFill()
-        } else {
-            ZStack {
-                LinearGradient(colors: [event.tint.opacity(0.6), event.tint],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                Image(systemName: event.symbol)
-                    .font(.system(size: 56))
-                    .foregroundStyle(Color.white.opacity(0.9))
+        ZStack {
+            // Fallback shown whenever there is no picked photo or the named asset is missing.
+            LinearGradient(colors: [event.tint.opacity(0.6), event.tint],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            Image(systemName: event.symbol)
+                .font(.system(size: 56))
+                .foregroundStyle(Color.white.opacity(0.9))
+
+            if let cover = event.coverImage {
+                cover.image.resizable().scaledToFill()
+            } else if let name = event.coverName {
+                Image(name).resizable().scaledToFill()
             }
         }
     }
@@ -125,13 +125,6 @@ struct GatherDateField: View {
     @Binding var date: Date
     @State private var isPresented = false
 
-    private var binding: Binding<Date> {
-        Binding(get: { date }, set: { newValue in
-            date = newValue
-            isPresented = false
-        })
-    }
-
     var body: some View {
         Button { isPresented = true } label: {
             HStack {
@@ -146,13 +139,15 @@ struct GatherDateField: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $isPresented) {
-            DatePicker("Date", selection: binding, in: Date.now..., displayedComponents: .date)
+            DatePicker("Date", selection: $date, in: Date.now..., displayedComponents: .date)
                 .datePickerStyle(.graphical)
                 .labelsHidden()
                 .padding(12)
                 .frame(width: 330)
                 .presentationCompactAdaptation(.popover)
         }
+        // Choosing a day saves it and closes the calendar.
+        .onChange(of: date) { isPresented = false }
     }
 }
 
@@ -282,7 +277,7 @@ struct TicketCard: View {
         }
         .frame(height: Self.cardHeight)
         .background(Theme.pink)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(.rect(cornerRadius: 28))
     }
 
     private var dateTile: some View {
@@ -299,7 +294,7 @@ struct TicketCard: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .frame(width: 72, height: 86)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+        .background(Color.white, in: .rect(cornerRadius: 18))
         .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
         .rotationEffect(.degrees(-6))
     }
@@ -384,7 +379,7 @@ struct EmptyTicketCard: View {
         }
         .frame(height: TicketCard.cardHeight)
         .background(Theme.pink)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .clipShape(.rect(cornerRadius: 28))
         .accessibilityElement(children: .combine)
     }
 
@@ -393,7 +388,7 @@ struct EmptyTicketCard: View {
             .font(.system(size: 34, weight: .semibold))
             .foregroundStyle(warmText)
             .frame(width: 72, height: 86)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+            .background(Color.white, in: .rect(cornerRadius: 18))
             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             .rotationEffect(.degrees(-6))
             .accessibilityHidden(true)
@@ -410,9 +405,18 @@ struct OutingCard: View {
         VStack(alignment: .leading, spacing: 0) {
             EventCover(event: event)
                 .frame(height: coverHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(.rect(cornerRadius: 20))
                 .overlay(alignment: .topTrailing) {
-                    if event.isRegistered {
+                    if event.isHostedByMe {
+                        Label(event.unansweredCount > 0 ? "Hosting · \(event.unansweredCount) new" : "Hosting",
+                              systemImage: "star.fill")
+                            .scaledFont(13, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(Theme.pink))
+                            .padding(8)
+                    } else if event.isRegistered {
                         Label("Registered", systemImage: "checkmark.circle.fill")
                             .scaledFont(13, weight: .semibold, maxScale: 1.2)
                             .foregroundStyle(Theme.ink)
@@ -448,8 +452,8 @@ struct OutingCard: View {
             .padding(.vertical, 12)
         }
         .padding(6)
-        .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Theme.lilacBorder, lineWidth: 1))
+        .background(Color.white, in: .rect(cornerRadius: 26))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
     }
 }
 
@@ -493,7 +497,7 @@ struct GatherConfirmationSheet: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.lilac))
+                .background(Theme.lilac, in: .rect(cornerRadius: 20))
 
                 NavigationLink {
                     RegistrationDetailView(event: event, registration: state.registrations[event.id])
@@ -526,7 +530,8 @@ struct GatherConfirmationSheet: View {
 
                 Spacer(minLength: 0)
 
-                PrimaryButton(title: "Done") { dismiss() }
+                Button("Done") { dismiss() }
+                    .buttonStyle(.primaryHomeschool)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 12)
@@ -622,8 +627,8 @@ struct RegistrationDetailView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.lilacBorder, lineWidth: 1))
+            .background(Color.white, in: .rect(cornerRadius: 20))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 20, lineWidth: 1)
         }
     }
 }

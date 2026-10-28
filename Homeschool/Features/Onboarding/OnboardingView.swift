@@ -1,10 +1,11 @@
 import SwiftUI
 
 struct OnboardingView: View {
-    @State private var currentPage = 0
+    @State private var scrolledPage: Int? = 0
     private let pages = OnboardingPage.all
     var onFinish: () -> Void = {}
 
+    private var currentPage: Int { scrolledPage ?? 0 }
     private var isLast: Bool { currentPage == pages.count - 1 }
 
     var body: some View {
@@ -22,24 +23,32 @@ struct OnboardingView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 10)
 
-                TabView(selection: $currentPage) {
-                    ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
-                        OnboardingPageView(page: page).tag(index)
+                ScrollView(.horizontal) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
+                            OnboardingPageView(page: page)
+                                .containerRelativeFrame([.horizontal, .vertical])
+                                .id(index)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+                .scrollTargetBehavior(.paging)
+                .scrollIndicators(.hidden)
+                .scrollPosition(id: $scrolledPage)
 
                 PageDots(count: pages.count, current: currentPage)
                     .padding(.top, 8)
                     .padding(.bottom, 28)
 
-                PrimaryButton(title: isLast ? "Get started" : "Next") {
+                Button(isLast ? "Get started" : "Next") {
                     if isLast {
                         onFinish()
                     } else {
-                        withAnimation(.easeInOut) { currentPage += 1 }
+                        withAnimation(.easeInOut) { scrolledPage = currentPage + 1 }
                     }
                 }
+                .buttonStyle(.primaryHomeschool)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 16)
             }

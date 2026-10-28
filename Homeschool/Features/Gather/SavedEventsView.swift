@@ -46,7 +46,7 @@ private struct SavedEventRow: View {
                 HStack(spacing: 12) {
                     EventCover(event: event)
                         .frame(width: 76, height: 76)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(.rect(cornerRadius: 16))
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(event.title)
@@ -74,7 +74,7 @@ private struct SavedEventRow: View {
             .accessibilityLabel("Remove from saved events")
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.lilacBorder, lineWidth: 1))
+        .background(Color.white, in: .rect(cornerRadius: 24))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
     }
 }

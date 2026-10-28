@@ -14,9 +14,8 @@ extension Theme {
 struct InsetCardStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(RoundedRectangle(cornerRadius: Theme.insetRadius, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: Theme.insetRadius, style: .continuous)
-                .stroke(Theme.cardBorder, lineWidth: 1))
+            .background(Color.white, in: .rect(cornerRadius: Theme.insetRadius))
+            .roundedStroke(Theme.cardBorder, cornerRadius: Theme.insetRadius, lineWidth: 1)
     }
 }
 
@@ -36,5 +35,16 @@ struct SetupHeader: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+extension View {
+    /// Strokes a rounded border using the modern `.rect(cornerRadius:)` shape.
+    /// Pass `Color.clear` to hide the border while keeping layout stable.
+    func roundedStroke<S: ShapeStyle>(_ style: S, cornerRadius: CGFloat, lineWidth: CGFloat = 1) -> some View {
+        overlay {
+            let shape: RoundedRectangle = .rect(cornerRadius: cornerRadius)
+            shape.stroke(style, lineWidth: lineWidth)
+        }
     }
 }

@@ -197,10 +197,8 @@ struct OutlinedChip: View {
         .foregroundStyle(Theme.obsidian)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(selected ? Theme.pink : Color.white))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .stroke(selected ? Color(hex: 0xEFB4B4) : Theme.cardBorder, lineWidth: 1))
+        .background(selected ? Theme.pink : Color.white, in: .rect(cornerRadius: 20))
+        .roundedStroke(selected ? Color(hex: 0xEFB4B4) : Theme.cardBorder, cornerRadius: 20, lineWidth: 1)
     }
 }
 
@@ -401,8 +399,7 @@ private enum SubjectIcon {
 
     static func symbol(for name: String, groupId: String) -> String {
         let fallback = groupId.hasPrefix("lang") ? "character.book.closed" : "book.closed"
-        // Never show a blank icon: if a symbol name isn't available on this iOS version, use the fallback.
-        if let s = map[name], UIImage(systemName: s) != nil { return s }
-        return fallback
+        // Every symbol in `map` ships with the deployment target (iOS 18), so a plain lookup is enough.
+        return map[name] ?? fallback
     }
 }

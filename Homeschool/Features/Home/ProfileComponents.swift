@@ -113,7 +113,7 @@ struct ExamRows: View {
 
                     if notificationStatus == .denied {
                         Button("Notifications are off. Open Settings") {
-                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                            if let url = URL(string: "app-settings:") { openURL(url) }
                         }
                         .font(.footnote)
                     }

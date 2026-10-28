@@ -7,6 +7,7 @@ struct ChatDetailView: View {
 
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @State private var draft = ""
     @State private var showInfo = false
@@ -119,7 +120,7 @@ struct ChatDetailView: View {
         }
         .alert("Microphone is off", isPresented: $micDenied) {
             Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                if let url = URL(string: "app-settings:") { openURL(url) }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -242,12 +243,12 @@ struct ChatDetailView: View {
                         .scaledFont(13, weight: .semibold, maxScale: 1.2)
                         .foregroundStyle(Theme.tabSelected)
                 }
-                if let data = message.imageData, let image = UIImage(data: data) {
-                    Image(uiImage: image)
+                if let picked = message.image {
+                    picked.image
                         .resizable()
                         .scaledToFill()
                         .frame(width: 220, height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(.rect(cornerRadius: 16))
                         .accessibilityLabel("Photo")
                 }
                 if message.audioData != nil {
@@ -355,7 +356,7 @@ struct ChatDetailView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
                         .frame(minHeight: 42)
-                        .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
+                        .background(Theme.field, in: .rect(cornerRadius: 21))
 
                     if hasText {
                         Button(action: sendDraft) {
@@ -415,7 +416,7 @@ struct ChatDetailView: View {
             }
             .padding(.horizontal, 16)
             .frame(minHeight: 42)
-            .background(RoundedRectangle(cornerRadius: 21, style: .continuous).fill(Theme.field))
+            .background(Theme.field, in: .rect(cornerRadius: 21))
 
             Button(action: sendRecording) {
                 Image(systemName: "arrow.up")
@@ -443,16 +444,8 @@ struct ChatDetailView: View {
         guard let item else { return }
         Task {
             defer { photoItem = nil }
-            guard let data = try? await item.loadTransferable(type: Data.self),
-                  let image = UIImage(data: data) else { return }
-            // Keep the saved size small.
-            let maxSide: CGFloat = 1000
-            let scale = min(1, maxSide / max(image.size.width, image.size.height))
-            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-            let resized = UIGraphicsImageRenderer(size: size).jpegData(withCompressionQuality: 0.75) { _ in
-                image.draw(in: CGRect(origin: .zero, size: size))
-            }
-            state.chats.send(text: "", imageData: resized, in: threadID)
+            guard let image = try? await item.loadTransferable(type: Image.self) else { return }
+            state.chats.send(text: "", image: PickedImage(image: image), in: threadID)
         }
     }
 }

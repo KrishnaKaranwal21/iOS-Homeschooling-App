@@ -1,4 +1,5 @@
-import Foundation
+import SwiftUI
+import Security
 
 // MARK: - Mock account database
 
@@ -11,27 +12,20 @@ struct Account: Codable, Equatable {
 /// Accounts kept on this device so the "existing vs new user" flow can be tested without a backend.
 /// Replace every function here with calls to your real server.
 enum AccountStore {
-    private static let key = "mock.accounts"
+    /// Profiles of the mock accounts (stored with `@AppStorage`; a real server replaces this).
+    @AppStorage("mock.accounts") private static var storedAccounts = Data()
 
     private static var all: [String: Account] {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: key),
-                  let decoded = try? JSONDecoder().decode([String: Account].self, from: data)
-            else { return [:] }
-            return decoded
-        }
-        set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                UserDefaults.standard.set(data, forKey: key)
-            }
-        }
+        get { (try? JSONDecoder().decode([String: Account].self, from: storedAccounts)) ?? [:] }
+        set { storedAccounts = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 
+    /// The signed-in session lives in the Keychain, not in UserDefaults.
     private static let currentKey = "mock.currentEmail"
 
     /// The account that is signed in on this device.
     static var current: Account? {
-        guard let email = UserDefaults.standard.string(forKey: currentKey) else { return nil }
+        guard let email = Keychain.string(for: currentKey) else { return nil }
         return all[email]
     }
 
@@ -58,7 +52,7 @@ enum AccountStore {
         if account.name.isEmpty, let name, !name.isEmpty { account.name = name }
         accounts[id] = account
         all = accounts
-        UserDefaults.standard.set(id, forKey: currentKey)
+        Keychain.set(id, for: currentKey)
         return account
     }
 }
@@ -94,5 +88,35 @@ enum SocialAuth {
         case .apple:  return SocialProfile(name: "Maya Sharma", email: "maya.sharma@icloud.com")
         case .google: return SocialProfile(name: "Maya Sharma", email: "maya.sharma@gmail.com")
         }
+    }
+}
+
+// MARK: - Keychain
+
+/// Minimal Keychain wrapper for small secrets such as the signed-in session.
+enum Keychain {
+    private static func baseQuery(_ key: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrAccount as String: key]
+    }
+
+    static func string(for key: String) -> String? {
+        var query = baseQuery(key)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Pass `nil` to remove the value.
+    static func set(_ value: String?, for key: String) {
+        SecItemDelete(baseQuery(key) as CFDictionary)
+        guard let value else { return }
+        var query = baseQuery(key)
+        query[kSecValueData as String] = Data(value.utf8)
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        SecItemAdd(query as CFDictionary, nil)
     }
 }

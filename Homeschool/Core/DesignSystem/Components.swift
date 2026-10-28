@@ -5,7 +5,7 @@ struct Card<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
         content.padding(Theme.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
-            .background(color, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
+            .background(color, in: .rect(cornerRadius: Theme.Radius.card))
     }
 }
 

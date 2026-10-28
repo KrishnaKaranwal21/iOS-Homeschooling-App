@@ -12,7 +12,7 @@ struct ChatMessage: Identifiable, Equatable {
     /// Who wrote it, for messages from other people in a group.
     var sender: String? = nil
     var status: MessageStatus = .read
-    var imageData: Data? = nil
+    var image: PickedImage? = nil
     /// A recorded voice note.
     var audioData: Data? = nil
     var audioDuration: TimeInterval = 0
@@ -53,7 +53,7 @@ struct ChatThread: Identifiable {
         return palette[seed % palette.count]
     }
 
-    var mediaMessages: [ChatMessage] { messages.filter { $0.imageData != nil } }
+    var mediaMessages: [ChatMessage] { messages.filter { $0.image != nil } }
 
     /// The line shown in the chat list.
     var preview: String {
@@ -62,7 +62,7 @@ struct ChatThread: Identifiable {
         if last.audioData != nil {
             body = "Voice message (\(ChatFormat.duration(last.audioDuration)))"
         } else {
-            body = last.imageData != nil && last.text.isEmpty ? "Photo" : last.text
+            body = last.image != nil && last.text.isEmpty ? "Photo" : last.text
         }
         if last.isMine { return "You: \(body)" }
         if isGroup, let sender = last.sender { return "\(sender): \(body)" }
@@ -73,20 +73,9 @@ struct ChatThread: Identifiable {
 // MARK: - Formatting
 
 enum ChatFormat {
-    private static let clockFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "h:mm"; return f
-    }()
-    private static let weekdayFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "EEE"; return f
-    }()
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "EEEE, d MMM"; return f
-    }()
-    private static let shortFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "d/M/yy"; return f
-    }()
-
-    static func clock(_ date: Date) -> String { clockFormatter.string(from: date) }
+    static func clock(_ date: Date) -> String {
+        date.formatted(.dateTime.hour(.defaultDigits(amPM: .omitted)).minute())
+    }
 
     /// Time on the right of a chat row: the time today, then Yesterday, a weekday, or a date.
     static func listTime(_ date: Date) -> String {
@@ -95,7 +84,9 @@ enum ChatFormat {
         if calendar.isDateInYesterday(date) { return "Yesterday" }
         let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date),
                                            to: calendar.startOfDay(for: .now)).day ?? 99
-        return days < 7 ? weekdayFormatter.string(from: date) : shortFormatter.string(from: date)
+        return days < 7
+            ? date.formatted(.dateTime.weekday(.abbreviated))
+            : date.formatted(.dateTime.day().month(.defaultDigits).year(.twoDigits))
     }
 
     /// 0:07, 1:32
@@ -108,7 +99,7 @@ enum ChatFormat {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return "Today" }
         if calendar.isDateInYesterday(date) { return "Yesterday" }
-        return dayFormatter.string(from: date)
+        return date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
     }
 }
 
@@ -126,46 +117,49 @@ final class ChatStore {
 
     /// The chip that is selected. Kept here, not in the view, so it survives switching tabs and relaunching.
     var selectedLabelID: String {
-        didSet { UserDefaults.standard.set(selectedLabelID, forKey: Keys.selected) }
+        didSet { storedSelectedLabel = selectedLabelID }
     }
 
-    private enum Keys {
-        static let labels = "chat.labels"
-        static let selected = "chat.selectedLabel"
-        static let tags = "chat.tagsByTitle"
-        static let favourites = "chat.favourites"
-        static let seedSamples = "chat.seedSamples"
-    }
+    // `@AppStorage` replaces direct `UserDefaults.standard` calls. In an `@Observable` class it
+    // must be `@ObservationIgnored`; the observed properties above mirror into these.
+    @ObservationIgnored @AppStorage("chat.labels") private var storedLabels = Data()
+    @ObservationIgnored @AppStorage("chat.selectedLabel") private var storedSelectedLabel = ChatLabel.allID
+    @ObservationIgnored @AppStorage("chat.tagsByTitle") private var storedTags = Data()
+    @ObservationIgnored @AppStorage("chat.favourites") private var storedFavourites = Data()
+    @ObservationIgnored @AppStorage("chat.seedSamples") private var storedSeedSamples = false
 
     init() {
-        let defaults = UserDefaults.standard
+        // Every stored property needs a value before `self` (and so `@AppStorage`) can be read.
+        threads = []
+        labels = ChatLabel.defaultBar
+        selectedLabelID = ChatLabel.allID
+
         var loaded = ChatLabel.defaultBar
-        if let data = defaults.data(forKey: Keys.labels),
-           let saved = try? JSONDecoder().decode([ChatLabel].self, from: data), !saved.isEmpty {
+        if !storedLabels.isEmpty,
+           let saved = try? JSONDecoder().decode([ChatLabel].self, from: storedLabels), !saved.isEmpty {
             loaded = saved
         }
         if !loaded.contains(where: { $0.id == ChatLabel.allID }) { loaded.insert(.all, at: 0) }
         labels = loaded
 
-        let savedSelection = defaults.string(forKey: Keys.selected) ?? ChatLabel.allID
+        let savedSelection = storedSelectedLabel
         selectedLabelID = loaded.contains { $0.id == savedSelection } ? savedSelection : ChatLabel.allID
 
         // A new account has no conversations. Sample chats only exist for a returning login.
-        threads = defaults.bool(forKey: Keys.seedSamples) ? ChatStore.savedSample() : []
+        if storedSeedSamples { threads = savedSample() }
     }
 
     /// Starts from an empty inbox, or from the sample conversations.
     func reload(withSamples: Bool) {
-        UserDefaults.standard.set(withSamples, forKey: Keys.seedSamples)
-        threads = withSamples ? ChatStore.savedSample() : []
+        storedSeedSamples = withSamples
+        threads = withSamples ? savedSample() : []
     }
 
     /// Sample chats with the labels and favourites the family saved earlier (matched by name).
-    private static func savedSample() -> [ChatThread] {
-        let defaults = UserDefaults.standard
+    private func savedSample() -> [ChatThread] {
         var sample = ChatStore.sample()
-        let tags = (defaults.dictionary(forKey: Keys.tags) as? [String: [String]]) ?? [:]
-        let favourites = Set(defaults.stringArray(forKey: Keys.favourites) ?? [])
+        let tags = (try? JSONDecoder().decode([String: [String]].self, from: storedTags)) ?? [:]
+        let favourites = Set((try? JSONDecoder().decode([String].self, from: storedFavourites)) ?? [])
         for index in sample.indices {
             sample[index].labelIDs = Set(tags[sample[index].title] ?? [])
             sample[index].isFavourite = favourites.contains(sample[index].title)
@@ -285,16 +279,14 @@ final class ChatStore {
     }
 
     private func saveLabels() {
-        if let data = try? JSONEncoder().encode(labels) {
-            UserDefaults.standard.set(data, forKey: Keys.labels)
-        }
+        storedLabels = (try? JSONEncoder().encode(labels)) ?? Data()
     }
 
     private func saveTags() {
         var tags: [String: [String]] = [:]
         for thread in threads where !thread.labelIDs.isEmpty { tags[thread.title] = Array(thread.labelIDs) }
-        UserDefaults.standard.set(tags, forKey: Keys.tags)
-        UserDefaults.standard.set(threads.filter(\.isFavourite).map(\.title), forKey: Keys.favourites)
+        storedTags = (try? JSONEncoder().encode(tags)) ?? Data()
+        storedFavourites = (try? JSONEncoder().encode(threads.filter(\.isFavourite).map(\.title))) ?? Data()
     }
 
     /// Sends the same message to every chat under a label, one by one. Blocked chats are skipped.
@@ -338,10 +330,10 @@ final class ChatStore {
 
     // MARK: Sending
 
-    func send(text: String, imageData: Data? = nil, in id: ChatThread.ID) {
+    func send(text: String, image: PickedImage? = nil, in id: ChatThread.ID) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty || imageData != nil else { return }
-        deliver(ChatMessage(text: trimmed, date: .now, isMine: true, status: .sent, imageData: imageData), in: id)
+        guard !trimmed.isEmpty || image != nil else { return }
+        deliver(ChatMessage(text: trimmed, date: .now, isMine: true, status: .sent, image: image), in: id)
     }
 
     func sendVoiceNote(_ data: Data, duration: TimeInterval, in id: ChatThread.ID) {

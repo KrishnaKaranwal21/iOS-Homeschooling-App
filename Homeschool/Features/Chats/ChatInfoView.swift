@@ -107,7 +107,7 @@ struct ChatInfoView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 66)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white))
+            .background(Color.white, in: .rect(cornerRadius: 18))
         }
         .buttonStyle(.plain)
     }
@@ -231,7 +231,7 @@ struct ChatInfoView: View {
 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0, content: content)
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.white))
+            .background(Color.white, in: .rect(cornerRadius: 22))
     }
 
     private var separator: some View {
@@ -309,11 +309,11 @@ private struct MediaGalleryView: View {
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 3), spacing: 3) {
                     ForEach(items) { item in
-                        if let data = item.imageData, let image = UIImage(data: data) {
+                        if let picked = item.image {
                             Color.clear
                                 .aspectRatio(1, contentMode: .fit)
                                 .overlay {
-                                    Image(uiImage: image).resizable().scaledToFill()
+                                    picked.image.resizable().scaledToFill()
                                 }
                                 .clipped()
                                 .accessibilityLabel("Photo")

@@ -146,10 +146,10 @@ struct ChildSetupSteps: View {
                         .font(.caption)
                         .foregroundStyle(Theme.systemGray)
                 }
-                PrimaryButton(title: (step == 3 || singleStep) ? finishTitle : "Continue",
-                              isDimmed: !canContinue) {
+                Button((step == 3 || singleStep) ? finishTitle : "Continue") {
                     handleContinue()
                 }
+                .buttonStyle(.primaryHomeschool(isDimmed: !canContinue))
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
@@ -162,7 +162,7 @@ struct ChildSetupSteps: View {
         ZStack {
             Rectangle()
                 .fill(.ultraThinMaterial)
-                .mask(LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom))
+                .mask { LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom) }
             LinearGradient(colors: [Theme.background.opacity(0), Theme.background],
                            startPoint: .top, endPoint: .bottom)
         }
@@ -262,7 +262,7 @@ struct ChildBasicsStep: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.insetRadius, style: .continuous).fill(Theme.lavender))
+        .background(Theme.lavender, in: .rect(cornerRadius: Theme.insetRadius))
     }
 
     private var detailsCard: some View {
@@ -445,9 +445,8 @@ struct RhythmStep: View {
                 .scaledFont(17, weight: .medium)
                 .foregroundStyle(Theme.obsidian)
                 .frame(maxWidth: .infinity, minHeight: 52)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(fill))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isOn ? Color.clear : Theme.cardBorder, lineWidth: 1))
+                .background(fill, in: .rect(cornerRadius: 16))
+                .roundedStroke(isOn ? Color.clear : Theme.cardBorder, cornerRadius: 16, lineWidth: 1)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(day)
@@ -465,7 +464,7 @@ struct RhythmStep: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.pillFill))
+        .background(Theme.pillFill, in: .rect(cornerRadius: 12))
     }
 
     // MARK: How should the day run?
@@ -486,7 +485,7 @@ struct RhythmStep: View {
             modeButton("Set times", flexible: false)
         }
         .padding(4)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.pillFill))
+        .background(Theme.pillFill, in: .rect(cornerRadius: 14))
     }
 
     private func modeButton(_ title: String, flexible: Bool) -> some View {
@@ -498,23 +497,18 @@ struct RhythmStep: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(selected ? Theme.obsidian : Theme.systemGray)
                 .frame(maxWidth: .infinity, minHeight: 40)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? Color.white : Color.clear))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(selected ? Theme.cardBorder : Color.clear, lineWidth: 1))
+                .background(selected ? Color.white : Color.clear, in: .rect(cornerRadius: 10))
+                .roundedStroke(selected ? Theme.cardBorder : Color.clear, cornerRadius: 10, lineWidth: 1)
         }
         .buttonStyle(.plain)
     }
 
     private var calendarBadge: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Theme.obsidian)
-                .frame(width: 26, height: 26)
-            Text("\(weeklyHours)")
-                .scaledFont(12, weight: .bold)
-                .foregroundStyle(Color.white)
-        }
+        Text("\(weeklyHours)")
+            .scaledFont(12, weight: .bold)
+            .foregroundStyle(Color.white)
+            .frame(width: 26, height: 26)
+            .background(Theme.obsidian, in: .rect(cornerRadius: 6))
     }
 }
 
@@ -534,7 +528,7 @@ struct StepperCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Theme.insetRadius, style: .continuous).fill(color))
+        .background(color, in: .rect(cornerRadius: Theme.insetRadius))
     }
 
     private var stepper: some View {

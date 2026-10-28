@@ -28,12 +28,8 @@ struct AuthField<Content: View>: View {
             .padding(.horizontal, 16)
             .frame(minHeight: 54)
             .insetCard()
-            .overlay {
-                if error != nil {
-                    RoundedRectangle(cornerRadius: Theme.insetRadius, style: .continuous)
-                        .stroke(Color.red.opacity(0.7), lineWidth: 1)
-                }
-            }
+            .roundedStroke(error != nil ? Color.red.opacity(0.7) : Color.clear,
+                           cornerRadius: Theme.insetRadius)
 
             if let error {
                 Label(error, systemImage: "exclamationmark.circle.fill")
@@ -73,10 +69,9 @@ struct SocialButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 56)
-            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Theme.lavender.opacity(0.7), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(Color.white, in: .rect(cornerRadius: 20))
+            .roundedStroke(Theme.lavender.opacity(0.7), cornerRadius: 20, lineWidth: 1)
+            .contentShape(.rect(cornerRadius: 20))
         }
         .buttonStyle(.plain)
     }

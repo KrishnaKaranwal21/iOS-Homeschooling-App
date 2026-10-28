@@ -51,7 +51,8 @@ private struct WeeklyActivityCard: View {
                 Text("It's about what is going to change").font(.title.bold())
                 Text("45 mins").foregroundStyle(Theme.secondary)
                 HStack {
-                    PrimaryButton(title: "Start activity") {}
+                    Button("Start activity") {}
+                        .buttonStyle(.primaryHomeschool)
                     Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(minHeight: 56).background(.white, in: Capsule()) }.buttonStyle(.plain)
                 }
             }

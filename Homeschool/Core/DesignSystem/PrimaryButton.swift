@@ -1,45 +1,40 @@
 import SwiftUI
 
 /// Look of the main call-to-action: full-width capsule with the title centred.
-struct PrimaryButtonLabel: View {
-    let title: String
-    var style: PrimaryButton.Style = .dark
+/// Use it as `Button("Title") { ... }.buttonStyle(.primaryHomeschool)`.
+struct PrimaryButtonStyle: ButtonStyle {
+    enum Tone { case dark, light }
+
+    var tone: Tone = .dark
     /// Solid grey look for "not ready yet". The button stays tappable.
     var isDimmed = false
 
-    var body: some View {
-        Text(title)
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
             .font(.headline)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 56)
             .foregroundStyle(foreground)
-            .background(background, in: Capsule())
-            .contentShape(Capsule())
+            .background(background, in: .capsule)
+            .contentShape(.capsule)
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 
     private var foreground: Color {
         if isDimmed { return Color.white }
-        return style == .dark ? Color.white : Theme.ink
+        return tone == .dark ? Color.white : Theme.ink
     }
 
     private var background: Color {
         if isDimmed { return Color(hex: 0xAEAEB2) }
-        return style == .dark ? Theme.ink : Color.white
+        return tone == .dark ? Theme.ink : Color.white
     }
 }
 
-struct PrimaryButton: View {
-    enum Style { case dark, light }
+extension ButtonStyle where Self == PrimaryButtonStyle {
+    static var primaryHomeschool: PrimaryButtonStyle { PrimaryButtonStyle() }
 
-    let title: String
-    var style: Style = .dark
-    var isDimmed = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            PrimaryButtonLabel(title: title, style: style, isDimmed: isDimmed)
-        }
-        .buttonStyle(.plain)
+    static func primaryHomeschool(isDimmed: Bool) -> PrimaryButtonStyle {
+        PrimaryButtonStyle(isDimmed: isDimmed)
     }
 }
