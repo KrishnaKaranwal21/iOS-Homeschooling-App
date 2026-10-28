@@ -32,7 +32,7 @@ struct FirstHomeView: View {
     private var dateText: String {
         let now = Date.now
         let day = Calendar.current.component(.day, from: now)
-        return "\(now.formatted(.dateTime.month(.wide))) \(day)\(Self.ordinalSuffix(day))"
+        return "\(now.formatted(.dateTime.weekday(.wide))), \(now.formatted(.dateTime.month(.wide))) \(day)\(Self.ordinalSuffix(day))"
     }
 
     private static func ordinalSuffix(_ day: Int) -> String {
@@ -50,22 +50,18 @@ struct FirstHomeView: View {
 
     // MARK: Body
 
+    /// How much room the page uses. It shows everything on one screen, and only scrolls on a very small phone.
+    private enum Density { case regular, compact }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                topRow
-                headline
-                    .padding(.top, 10)
-                firstWeekCard
-                    .padding(.top, 22)
-                exploreSection
-                    .padding(.top, 26)
+        ViewThatFits(in: .vertical) {
+            page(.regular)
+            page(.compact)
+            ScrollView {
+                page(.regular)
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 6)
-            .padding(.bottom, 20)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showFirstWeek) {
@@ -75,6 +71,24 @@ struct FirstHomeView: View {
         .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
     }
 
+    private func page(_ density: Density) -> some View {
+        let compact = density == .compact
+        return VStack(alignment: .leading, spacing: 0) {
+            topRow
+            headline
+                .padding(.top, compact ? 6 : 8)
+            firstWeekCard(density)
+                .padding(.top, compact ? 12 : 16)
+            exploreSection(density)
+                .padding(.top, compact ? 14 : 18)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 6)
+        .padding(.bottom, compact ? 6 : 10)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
     // MARK: Top row and headline
 
     private var topRow: some View {
@@ -82,6 +96,8 @@ struct FirstHomeView: View {
             Text(dateText)
                 .scaledFont(15, maxScale: 1.3)
                 .foregroundStyle(Theme.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
             Spacer(minLength: 8)
 
             ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
@@ -131,8 +147,9 @@ struct FirstHomeView: View {
 
     // MARK: First week card
 
-    private var firstWeekCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func firstWeekCard(_ density: Density) -> some View {
+        let compact = density == .compact
+        return VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             Text("YOUR FIRST WEEK")
                 .scaledFont(11, weight: .medium, maxScale: 1.2)
                 .tracking(0.5)
@@ -151,7 +168,7 @@ struct FirstHomeView: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 2)
 
-            rhythmRow
+            rhythmRow(compact: compact)
 
             Button { showFirstWeek = true } label: {
                 Text("Preview first week")
@@ -170,8 +187,8 @@ struct FirstHomeView: View {
                 .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 18)
-        .padding(.top, 14)
-        .padding(.bottom, 14)
+        .padding(.top, compact ? 10 : 12)
+        .padding(.bottom, compact ? 10 : 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(Theme.pink))
         .overlay(alignment: .topTrailing) {
@@ -184,7 +201,7 @@ struct FirstHomeView: View {
         }
     }
 
-    private var rhythmRow: some View {
+    private func rhythmRow(compact: Bool) -> some View {
         GeometryReader { geo in
             let count = max(days.count, 1)
             let gap: CGFloat = 4
@@ -204,7 +221,7 @@ struct FirstHomeView: View {
                                 .scaledFont(14, weight: .medium, maxScale: 1.15)
                                 .foregroundStyle(Theme.secondary)
                         }
-                        .frame(width: tile, height: 82)
+                        .frame(width: tile, height: compact ? 70 : 76)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
                         .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
                         .accessibilityElement(children: .combine)
@@ -218,13 +235,13 @@ struct FirstHomeView: View {
             .scrollIndicators(.hidden)
         }
         .padding(.horizontal, -18)
-        .frame(height: 96)
+        .frame(height: compact ? 84 : 90)
     }
 
     // MARK: Explore more
 
-    private var exploreSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func exploreSection(_ density: Density) -> some View {
+        VStack(alignment: .leading, spacing: density == .compact ? 6 : 8) {
             Text("Explore more")
                 .sectionTitle()
                 .padding(.horizontal, 4)
@@ -274,124 +291,228 @@ struct FirstHomeView: View {
 
 // MARK: - Explore cards
 
+/// Where everything sits on one explore card, measured from the design.
+/// All numbers are in design pixels on a card that is 2435 wide and 1259 tall, and are scaled to the real card width.
+struct ExploreLayout {
+    var fill: Color
+    var bordered: Bool
+    var eyebrowColor: Color
+    var bodyColor: Color
+    /// Left edge and top of the capital letters, for the small heading.
+    var eyebrow: CGPoint
+    var title: CGPoint
+    var titlePitch: CGFloat
+    var body: CGPoint
+    var bodyPitch: CGFloat
+    var pill: CGRect
+    var art: CGRect
+    var chip: CGRect? = nil
+}
+
 struct ExploreCard: Identifiable {
     enum Action { case findPeople, previewIdea, exploreWorkshops, viewProgress }
-    enum Style { case lavender, grey }
 
     let id: String
     let eyebrow: String
-    var chip: (symbol: String, text: String)? = nil
-    let title: String
-    let body: String
+    var chipText: String? = nil
+    let titleLines: [String]
+    let bodyLines: [String]
     let button: String
     let art: String
-    let style: Style
     let action: Action
+    let layout: ExploreLayout
+
+    private static let lavender = Color(red: 231 / 255, green: 229 / 255, blue: 253 / 255)
+    private static let lavenderDeep = Color(red: 229 / 255, green: 227 / 255, blue: 253 / 255)
+    private static let grey = Color(red: 241 / 255, green: 242 / 255, blue: 246 / 255)
+    private static let slate = Color(red: 116 / 255, green: 122 / 255, blue: 150 / 255)
+    private static let mutedLavender = Color(red: 133 / 255, green: 133 / 255, blue: 163 / 255)
 
     static let all: [ExploreCard] = [
-        ExploreCard(id: "people", eyebrow: "NEW TO HOMESCHOOLING?",
-                    title: "Start alongside someone.",
-                    body: "Meet parents starting out, like you or connect with experienced ones.",
-                    button: "Find my people", art: "HomeArtPeople", style: .lavender, action: .findPeople),
-        ExploreCard(id: "idea", eyebrow: "CREATE WITH PURPOSE",
-                    chip: ("paintpalette", "Art + Maths"),
-                    title: "Turn a word problem into a comic.",
-                    body: "A fresh take on this week’s algebra practice.",
-                    button: "Preview Idea", art: "HomeArtComic", style: .grey, action: .previewIdea),
-        ExploreCard(id: "workshops", eyebrow: "FOLLOW THEIR CURIOSITY",
-                    title: "Little interests.\nBig discoveries.",
-                    body: "Hands-on workshops for your child’s curious side.",
-                    button: "Explore Workshops", art: "HomeArtWorkshop", style: .lavender, action: .exploreWorkshops),
-        ExploreCard(id: "progress", eyebrow: "EVERY LITTLE STEP COUNTS",
-                    title: "Little steps.\nA growing story.",
-                    body: "Completed activities, learning time and little wins, all in one place.",
-                    button: "View Progress", art: "HomeArtProgress", style: .grey, action: .viewProgress)
+        ExploreCard(
+            id: "people", eyebrow: "NEW TO HOMESCHOOLING?",
+            titleLines: ["Start alongside someone."],
+            bodyLines: ["Meet parents starting out, like you", "or connect with experienced ones."],
+            button: "Find my people", art: "ExploreArtPeople", action: .findPeople,
+            layout: ExploreLayout(
+                fill: lavender, bordered: false, eyebrowColor: slate, bodyColor: slate,
+                eyebrow: CGPoint(x: 128, y: 134), title: CGPoint(x: 127, y: 277), titlePitch: 150,
+                body: CGPoint(x: 127, y: 522), bodyPitch: 96,
+                pill: CGRect(x: 151, y: 883, width: 940, height: 200),
+                art: CGRect(x: 1440, y: 250, width: 960, height: 850))),
+
+        ExploreCard(
+            id: "idea", eyebrow: "CREATE WITH PURPOSE", chipText: "Art + Maths",
+            titleLines: ["Turn a word problem into a", "comic."],
+            bodyLines: ["A playful idea to try when you’re ready."],
+            button: "Preview Idea", art: "ExploreArtIdea", action: .previewIdea,
+            layout: ExploreLayout(
+                fill: grey, bordered: true, eyebrowColor: slate, bodyColor: slate,
+                eyebrow: CGPoint(x: 107, y: 122), title: CGPoint(x: 106, y: 417), titlePitch: 150,
+                body: CGPoint(x: 105, y: 722), bodyPitch: 96,
+                pill: CGRect(x: 103, y: 953, width: 940, height: 200),
+                art: CGRect(x: 1650, y: 330, width: 750, height: 630),
+                chip: CGRect(x: 103, y: 228, width: 546, height: 143))),
+
+        ExploreCard(
+            id: "workshops", eyebrow: "FOLLOW THEIR CURIOSITY",
+            titleLines: ["Little interests.", "Big discoveries."],
+            bodyLines: ["Hands-on workshops for your", "child’s curious side."],
+            button: "Explore Workshops", art: "ExploreArtWorkshop", action: .exploreWorkshops,
+            layout: ExploreLayout(
+                fill: lavenderDeep, bordered: false, eyebrowColor: mutedLavender, bodyColor: mutedLavender,
+                eyebrow: CGPoint(x: 144, y: 108), title: CGPoint(x: 147, y: 253), titlePitch: 123,
+                body: CGPoint(x: 127, y: 597), bodyPitch: 85,
+                pill: CGRect(x: 131, y: 869, width: 1037, height: 204),
+                art: CGRect(x: 1380, y: 250, width: 1020, height: 940))),
+
+        ExploreCard(
+            id: "progress", eyebrow: "EVERY LITTLE STEP COUNTS",
+            titleLines: ["Little steps.", "A growing story."],
+            bodyLines: ["Completed activities, learning time", "and little wins, all in one place."],
+            button: "View Progress", art: "ExploreArtProgress", action: .viewProgress,
+            layout: ExploreLayout(
+                fill: grey, bordered: true, eyebrowColor: slate, bodyColor: slate,
+                eyebrow: CGPoint(x: 100, y: 122), title: CGPoint(x: 103, y: 308), titlePitch: 150,
+                body: CGPoint(x: 100, y: 685), bodyPitch: 96,
+                pill: CGRect(x: 97, y: 972, width: 940, height: 200),
+                art: CGRect(x: 1540, y: 190, width: 860, height: 960)))
     ]
 }
 
+/// Draws one explore card at the same proportions as the design, at any width.
 private struct ExploreCardView: View {
     let card: ExploreCard
     let onTap: () -> Void
 
-    private var fill: Color {
-        card.style == .lavender ? Color(hex: 0xE6E1FF) : Color(hex: 0xF0F1F6)
-    }
+    private let designWidth: CGFloat = 2435
+    private let designHeight: CGFloat = 1259
+
+    // Text sizes from the design, in design pixels.
+    private let eyebrowSize: CGFloat = 62
+    private let titleSize: CGFloat = 125
+    private let bodySize: CGFloat = 85
+    private let buttonSize: CGFloat = 88
+    private let chipSize: CGFloat = 66
+
+    private let ink = Color(red: 17 / 255, green: 18 / 255, blue: 21 / 255)
+    private let pillColor = Color(red: 26 / 255, green: 30 / 255, blue: 27 / 255)
+    private let border = Color(red: 213 / 255, green: 210 / 255, blue: 224 / 255)
+    private let fold = Color(red: 239 / 255, green: 221 / 255, blue: 223 / 255)
+    private let chipPurple = Color(red: 133 / 255, green: 114 / 255, blue: 190 / 255)
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 26, style: .continuous).fill(fill)
-                if card.style == .grey {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(Color(hex: 0xD9D6E5), lineWidth: 1.2)
-                    // Folded pink corner, like a paper tab.
-                    Path { path in
-                        path.move(to: CGPoint(x: geo.size.width - 34, y: 0))
-                        path.addLine(to: CGPoint(x: geo.size.width - 12, y: 0))
-                        path.addLine(to: CGPoint(x: geo.size.width, y: 18))
-                        path.closeSubpath()
+        Color.clear
+            .aspectRatio(designWidth / designHeight, contentMode: .fit)
+            .overlay {
+                GeometryReader { geo in
+                    let s = geo.size.width / designWidth
+                    let layout = card.layout
+                    let shape = RoundedRectangle(cornerRadius: 135 * s, style: .continuous)
+
+                    ZStack(alignment: .topLeading) {
+                        shape.fill(layout.fill)
+
+                        if layout.bordered {
+                            // A folded pink corner, like a paper tab.
+                            Path { path in
+                                path.move(to: CGPoint(x: 2320 * s, y: 0))
+                                path.addLine(to: CGPoint(x: 2340 * s, y: 99 * s))
+                                path.addLine(to: CGPoint(x: designWidth * s, y: 117 * s))
+                                path.addLine(to: CGPoint(x: designWidth * s, y: 0))
+                                path.closeSubpath()
+                            }
+                            .fill(fold)
+                            .accessibilityHidden(true)
+                        }
+
+                        Image(card.art)
+                            .resizable()
+                            .frame(width: layout.art.width * s, height: layout.art.height * s)
+                            .offset(x: layout.art.minX * s, y: layout.art.minY * s)
+                            .accessibilityHidden(true)
+
+                        text(card.eyebrow, size: eyebrowSize, weight: .medium, color: layout.eyebrowColor,
+                             at: layout.eyebrow, scale: s)
+
+                        if let chip = layout.chip, let chipText = card.chipText {
+                            chipView(chipText, rect: chip, scale: s)
+                        }
+
+                        ForEach(Array(card.titleLines.enumerated()), id: \.offset) { index, line in
+                            text(line, size: titleSize, weight: .bold, color: ink,
+                                 at: CGPoint(x: layout.title.x, y: layout.title.y + CGFloat(index) * layout.titlePitch),
+                                 scale: s)
+                        }
+
+                        ForEach(Array(card.bodyLines.enumerated()), id: \.offset) { index, line in
+                            text(line, size: bodySize, weight: .regular, color: layout.bodyColor,
+                                 at: CGPoint(x: layout.body.x, y: layout.body.y + CGFloat(index) * layout.bodyPitch),
+                                 scale: s)
+                        }
+
+                        pillButton(layout.pill, scale: s)
+
+                        if layout.bordered {
+                            shape.strokeBorder(border, lineWidth: 7 * s)
+                        }
                     }
-                    .fill(Theme.pink.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+                    .clipShape(shape)
                 }
-
-                Image(card.art)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: geo.size.width * 0.34, height: geo.size.height * 0.7)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                    .padding(.trailing, 12)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(card.eyebrow)
-                        .scaledFont(10, weight: .medium, maxScale: 1.2)
-                        .tracking(0.5)
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-
-                    if let chip = card.chip {
-                        Label(chip.text, systemImage: chip.symbol)
-                            .scaledFont(12, weight: .medium, maxScale: 1.15)
-                            .foregroundStyle(Color(hex: 0x7B5FC0))
-                            .padding(.horizontal, 10)
-                            .frame(height: 22)
-                            .background(Capsule().fill(Color.white))
-                    }
-
-                    Text(card.title)
-                        .scaledFont(18, weight: .heavy, maxScale: 1.12)
-                        .tracking(-0.4)
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(card.body)
-                        .scaledFont(12.5, maxScale: 1.15)
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Spacer(minLength: 2)
-
-                    Button(action: onTap) {
-                        Text(card.button)
-                            .scaledFont(14, weight: .semibold, maxScale: 1.15)
-                            .foregroundStyle(Color.white)
-                            .padding(.horizontal, 18)
-                            .frame(minHeight: 36)
-                            .background(Capsule().fill(Theme.ink))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(width: geo.size.width * (card.chip == nil ? 0.62 : 0.66), alignment: .leading)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-                .frame(maxHeight: .infinity, alignment: .topLeading)
             }
+    }
+
+    /// One line of text. `at.y` is the top of the capital letters, so the line sits where the design puts it.
+    /// Lines keep their full size and are never shortened, so every line of a title matches.
+    private func text(_ string: String, size: CGFloat, weight: Font.Weight, color: Color,
+                      at point: CGPoint, scale s: CGFloat) -> some View {
+        Text(string)
+            .font(.system(size: size * s, weight: weight))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            // The font's line box starts about a quarter of its size above the capital letters.
+            .offset(x: point.x * s, y: (point.y - 0.248 * size) * s)
+    }
+
+    /// The pill grows with its text, so the whole label always shows.
+    private func chipView(_ string: String, rect: CGRect, scale s: CGFloat) -> some View {
+        HStack(spacing: 18 * s) {
+            Image(systemName: "paintpalette")
+                .font(.system(size: 92 * s))
+            Text(string)
+                .font(.system(size: chipSize * s))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .frame(height: 192)
+        .foregroundStyle(chipPurple)
+        .padding(.leading, 42 * s)
+        .padding(.trailing, 60 * s)
+        .frame(height: rect.height * s)
+        .background(Capsule().fill(Color.white))
+        .fixedSize()
+        .offset(x: rect.minX * s, y: rect.minY * s)
+    }
+
+    private func pillButton(_ rect: CGRect, scale s: CGFloat) -> some View {
+        Button(action: onTap) {
+            ZStack {
+                Capsule().fill(pillColor)
+                Text(card.button)
+                    .font(.system(size: buttonSize * s, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 24 * s)
+            }
+            .frame(width: rect.width * s, height: rect.height * s)
+            // The pill is a little under 30 points tall, so the tap area is made larger around it.
+            .padding(8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .offset(x: rect.minX * s - 8, y: rect.minY * s - 8)
     }
 }
 
