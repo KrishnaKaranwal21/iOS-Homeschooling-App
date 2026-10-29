@@ -145,6 +145,15 @@ final class AppState {
         account = current
     }
 
+    /// Saves what other parents see on the community profile.
+    func updateCommunityProfile(bio: String? = nil, lookingFor: [String]? = nil) {
+        guard var current = account else { return }
+        if let bio { current.bio = bio }
+        if let lookingFor { current.lookingFor = lookingFor }
+        AccountStore.update(current)
+        account = current
+    }
+
     // MARK: Location
 
     func setLiveLocation(_ on: Bool) {

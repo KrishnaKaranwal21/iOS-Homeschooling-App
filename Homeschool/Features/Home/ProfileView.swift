@@ -38,6 +38,8 @@ struct ProfileView: View {
 
                 parentSection
 
+                communityProfileSections
+
                 childrenSections
 
                 Section {
@@ -176,6 +178,119 @@ struct ProfileView: View {
             }
             .foregroundStyle(.primary)
             LabeledContent("Email", value: state.account?.email ?? "Not set")
+        }
+    }
+
+    // MARK: Community profile (what other parents see, editable here)
+
+    private var bioBinding: Binding<String> {
+        Binding(get: { state.account?.bio ?? "" },
+                set: { state.updateCommunityProfile(bio: $0) })
+    }
+
+    private var lookingFor: [String] { state.account?.lookingFor ?? [] }
+
+    private func toggleLookingFor(_ option: String) {
+        var current = lookingFor
+        if let index = current.firstIndex(of: option) { current.remove(at: index) } else { current.append(option) }
+        state.updateCommunityProfile(lookingFor: current)
+    }
+
+    private func toggleInterest(_ name: String, for child: Child) {
+        guard let index = state.children.firstIndex(where: { $0.id == child.id }) else { return }
+        if state.children[index].interests.contains(name) {
+            state.children[index].interests.remove(name)
+        } else {
+            state.children[index].interests.insert(name)
+        }
+    }
+
+    private func ageText(_ child: Child) -> String {
+        guard let birthDate = child.birthDate else { return "Not set" }
+        return "\(AgeRules.age(of: birthDate, on: .now)) years old"
+    }
+
+    /// The profile as another parent would see it.
+    private var communityPreview: Parent {
+        let kids = state.children.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
+        let interests = CommunityOptions.interests.filter { name in kids.contains { $0.interests.contains(name) } }
+        let levels = Dictionary(uniqueKeysWithValues: kids.map { ($0.id, $0.level.isEmpty ? "" : levelText($0)) })
+        return Parent(
+            name: parentName, role: kids.isEmpty ? "Parent" : "Parent to " + kids.map(\.name).joined(separator: " & "),
+            tags: "", distanceKm: 0, about: "", bio: state.account?.bio ?? "",
+            children: kids.map { child in
+                ParentChild(name: child.name,
+                            age: child.birthDate.map { AgeRules.age(of: $0, on: .now) } ?? 0,
+                            level: levels[child.id] ?? "")
+            },
+            interests: interests, lookingFor: lookingFor)
+    }
+
+    @ViewBuilder private var communityProfileSections: some View {
+        Section {
+            TextField("Tell other families a little about you", text: bioBinding, axis: .vertical)
+                .lineLimit(3...8)
+        } header: {
+            Text("A little about us")
+        } footer: {
+            Text("Shown on your community profile.")
+        }
+
+        Section("Looking to connect for") {
+            ForEach(CommunityOptions.lookingFor, id: \.self) { option in
+                Button { toggleLookingFor(option) } label: {
+                    HStack {
+                        Text(option)
+                        Spacer()
+                        if lookingFor.contains(option) {
+                            Image(systemName: "checkmark")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Theme.tabSelected)
+                        }
+                    }
+                    .contentShape(.rect)
+                }
+                .foregroundStyle(.primary)
+                .accessibilityAddTraits(lookingFor.contains(option) ? .isSelected : [])
+            }
+        }
+
+        ForEach(state.children.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }) { child in
+            Section {
+                LabeledContent("Age", value: ageText(child))
+                LabeledContent("Level", value: child.level.isEmpty ? "Not set" : levelText(child))
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Interests")
+                    FlowLayout(spacing: 8) {
+                        ForEach(CommunityOptions.interests, id: \.self) { name in
+                            let isOn = child.interests.contains(name)
+                            Button { toggleInterest(name, for: child) } label: {
+                                Text(name)
+                                    .font(.subheadline.weight(isOn ? .semibold : .regular))
+                                    .foregroundStyle(isOn ? Theme.ink : Color.secondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 7)
+                                    .background(Capsule().fill(isOn ? Theme.lavender : Theme.chipFill))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isOn ? .isSelected : [])
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Meet \(child.displayName)")
+            }
+        }
+
+        Section {
+            NavigationLink {
+                ConnectView(parent: communityPreview, isPreview: true)
+            } label: {
+                Label("See how other parents see you", systemImage: "eye")
+            }
+        } footer: {
+            Text("Other families only see an approximate distance.")
         }
     }
 

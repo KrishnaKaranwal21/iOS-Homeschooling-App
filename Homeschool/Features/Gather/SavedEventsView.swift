@@ -28,6 +28,7 @@ struct SavedEventsView: View {
                 .padding(.bottom, 24)
             }
         }
+        .scrollNavigationTitle("Saved events")
         .animation(.snappy, value: state.savedEvents.count)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)

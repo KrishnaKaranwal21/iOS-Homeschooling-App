@@ -73,6 +73,7 @@ struct CommunityView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollTitleBar("Community")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationTitle("Community")
@@ -117,49 +118,58 @@ struct CommunityView: View {
 
     private let radiusOptions = [1, 2, 3, 5, 10, 20]
 
-    /// Pink bar with the distance. Tapping it drops down the other distances.
+    /// Pink bar with the distance. Tapping it opens the other distances *below* the bar.
+    /// An invisible copy of the bar keeps the row's height, so the page doesn't jump,
+    /// and the real bar and its menu are drawn on top of it, growing downwards.
     private var locationBar: some View {
-        Button {
-            withAnimation(.snappy) { isRadiusOpen.toggle() }
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "mappin.and.ellipse")
-                    .font(.title3)
-                    .foregroundStyle(Theme.ink)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Within \(radius) km of you")
-                        .scaledFont(17, weight: .semibold, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
-                    Text(state.usesLiveLocation
-                         ? "Based on your current location"
-                         : "Based on \(state.homeLocation.name)")
-                        .scaledFont(14, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
-                        .lineLimit(1)
+        radiusBarLabel
+            .hidden()
+            .overlay(alignment: .top) {
+                VStack(spacing: 8) {
+                    Button {
+                        withAnimation(.snappy) { isRadiusOpen.toggle() }
+                    } label: {
+                        radiusBarLabel
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Distance: within \(radius) kilometres")
+                    .accessibilityHint("Choose a different distance")
+
+                    if isRadiusOpen {
+                        radiusMenu
+                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                    }
                 }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.down")
-                    .font(.footnote.weight(.bold))
+            }
+            .padding(.horizontal, 24)
+            .zIndex(1)
+    }
+
+    private var radiusBarLabel: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.title3)
+                .foregroundStyle(Theme.ink)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Within \(radius) km of you")
+                    .scaledFont(17, weight: .semibold, maxScale: 1.3)
                     .foregroundStyle(Theme.ink)
+                Text(state.usesLiveLocation
+                     ? "Based on your current location"
+                     : "Based on \(state.homeLocation.name)")
+                    .scaledFont(14, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-            .background(Theme.pink, in: .rect(cornerRadius: 22))
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.down")
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(Theme.ink)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Distance: within \(radius) kilometres")
-        .accessibilityHint("Choose a different distance")
-        .overlay(alignment: .bottom) {
-            if isRadiusOpen {
-                // Hangs just below the bar and floats over the cards.
-                radiusMenu
-                    .alignmentGuide(.bottom) { $0[.top] - 8 }
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
-            }
-        }
-        .padding(.horizontal, 24)
-        .zIndex(1)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+        .background(Theme.pink, in: .rect(cornerRadius: 22))
     }
 
     private var radiusMenu: some View {
@@ -473,6 +483,7 @@ struct NotificationsView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollNavigationTitle("Notifications")
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
     }

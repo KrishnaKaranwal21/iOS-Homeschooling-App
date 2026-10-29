@@ -35,6 +35,7 @@ struct EventDetailView: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
+        .scrollNavigationTitle(current.title)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

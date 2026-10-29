@@ -4,6 +4,8 @@ import SwiftUI
 struct ConnectView: View {
     @Environment(AppState.self) private var state
     let parent: Parent
+    /// True when a parent looks at their own profile from Profile. There is nothing to connect to.
+    var isPreview = false
 
     private var requested: Bool { state.requestedParents.contains(parent.id) }
 
@@ -38,9 +40,12 @@ struct ConnectView: View {
                 .padding(.vertical, 16)
             }
         }
+        .scrollNavigationTitle(parent.name)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom, spacing: 0) { connectBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !isPreview { connectBar }
+        }
     }
 
     // White top part: who they are and a short introduction.
@@ -57,9 +62,11 @@ struct ConnectView: View {
                     Text(parent.role)
                         .scaledFont(17, maxScale: 1.3)
                         .foregroundStyle(Theme.gatherText)
-                    Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away")
-                        .scaledFont(15, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
+                    if parent.distanceKm > 0 {
+                        Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away")
+                            .scaledFont(15, maxScale: 1.3)
+                            .foregroundStyle(Theme.ink)
+                    }
                 }
             }
 
@@ -67,7 +74,7 @@ struct ConnectView: View {
                 Text("A little about us")
                     .scaledFont(21, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(Theme.ink)
-                Text("“\(parent.bio.isEmpty ? parent.about : parent.bio)”")
+                Text(introText)
                     .scaledFont(17, maxScale: 1.3)
                     .foregroundStyle(Theme.gatherText)
                     .lineSpacing(3)
@@ -80,11 +87,23 @@ struct ConnectView: View {
         .background(Color.white)
     }
 
+    private var introText: String {
+        let text = parent.bio.isEmpty ? parent.about : parent.bio
+        return text.isEmpty ? "No introduction yet." : "“\(text)”"
+    }
+
     private var meetCard: some View {
         let names = parent.children.map(\.name).joined(separator: " & ")
-        let lines: [String] = parent.children.count == 1
-            ? ["\(parent.children[0].age) years old", parent.children[0].level]
-            : parent.children.map { "\($0.name) · \($0.age) years old · \($0.level)" }
+        let lines: [String]
+        if parent.children.count == 1 {
+            let child = parent.children[0]
+            lines = [child.age > 0 ? "\(child.age) years old" : "", child.level].filter { !$0.isEmpty }
+        } else {
+            lines = parent.children.map { child in
+                [child.name, child.age > 0 ? "\(child.age) years old" : "", child.level]
+                    .filter { !$0.isEmpty }.joined(separator: " · ")
+            }
+        }
         return infoCard("Meet \(names)", lines)
     }
 

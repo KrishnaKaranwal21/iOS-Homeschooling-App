@@ -54,3 +54,9 @@ struct RoadmapStep: Identifiable {
     let detail: String
     let symbol: String
 }
+
+/// Choices on the community profile. Interests use the same names as child setup.
+enum CommunityOptions {
+    static let interests = ["Coding", "Animals", "Art", "Music", "Space", "Nature", "Sports", "Reading"]
+    static let lookingFor = ["Learning groups", "Weekend outings", "Playdates", "Swapping ideas"]
+}

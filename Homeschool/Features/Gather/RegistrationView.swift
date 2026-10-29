@@ -80,6 +80,7 @@ struct RegistrationView: View {
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
+        .scrollNavigationTitle("Registration")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
