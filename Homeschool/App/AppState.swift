@@ -45,6 +45,19 @@ final class AppState {
             }
         }
     }
+    var weeklyPlans: [String: WeeklyPlan] = [:] {
+        didSet { storedWeeklyPlans = Self.encode(weeklyPlans) }
+    }
+
+    func saveWeek(_ plan: WeeklyPlan, for childID: Child.ID) {
+        weeklyPlans[childID.uuidString] = plan
+        if let child = children.first(where: { $0.id == childID }) {
+            Task { await WeekReminders.sync(plan: plan, child: child) }
+        }
+    }
+
+    var dailyWrapUp: DayLearningSummary?
+
     var tasks: [TaskItem] = MockData.tasks
     var events: [Event] = MockData.events.sorted { $0.start < $1.start }
 
@@ -65,6 +78,7 @@ final class AppState {
     @ObservationIgnored @AppStorage("usesLiveLocation") private var storedUsesLiveLocation = false
     @ObservationIgnored @AppStorage("communityRadiusKm") private var storedCommunityRadiusKm = 5
     @ObservationIgnored @AppStorage("selectedChildID") private var storedSelectedChildID = ""
+    @ObservationIgnored @AppStorage("weeklyPlans") private var storedWeeklyPlans = Data()
     @ObservationIgnored @AppStorage("children") private var storedChildren = Data()
     @ObservationIgnored @AppStorage("homeLocation") private var storedHomeLocation = Data()
     @ObservationIgnored @AppStorage("savedRegistrant") private var storedRegistrant = Data()
@@ -96,6 +110,7 @@ final class AppState {
         }
         // Families who were already inside the app before this screen existed skip it.
         hasSeenFirstHome = storedHasSeenFirstHome ?? (stage == .main)
+        weeklyPlans = Self.decode([String: WeeklyPlan].self, from: storedWeeklyPlans) ?? [:]
         savedRegistrant = Self.decode(Registrant.self, from: storedRegistrant)
         bookmarkedKeys = Set(Self.decode([String].self, from: storedBookmarks) ?? [])
 

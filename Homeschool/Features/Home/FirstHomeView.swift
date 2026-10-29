@@ -64,8 +64,8 @@ struct FirstHomeView: View {
         }
         .background(Theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showFirstWeek) {
-            FirstWeekSheet(days: days, hours: state.child.hoursPerDay, tasks: state.tasks)
+        .navigationDestination(isPresented: $showFirstWeek) {
+            FirstWeekView()
         }
         .sheet(isPresented: $showIdea) { IdeaPreviewSheet() }
         .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
@@ -524,59 +524,6 @@ private struct ExploreCardView: View {
 }
 
 // MARK: - Sheets
-
-private struct FirstWeekSheet: View {
-    let days: [String]
-    let hours: Int
-    let tasks: [TaskItem]
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("A light first week. You can change the days and hours before saving.")
-                        .scaledFont(16, maxScale: 1.3)
-                        .foregroundStyle(Theme.secondary)
-
-                    ForEach(Array(days.enumerated()), id: \.element) { index, day in
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text(day).scaledFont(20, weight: .bold, maxScale: 1.2)
-                                Spacer()
-                                Text("\(hours)h").scaledFont(16, weight: .medium, maxScale: 1.2)
-                                    .foregroundStyle(Theme.secondary)
-                            }
-                            ForEach(sample(for: index)) { task in
-                                HStack(spacing: 10) {
-                                    Image(systemName: "circle").foregroundStyle(Theme.secondary)
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Eyebrow(task.subject)
-                                        Text(task.title).scaledFont(16, maxScale: 1.3)
-                                    }
-                                }
-                            }
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white, in: .rect(cornerRadius: 22))
-                    }
-                }
-                .padding(24)
-            }
-            .background(Theme.background)
-            .navigationTitle("Your first week")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        }
-    }
-
-    /// Two sample activities per day, taken in turn from the task list.
-    private func sample(for index: Int) -> [TaskItem] {
-        guard !tasks.isEmpty else { return [] }
-        return (0..<2).map { tasks[(index * 2 + $0) % tasks.count] }
-    }
-}
 
 private struct IdeaPreviewSheet: View {
     @Environment(\.dismiss) private var dismiss

@@ -54,6 +54,17 @@ struct MainTabView: View {
             }
             .badge(state.chats.unreadChatCount)
         }
+        .allowsHitTesting(state.dailyWrapUp == nil)
+        .accessibilityHidden(state.dailyWrapUp != nil)
+        .overlay {
+            if let summary = state.dailyWrapUp {
+                DailyWrapUpView(summary: summary) {
+                    withAnimation(.easeOut(duration: 0.2)) { state.dailyWrapUp = nil }
+                }
+                .transition(.opacity)
+                .zIndex(1)
+            }
+        }
         .tint(Theme.tabSelected)
         .task { state.refreshLiveLocation() }
         .environment(\.openTab, { selection = $0 })
