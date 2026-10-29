@@ -85,6 +85,7 @@ struct GatherView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollTitleBar("Gatherings")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationTitle("Gatherings")

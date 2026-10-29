@@ -76,6 +76,7 @@ struct HostEventView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .scrollNavigationTitle("Host an event")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)

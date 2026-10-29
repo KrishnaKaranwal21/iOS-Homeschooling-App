@@ -60,3 +60,67 @@ struct AvatarView: View {
             .frame(width: size, height: size).background(color, in: Circle())
     }
 }
+
+// MARK: - Titles that appear when the page scrolls
+
+/// For pages with their own big heading and no navigation bar: once the content scrolls under the
+/// status bar, a blurred bar with the page title fades in, like the collapsed bar on Profile.
+/// Apply it directly to the `ScrollView`.
+private struct ScrollTitleBar: ViewModifier {
+    let title: String
+    @State private var isScrolled = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 40
+            } action: { _, scrolled in
+                isScrolled = scrolled
+            }
+            .overlay(alignment: .top) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(.bar)   // reaches up under the status bar
+                    .opacity(isScrolled ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+    }
+}
+
+/// For pages that keep their navigation bar: the title is hidden while the heading is on screen,
+/// and fades into the bar once the page has scrolled. Apply it directly to the `ScrollView`.
+private struct ScrollNavigationTitle: ViewModifier {
+    let title: String
+    @State private var isScrolled = false
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 90
+            } action: { _, scrolled in
+                isScrolled = scrolled
+            }
+            .toolbar {
+                // Always in the bar, only its opacity changes, so nothing around it moves.
+                ToolbarItem(placement: .principal) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .opacity(isScrolled ? 1 : 0)
+                        .animation(.easeInOut(duration: 0.2), value: isScrolled)
+                        .accessibilityHidden(!isScrolled)
+                }
+            }
+    }
+}
+
+extension View {
+    func scrollTitleBar(_ title: String) -> some View { modifier(ScrollTitleBar(title: title)) }
+    func scrollNavigationTitle(_ title: String) -> some View { modifier(ScrollNavigationTitle(title: title)) }
+}
