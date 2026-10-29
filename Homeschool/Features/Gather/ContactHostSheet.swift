@@ -32,7 +32,7 @@ struct ContactHostSheet: View {
                             .background(Circle().fill(Theme.lavender))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.host).rowTitle()
-                            Text("About “\\(event.title)”").rowDetail().lineLimit(1)
+                            Text("About “\(event.title)”").rowDetail().lineLimit(1)
                         }
                     }
 

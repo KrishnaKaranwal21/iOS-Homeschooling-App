@@ -80,10 +80,46 @@ enum MockData {
         Calendar.current.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute)) ?? .now
     }
     static let parents = [
-        Parent(name: "Sara Patel", role: "Mum to Arya, 13", tags: "Space · Creative play", distanceKm: 0.8, about: "We love following Arya's big space questions and turning everyday things into creative play."),
-        Parent(name: "Daniel", role: "Dad to Leo, 11", tags: "Nature · Little inventors", distanceKm: 1.4, about: "Weekend tinkerers and trail walkers."),
-        Parent(name: "Preeti", role: "Mum to Ananya, 8 & Ankit, 5", tags: "Stories · Outdoor play", distanceKm: 2.6, about: "Story-time lovers."),
-        Parent(name: "Sneha", role: "Mum to Noah, 7", tags: "Space · Arts & crafts", distanceKm: 4.2, about: "Arts, crafts and stargazing.")
+        Parent(name: "Sara Patel", role: "Mum to Arya, 13", tags: "Space · Creative play", distanceKm: 0.8,
+               about: "Finding our rhythm with art and outdoor days.",
+               bio: "We love following Arya’s big space questions and turning everyday things into creative play. We’d love to meet other curious families.",
+               children: [ParentChild(name: "Arya", age: 13, level: "Level A")],
+               interests: ["Space", "Reading", "Art", "Nature"],
+               lookingFor: ["Learning groups", "Weekend outings"],
+               note: "New here, too."),
+        Parent(name: "Daniel", role: "Dad to Leo, 11", tags: "Nature · Little inventors", distanceKm: 1.4,
+               about: "Happy to swap ideas for calmer learning days.",
+               bio: "Weekend tinkerers and trail walkers. Leo builds something new every week and we like sharing what works.",
+               children: [ParentChild(name: "Leo", age: 11, level: "Level A")],
+               interests: ["Coding", "Nature", "Sports"],
+               lookingFor: ["Swapping ideas", "Weekend outings"],
+               note: "Happy to share."),
+        Parent(name: "Preeti", role: "Mum to Ananya, 8 & Ankit, 5", tags: "Stories · Outdoor play", distanceKm: 2.9,
+               about: "Stories, park days and learning with friends.",
+               bio: "Story-time lovers. We spend a lot of time in the park and would like regular meet-ups for the kids.",
+               children: [ParentChild(name: "Ananya", age: 8, level: "Level A"),
+                          ParentChild(name: "Ankit", age: 5, level: "Foundation")],
+               interests: ["Reading", "Animals", "Music"],
+               lookingFor: ["Playdates", "Learning groups"],
+               note: "Let’s learn together."),
+        Parent(name: "Sneha", role: "Mum to Noah, 7", tags: "Space · Arts & crafts", distanceKm: 4.2,
+               about: "Arts, crafts and stargazing on clear nights.",
+               bio: "Arts, crafts and stargazing. Noah asks a new question about the sky every evening.",
+               children: [ParentChild(name: "Noah", age: 7, level: "Foundation")],
+               interests: ["Space", "Art"],
+               lookingFor: ["Playdates", "Weekend outings"],
+               note: "Say hi!")
+    ]
+
+    static let notifications = [
+        AppNotification(symbol: "person.badge.plus", title: "New parent nearby",
+                        detail: "Sneha joined about 4 km from you.", time: "Today", isNew: true),
+        AppNotification(symbol: "bubble.left.and.text.bubble.right", title: "A host answered your question",
+                        detail: "Your question about the clay workshop has an answer.", time: "Yesterday", isNew: true),
+        AppNotification(symbol: "calendar", title: "Gathering reminder",
+                        detail: "Your next gathering is coming up this week.", time: "2 days ago"),
+        AppNotification(symbol: "checkmark.shield", title: "Your location stays private",
+                        detail: "Families only see an approximate distance.", time: "Last week")
     ]
     static let roadmap = [
         RoadmapStep(id: 1, title: "Understand homeschooling", detail: "Learn how it works and your role.", symbol: "book"),

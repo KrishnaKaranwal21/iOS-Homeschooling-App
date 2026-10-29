@@ -21,6 +21,8 @@ struct Registration: Identifiable {
     var amountPaid: Int? = nil
     /// Whether the parent or guardian stays with the child. `false` means drop-off.
     var accompanying = true
+    /// How many children this registration covers. Paid events charge one price per place.
+    var places = 1
 
     /// Paid places cannot be cancelled and are never refunded, even if the family does not attend.
     var isPaid: Bool { amountPaid != nil }

@@ -521,7 +521,7 @@ struct GatherConfirmationSheet: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.red)
                 } else if state.registrations[event.id]?.isPaid == true {
-                    Label("Paid \(event.priceText). No refunds, even if you don't attend, so this place can't be cancelled.",
+                    Label("Paid ₹\(state.registrations[event.id]?.amountPaid ?? event.price ?? 0). No refunds, even if you don't attend, so this place can't be cancelled.",
                           systemImage: "exclamationmark.triangle.fill")
                         .scaledFont(14, maxScale: 1.3)
                         .foregroundStyle(Theme.gatherText)
@@ -564,7 +564,9 @@ struct RegistrationDetailView: View {
                         ("Reference", registration.code),
                         ("Registered on", registration.registeredAt.formatted(date: .abbreviated, time: .shortened)),
                         ("Payment", registration.amountPaid.map {
-                            "Paid ₹\($0) · non-refundable"
+                            registration.places > 1
+                                ? "Paid ₹\($0) for \(registration.places) children · non-refundable"
+                                : "Paid ₹\($0) · non-refundable"
                         } ?? "Free · cancel any time"),
                         ("Parent or guardian", registration.accompanying ? "Staying with child" : "Drop-off")
                     ])

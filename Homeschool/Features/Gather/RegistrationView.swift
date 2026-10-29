@@ -11,6 +11,25 @@ struct RegistrationView: View {
     @State private var acceptsNoRefund = false
     @State private var isPrefilled = false
     @State private var didLoad = false
+    /// The children who will join. Each one needs a place, so the price follows this count.
+    @State private var selectedIDs: Set<Child.ID> = []
+
+    /// Children from setup that have a name. With none, the parent types the child's details instead.
+    private var kids: [Child] {
+        state.children.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    private var selectedKids: [Child] { kids.filter { selectedIDs.contains($0.id) } }
+
+    /// Places to pay for: one per selected child (or one when the child is typed in by hand).
+    private var placeCount: Int { kids.isEmpty ? 1 : max(selectedKids.count, 1) }
+    private var isMultiple: Bool { placeCount > 1 }
+
+    private var totalPrice: Int? { event.price.map { $0 * placeCount } }
+    private var totalText: String {
+        guard let totalPrice else { return "Free" }
+        return totalPrice.formatted(.currency(code: "INR").precision(.fractionLength(0)))
+    }
 
     // MARK: Rules that depend on the host's parent policy
 
@@ -29,15 +48,17 @@ struct RegistrationView: View {
     }
 
     private var consentText: String {
-        isAccompanying
-            ? "I’m this child’s parent or guardian and consent to their participation. I’ll stay with them throughout the event."
-            : "I’m this child’s parent or guardian and consent to their participation without me. I’ll drop them off and collect them on time."
+        let who = isMultiple ? "these children’s" : "this child’s"
+        return isAccompanying
+            ? "I’m \(who) parent or guardian and consent to their participation. I’ll stay with them throughout the event."
+            : "I’m \(who) parent or guardian and consent to their participation without me. I’ll drop them off and collect them on time."
     }
 
     private var isValid: Bool {
         !registrant.parentName.trimmingCharacters(in: .whitespaces).isEmpty
             && registrant.email.contains("@")
             && !registrant.childName.trimmingCharacters(in: .whitespaces).isEmpty
+            && (kids.isEmpty || !selectedKids.isEmpty)
             && consent
             && (event.isFree || acceptsNoRefund)
     }
@@ -63,6 +84,7 @@ struct RegistrationView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: prefill)
+        .onChange(of: selectedIDs) { applySelection() }
         .animation(.snappy, value: staysWithChild)
     }
 
@@ -127,23 +149,102 @@ struct RegistrationView: View {
 
     private var childSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            heading("Little explorer")
+            heading(isMultiple ? "Little explorers" : "Little explorer")
 
-            HStack(alignment: .top, spacing: 12) {
-                field("Child’s full name") {
-                    TextField("Child’s name", text: $registrant.childName)
-                        .textContentType(.givenName)
+            if kids.isEmpty {
+                // No child saved in setup yet: type the details in.
+                HStack(alignment: .top, spacing: 12) {
+                    field("Child’s full name") {
+                        TextField("Child’s name", text: $registrant.childName)
+                            .textContentType(.givenName)
+                    }
+                    field("Age") {
+                        TextField("8", text: $registrant.childAge)
+                            .keyboardType(.numberPad)
+                    }
+                    .frame(width: 112)
                 }
-                field("Age") {
-                    TextField("8", text: $registrant.childAge)
-                        .keyboardType(.numberPad)
+            } else if kids.count == 1 {
+                // Only one child: they are selected automatically.
+                field("Registering") {
+                    childRow(name: kids[0].name, detail: ageText(for: kids[0]))
                 }
-                .frame(width: 112)
+            } else {
+                // Two or more children: tick everyone who will join. Each one is a paid place.
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Who is coming?")
+                        .scaledFont(15, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                    Text("Select each child who will join. You pay for one place per child.")
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                    VStack(spacing: 8) {
+                        ForEach(kids) { kid in kidRow(kid) }
+                    }
+                }
             }
 
             field("Allergies or support needs (optional)") {
                 TextField("Anything we should know?", text: $registrant.notes)
             }
+        }
+    }
+
+    private func childRow(name: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Text(String(name.prefix(1)).uppercased())
+                .scaledFont(15, weight: .bold, maxScale: 1.2)
+                .foregroundStyle(Theme.ink)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Theme.lavender))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(name)
+                    .lineLimit(1)
+                if !detail.isEmpty {
+                    Text(detail)
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func ageText(for child: Child) -> String {
+        child.birthDate.map { "Age \(AgeRules.age(of: $0, on: .now))" } ?? ""
+    }
+
+    private func kidRow(_ kid: Child) -> some View {
+        let isSelected = selectedIDs.contains(kid.id)
+        return Button { toggle(kid) } label: {
+            HStack(spacing: 12) {
+                childRow(name: kid.name, detail: ageText(for: kid))
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? Theme.gatherAccent : Theme.gatherText)
+            }
+            .scaledFont(17, maxScale: 1.3)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+            .background(isSelected ? Theme.lilac : Color.white, in: .rect(cornerRadius: 16))
+            .roundedStroke(isSelected ? Theme.gatherAccent : Theme.cardBorder,
+                           cornerRadius: 16, lineWidth: isSelected ? 1.5 : 1)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.selection, trigger: isSelected)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// At least one child always stays selected.
+    private func toggle(_ kid: Child) {
+        if selectedIDs.contains(kid.id) {
+            if selectedIDs.count > 1 { selectedIDs.remove(kid.id) }
+        } else {
+            selectedIDs.insert(kid.id)
         }
     }
 
@@ -180,19 +281,47 @@ struct RegistrationView: View {
         if !event.isFree {
             VStack(alignment: .leading, spacing: 14) {
                 heading("Payment")
+                costSummary
                 notice(icon: "exclamationmark.triangle.fill",
-                       text: "No refunds. \(event.priceText) is non-refundable, even if you don’t attend. Paid places can’t be cancelled.",
+                       text: "No refunds. \(totalText) is non-refundable, even if you don’t attend. Paid places can’t be cancelled.",
                        tint: Color.orange)
                 checkbox("I understand this payment won’t be refunded.", isOn: $acceptsNoRefund)
             }
         }
     }
 
+    /// Price per child, how many children, and the total.
+    private var costSummary: some View {
+        VStack(spacing: 10) {
+            if isMultiple {
+                summaryRow("Price per child", event.priceText)
+                summaryRow("Children", "× \(placeCount)")
+                Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
+            }
+            summaryRow("Total", totalText, isTotal: true)
+        }
+        .padding(16)
+        .background(Color.white, in: .rect(cornerRadius: 18))
+        .roundedStroke(Theme.cardBorder, cornerRadius: 18)
+        .animation(.snappy, value: placeCount)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func summaryRow(_ title: String, _ value: String, isTotal: Bool = false) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+        }
+        .scaledFont(isTotal ? 18 : 16, weight: isTotal ? .bold : .regular, maxScale: 1.3)
+        .foregroundStyle(Theme.ink)
+    }
+
     private var confirmArea: some View {
         VStack(spacing: 12) {
-            Button(event.isFree ? "Confirm registration" : "Pay \(event.priceText) & confirm") {
+            Button(event.isFree ? "Confirm registration" : "Pay \(totalText) & confirm") {
                 guard isValid else { return }
-                state.register(event, as: registrant, accompanying: isAccompanying)
+                state.register(event, as: registrant, accompanying: isAccompanying, places: placeCount)
                 dismiss()
             }
             .buttonStyle(.primaryHomeschool(isDimmed: !isValid))
@@ -288,5 +417,23 @@ struct RegistrationView: View {
                 registrant.childAge = String(AgeRules.age(of: birthDate, on: .now))
             }
         }
+
+        // The child's details come from the family's children. With one child it is picked for them.
+        if kids.count == 1 {
+            selectedIDs = [kids[0].id]
+        } else if kids.count > 1 {
+            selectedIDs = [kids.contains { $0.id == state.child.id } ? state.child.id : kids[0].id]
+        }
+        applySelection()
+    }
+
+    /// Copies the selected children into the registration.
+    private func applySelection() {
+        guard !kids.isEmpty else { return }
+        let selected = selectedKids
+        registrant.childName = selected.map(\.name).joined(separator: " & ")
+        registrant.childAge = selected
+            .compactMap { child in child.birthDate.map { String(AgeRules.age(of: $0, on: .now)) } }
+            .joined(separator: " & ")
     }
 }

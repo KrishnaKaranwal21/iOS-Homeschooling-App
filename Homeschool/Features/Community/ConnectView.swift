@@ -1,28 +1,128 @@
 import SwiftUI
 
+/// A parent's profile. The Connect button stays at the bottom while the page scrolls.
 struct ConnectView: View {
+    @Environment(AppState.self) private var state
     let parent: Parent
-    @State private var sent = false
+
+    private var requested: Bool { state.requestedParents.contains(parent.id) }
+
+    private var myInterests: Set<String> {
+        state.children.reduce(into: Set<String>()) { $0.formUnion($1.interests) }
+    }
+
+    private var sharedInterests: [String] { parent.interests.filter { myInterests.contains($0) } }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 16) {
-                    AvatarView(initials: String(parent.name.prefix(1)), color: Theme.lime, size: 80)
-                    VStack(alignment: .leading) { Text(parent.name).font(.title.bold()); Text(parent.role); Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away").font(.caption) }
+            VStack(spacing: 0) {
+                introduction
+
+                VStack(alignment: .leading, spacing: 14) {
+                    if !parent.children.isEmpty { meetCard }
+                    if !parent.interests.isEmpty {
+                        infoCard(sharedInterests.isEmpty ? "Their interests" : "Interests we share",
+                                 sharedInterests.isEmpty ? parent.interests : sharedInterests)
+                    }
+                    if !parent.lookingFor.isEmpty {
+                        infoCard("Looking to connect for", parent.lookingFor)
+                    }
+
+                    Label("Only approximate distance is shared. Your exact location stays private.",
+                          systemImage: "checkmark.shield")
+                        .scaledFont(14, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .padding(.top, 4)
                 }
-                Text("A little about us").font(.title3.bold())
-                Text("“\(parent.about)”").foregroundStyle(Theme.secondary)
-                infoCard("Interests we share", ["Science experiments", "Reading", "Art & crafts", "Nature walks"])
-                infoCard("Looking to connect for", ["Learning groups", "Weekend outings"])
-                Label("Only approximate distance is shared. Your exact location stays private.", systemImage: "checkmark.shield").font(.caption).foregroundStyle(Theme.secondary)
-                Button { sent = true } label: {
-                    Text(sent ? "Request sent" : "Connect").font(.headline).frame(maxWidth: .infinity, minHeight: 56).foregroundStyle(.white).background(sent ? Theme.secondary : Theme.ink, in: Capsule())
-                }.disabled(sent)
-                Text("Send a connection request. Chat once \(parent.name.components(separatedBy: " ")[0]) accepts.").font(.caption).foregroundStyle(Theme.secondary).frame(maxWidth: .infinity)
-            }.padding()
-        }.background(Theme.background).navigationBarTitleDisplayMode(.inline)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
+            }
+        }
+        .background(Theme.background)
+        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom, spacing: 0) { connectBar }
     }
-    private func infoCard(_ title: String, _ items: [String]) -> some View {
-        Card(color: Theme.pink) { VStack(alignment: .leading, spacing: 4) { Text(title).font(.headline); ForEach(items, id: \.self) { Text($0).font(.subheadline) } } }
+
+    // White top part: who they are and a short introduction.
+    private var introduction: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 20) {
+                ParentAvatar(parent: parent, size: 96)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(parent.name)
+                        .scaledFont(30, weight: .bold, maxScale: 1.15)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                    Text(parent.role)
+                        .scaledFont(17, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                    Text("\(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away")
+                        .scaledFont(15, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("A little about us")
+                    .scaledFont(21, weight: .semibold, maxScale: 1.2)
+                    .foregroundStyle(Theme.ink)
+                Text("“\(parent.bio.isEmpty ? parent.about : parent.bio)”")
+                    .scaledFont(17, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                    .lineSpacing(3)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+    }
+
+    private var meetCard: some View {
+        let names = parent.children.map(\.name).joined(separator: " & ")
+        let lines: [String] = parent.children.count == 1
+            ? ["\(parent.children[0].age) years old", parent.children[0].level]
+            : parent.children.map { "\($0.name) · \($0.age) years old · \($0.level)" }
+        return infoCard("Meet \(names)", lines)
+    }
+
+    private func infoCard(_ title: String, _ lines: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .scaledFont(22, weight: .semibold, maxScale: 1.2)
+                .foregroundStyle(Theme.ink)
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(lines, id: \.self) { line in
+                    Text(line)
+                        .scaledFont(17, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.pink, in: .rect(cornerRadius: 28))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var connectBar: some View {
+        VStack(spacing: 10) {
+            Button(requested ? "Request sent" : "Connect") {
+                state.sendRequest(to: parent)
+            }
+            .buttonStyle(.primaryHomeschool(isDimmed: requested))
+            .disabled(requested)
+
+            Text("Send a connection request. Chat once \(parent.firstName) accepts.")
+                .scaledFont(14, maxScale: 1.3)
+                .foregroundStyle(Theme.gatherText)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(Theme.background)
     }
 }

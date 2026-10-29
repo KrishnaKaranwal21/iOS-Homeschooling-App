@@ -21,6 +21,7 @@ struct GatherFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
             .background(Color.white, in: .rect(cornerRadius: 16))
             .roundedStroke(Theme.cardBorder, cornerRadius: 16, lineWidth: 1)

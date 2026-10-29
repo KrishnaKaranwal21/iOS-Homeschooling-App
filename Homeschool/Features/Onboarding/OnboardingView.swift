@@ -23,11 +23,14 @@ struct OnboardingView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 10)
 
+                // Paging carousel: each page is exactly as wide as the screen. The scroll view itself
+                // takes all the height between the Skip button and the dots, and the page fills it.
                 ScrollView(.horizontal) {
                     HStack(spacing: 0) {
                         ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
                             OnboardingPageView(page: page)
-                                .containerRelativeFrame([.horizontal, .vertical])
+                                .containerRelativeFrame(.horizontal)
+                                .frame(maxHeight: .infinity, alignment: .top)
                                 .id(index)
                         }
                     }
@@ -35,7 +38,9 @@ struct OnboardingView: View {
                 }
                 .scrollTargetBehavior(.paging)
                 .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
                 .scrollPosition(id: $scrolledPage)
+                .frame(maxHeight: .infinity)
 
                 PageDots(count: pages.count, current: currentPage)
                     .padding(.top, 8)

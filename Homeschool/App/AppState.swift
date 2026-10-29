@@ -224,12 +224,13 @@ final class AppState {
 
     // MARK: Events
 
-    func register(_ event: Event, as registrant: Registrant, accompanying: Bool = true) {
+    func register(_ event: Event, as registrant: Registrant, accompanying: Bool = true, places: Int = 1) {
         guard let index = events.firstIndex(where: { $0.id == event.id }) else { return }
         events[index].isRegistered = true
         registrations[event.id] = Registration(eventID: event.id, registrant: registrant,
-                                               registeredAt: .now, amountPaid: event.price,
-                                               accompanying: accompanying)
+                                               registeredAt: .now,
+                                               amountPaid: event.price.map { $0 * places },
+                                               accompanying: accompanying, places: places)
 
         savedRegistrant = registrant
         storedRegistrant = Self.encode(registrant)
@@ -248,6 +249,13 @@ final class AppState {
         events[index].isRegistered = false
         registrations[event.id] = nil
         return true
+    }
+
+    /// Parents I sent a connection request to.
+    var requestedParents: Set<Parent.ID> = []
+
+    func sendRequest(to parent: Parent) {
+        requestedParents.insert(parent.id)
     }
 
     /// The host answers a family's question. With `publish`, it also joins the event's public FAQs.
