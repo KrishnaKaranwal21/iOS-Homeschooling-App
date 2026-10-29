@@ -4,6 +4,9 @@ struct GatherView: View {
     @Environment(AppState.self) private var state
     @State private var query = ""
     @State private var category = "All"
+    /// True for a moment after a label or the place changes. The event cards ignore touches then,
+    /// so the tap that changed the list can't also open a card that appears under the finger.
+    @State private var isListSettling = false
     @State private var place: Place = .nearYou
     @State private var showLocationPicker = false
     @State private var ticketID: Event.ID?
@@ -85,6 +88,8 @@ struct GatherView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .onChange(of: category) { settleList() }
+        .onChange(of: place) { settleList() }
         .scrollTitleBar("Gatherings")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
@@ -220,6 +225,7 @@ struct GatherView: View {
                             .background(Capsule().fill(name == category ? Theme.lavender : Theme.chipFill))
                     }
                     .buttonStyle(.plain)
+                    .contentShape(.capsule)
                     .accessibilityAddTraits(name == category ? .isSelected : [])
                 }
             }
@@ -316,13 +322,27 @@ struct GatherView: View {
                 .caption()
                 .padding(.horizontal, 24)
 
-            LazyVStack(spacing: 16) {
+            // A plain VStack (the list is short), so cards aren't recycled while the list changes.
+            VStack(spacing: 16) {
                 ForEach(outings) { event in
-                    NavigationLink(value: event) { OutingCard(event: event, coverHeight: 180) }
-                        .buttonStyle(.plain)
+                    NavigationLink(value: event) {
+                        OutingCard(event: event, coverHeight: 180)
+                            .contentShape(.rect(cornerRadius: 26))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 24)
+            .allowsHitTesting(!isListSettling)
+        }
+    }
+
+    /// Blocks taps on the cards for a short moment after the list changed.
+    private func settleList() {
+        isListSettling = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            isListSettling = false
         }
     }
 
