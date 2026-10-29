@@ -49,7 +49,10 @@ struct ChatDetailView: View {
         .onChange(of: thread == nil) { _, isGone in
             if isGone { dismiss() }
         }
-        .onAppear { state.chats.markRead(threadID) }
+        .onAppear {
+            state.chats.markRead(threadID)
+            state.chats.purgeExpired()
+        }
     }
 
     // MARK: Layout
@@ -244,12 +247,24 @@ struct ChatDetailView: View {
                         .foregroundStyle(Theme.tabSelected)
                 }
                 if let picked = message.image {
-                    picked.image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 220, height: 220)
-                        .clipShape(.rect(cornerRadius: 16))
-                        .accessibilityLabel("Photo")
+                    if thread.hidesMedia {
+                        // Media visibility is set to hidden in this chat's info.
+                        VStack(spacing: 6) {
+                            Image(systemName: "eye.slash")
+                            Text("Photo hidden")
+                                .scaledFont(13, maxScale: 1.2)
+                        }
+                        .foregroundStyle(Theme.secondary)
+                        .frame(width: 220, height: 120)
+                        .background(Color.black.opacity(0.05), in: .rect(cornerRadius: 16))
+                    } else {
+                        picked.image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 220, height: 220)
+                            .clipShape(.rect(cornerRadius: 16))
+                            .accessibilityLabel("Photo")
+                    }
                 }
                 if message.audioData != nil {
                     VoiceBubble(message: message, player: player)
@@ -262,6 +277,12 @@ struct ChatDetailView: View {
                 }
                 HStack(spacing: 4) {
                     Spacer(minLength: 0)
+                    if message.isStarred {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Theme.secondary)
+                            .accessibilityLabel("Starred")
+                    }
                     Text(ChatFormat.clock(message.date))
                         .scaledFont(12, maxScale: 1.2)
                         .foregroundStyle(Theme.secondary)
@@ -272,6 +293,9 @@ struct ChatDetailView: View {
             .padding(.vertical, 10)
             .background(shape.fill(mine ? Theme.pink : Color(hex: 0xF0F1F4)))
             .contextMenu {
+                Button { state.chats.toggleStar(message.id, in: threadID) } label: {
+                    Label(message.isStarred ? "Unstar" : "Star", systemImage: message.isStarred ? "star.slash" : "star")
+                }
                 if !message.text.isEmpty {
                     Button { UIPasteboard.general.string = message.text } label: {
                         Label("Copy", systemImage: "doc.on.doc")

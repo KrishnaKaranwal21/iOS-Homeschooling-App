@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Family profile, laid out like the Settings app: a grouped list with a large title.
+/// The family's profile: a hero card, then three tabs (Parent, Children, Settings) made of cards.
+/// What other parents see on the community profile is edited here too.
 struct ProfileView: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
@@ -12,7 +13,7 @@ struct ProfileView: View {
         let singleStep: Bool
     }
 
-    private enum ProfileSection: String, CaseIterable, Identifiable {
+    private enum ProfileTab: String, CaseIterable, Identifiable {
         case parent = "Parent", children = "Children", settings = "Settings"
         var id: String { rawValue }
     }
@@ -24,51 +25,36 @@ struct ProfileView: View {
     @State private var levelTarget: Child?
     /// Set when a level changed, so the subjects page opens once the level sheet has closed.
     @State private var pendingSubjectsEdit: Child?
-    @State private var jump: ProfileSection = .parent
+    @State private var tab: ProfileTab = .parent
+    @Namespace private var tabNamespace
 
     private let avatarColors: [Color] = [Theme.lavender, Theme.yellow, Theme.lime, Theme.pink]
 
     var body: some View {
-        ScrollViewReader { proxy in
-            List {
+        ScrollView {
+            VStack(spacing: 18) {
                 examBanner
+                hero
 
-                profileHeader
-                    .id("profile-\(ProfileSection.parent.rawValue)")
-
-                parentSection
-
-                communityProfileSections
-
-                childrenSections
-
-                Section {
-                    Button { showAdd = true } label: {
-                        Label("Add a child", systemImage: "plus.circle.fill")
+                Group {
+                    switch tab {
+                    case .parent:   parentTab
+                    case .children: childrenTab
+                    case .settings: settingsTab
                     }
                 }
-
-                settingsSection
-                    .id("profile-\(ProfileSection.settings.rawValue)")
+                .transition(.opacity)
             }
-            .listStyle(.insetGrouped)
-            .tint(Theme.tabSelected)
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.large)
-            // Shortcuts to the three parts of a long page.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Picker("Jump to", selection: $jump) {
-                    ForEach(ProfileSection.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.bar)
-            }
-            .onChange(of: jump) { _, section in
-                withAnimation(.smooth) { proxy.scrollTo("profile-\(section.rawValue)", anchor: .top) }
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 32)
         }
+        .scrollNavigationTitle("Profile")
+        .background(Theme.background)
+        .navigationBarTitleDisplayMode(.inline)
+        // The three parts stay in reach while scrolling.
+        .safeAreaInset(edge: .top, spacing: 0) { tabBar }
+        .animation(.snappy, value: tab)
         .fullScreenCover(item: $editTarget) { target in
             EditChildFlow(child: target.child, startStep: target.step, singleStep: target.singleStep)
         }
@@ -95,28 +81,91 @@ struct ProfileView: View {
         }
     }
 
+    // MARK: Tabs
+
+    private var tabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(ProfileTab.allCases) { item in
+                Button { tab = item } label: {
+                    Text(item.rawValue)
+                        .scaledFont(15, weight: tab == item ? .semibold : .regular, maxScale: 1.2)
+                        .foregroundStyle(tab == item ? Theme.ink : Theme.gatherText)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 38)
+                        .background {
+                            if tab == item {
+                                Capsule().fill(Theme.lavender)
+                                    .matchedGeometryEffect(id: "tab", in: tabNamespace)
+                            }
+                        }
+                        .contentShape(.capsule)
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(tab == item ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Capsule().fill(Theme.chipFill))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(.bar)
+        .sensoryFeedback(.selection, trigger: tab)
+    }
+
+    // MARK: Top
+
+    private var parentName: String {
+        let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
+        return name.isEmpty ? "Add your name" : name
+    }
+
+    private var parentInitial: String {
+        let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
+        return String((name.isEmpty ? (state.account?.email ?? "P") : name).prefix(1)).uppercased()
+    }
+
+    private var hero: some View {
+        let count = state.children.count
+        return ProfileHero(
+            initial: parentInitial,
+            title: parentName,
+            subtitle: state.account?.email ?? "",
+            chips: [
+                ProfileHeroChip(symbol: "person.2.fill", text: count == 1 ? "1 child" : "\(count) children"),
+                ProfileHeroChip(symbol: "mappin.and.ellipse", text: state.homeLocation.name),
+                ProfileHeroChip(symbol: "location", text: "Within \(state.communityRadiusKm) km")
+            ],
+            actionSymbol: "pencil", actionLabel: "Edit your details",
+            action: { showParentEdit = true })
+    }
+
     // MARK: Exam reminder
 
     @ViewBuilder private var examBanner: some View {
         let urgent = state.children.filter(\.examNeedsAttention)
         if !urgent.isEmpty {
-            Section {
+            VStack(spacing: 10) {
                 ForEach(urgent) { child in
-                    Label {
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(.title3)
+                            .foregroundStyle(.orange)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(child.displayName)’s exam form")
-                                .font(.headline)
+                                .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                                .foregroundStyle(Theme.ink)
                             Text(bannerText(for: child))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .scaledFont(14, maxScale: 1.3)
+                                .foregroundStyle(Theme.gatherText)
                         }
-                    } icon: {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .foregroundStyle(.orange)
+                        Spacer(minLength: 0)
                     }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(hex: 0xFFEBD9), in: .rect(cornerRadius: 22))
+                    .accessibilityElement(children: .combine)
                 }
             }
-            .listRowBackground(Color(hex: 0xFFEBD9))
         }
     }
 
@@ -130,58 +179,7 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: Parent
-
-    private var parentName: String {
-        let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
-        return name.isEmpty ? "Add your name" : name
-    }
-
-    private var parentInitial: String {
-        let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
-        return String((name.isEmpty ? (state.account?.email ?? "P") : name).prefix(1)).uppercased()
-    }
-
-    private var profileHeader: some View {
-        Section {
-            Button { showParentEdit = true } label: {
-                HStack(spacing: 14) {
-                    Text(parentInitial)
-                        .font(.title.weight(.semibold))
-                        .foregroundStyle(Theme.ink)
-                        .frame(width: 64, height: 64)
-                        .background(Circle().fill(Theme.lavender))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(parentName)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Text(state.account?.email ?? "")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.vertical, 4)
-            }
-            .accessibilityLabel("\(parentName). Edit your details")
-        }
-    }
-
-    private var parentSection: some View {
-        Section("Parent or guardian") {
-            Button { showParentEdit = true } label: {
-                LabeledContent("Mobile",
-                               value: (state.account?.mobile).flatMap { $0.isEmpty ? nil : $0 } ?? "Add a number")
-            }
-            .foregroundStyle(.primary)
-            LabeledContent("Email", value: state.account?.email ?? "Not set")
-        }
-    }
-
-    // MARK: Community profile (what other parents see, editable here)
+    // MARK: Parent tab
 
     private var bioBinding: Binding<String> {
         Binding(get: { state.account?.bio ?? "" },
@@ -196,18 +194,82 @@ struct ProfileView: View {
         state.updateCommunityProfile(lookingFor: current)
     }
 
-    private func toggleInterest(_ name: String, for child: Child) {
-        guard let index = state.children.firstIndex(where: { $0.id == child.id }) else { return }
-        if state.children[index].interests.contains(name) {
-            state.children[index].interests.remove(name)
-        } else {
-            state.children[index].interests.insert(name)
+    private var parentTab: some View {
+        VStack(spacing: 18) {
+            ProfileCard(symbol: "person.crop.circle", title: "Your details") {
+                VStack(spacing: 6) {
+                    Button { showParentEdit = true } label: {
+                        ProfileInfoRow(symbol: "phone", title: "Mobile",
+                                       value: (state.account?.mobile).flatMap { $0.isEmpty ? nil : $0 } ?? "Add a number")
+                    }
+                    .buttonStyle(.plain)
+                    ProfileDivider()
+                    ProfileInfoRow(symbol: "envelope", title: "Email",
+                                   value: state.account?.email ?? "Not set", showsChevron: false)
+                }
+            }
+
+            ProfileCard(symbol: "text.quote", title: "A little about us",
+                        subtitle: "Shown on your community profile") {
+                TextField("Tell other families a little about you", text: bioBinding, axis: .vertical)
+                    .lineLimit(3...8)
+                    .scaledFont(16, maxScale: 1.3)
+                    .foregroundStyle(Theme.ink)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.lilac, in: .rect(cornerRadius: 18))
+            }
+
+            ProfileCard(symbol: "person.2.wave.2", title: "Looking to connect for",
+                        subtitle: "Pick as many as you like") {
+                FlowLayout(spacing: 8) {
+                    ForEach(CommunityOptions.lookingFor, id: \.self) { option in
+                        SelectableChip(title: option, isOn: lookingFor.contains(option)) {
+                            toggleLookingFor(option)
+                        }
+                    }
+                }
+            }
+
+            previewCard
         }
     }
 
-    private func ageText(_ child: Child) -> String {
-        guard let birthDate = child.birthDate else { return "Not set" }
-        return "\(AgeRules.age(of: birthDate, on: .now)) years old"
+    /// Opens the profile as another parent sees it.
+    private var previewCard: some View {
+        NavigationLink {
+            ConnectView(parent: communityPreview, isPreview: true)
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("See how other parents see you")
+                        .scaledFont(18, weight: .bold, maxScale: 1.2)
+                        .foregroundStyle(Theme.ink)
+                        .multilineTextAlignment(.leading)
+                    Text("Only an approximate distance is shared.")
+                        .scaledFont(14, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink.opacity(0.65))
+                        .multilineTextAlignment(.leading)
+                    Label("Preview", systemImage: "eye")
+                        .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 16)
+                        .frame(height: 38)
+                        .background(Capsule().fill(Theme.ink))
+                        .padding(.top, 4)
+                }
+                Spacer(minLength: 0)
+                Image("HomeMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 84)
+                    .accessibilityHidden(true)
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.pink.opacity(0.55), in: .rect(cornerRadius: 26))
+        }
+        .buttonStyle(.plain)
     }
 
     /// The profile as another parent would see it.
@@ -226,156 +288,140 @@ struct ProfileView: View {
             interests: interests, lookingFor: lookingFor)
     }
 
-    @ViewBuilder private var communityProfileSections: some View {
-        Section {
-            TextField("Tell other families a little about you", text: bioBinding, axis: .vertical)
-                .lineLimit(3...8)
-        } header: {
-            Text("A little about us")
-        } footer: {
-            Text("Shown on your community profile.")
-        }
+    // MARK: Children tab
 
-        Section("Looking to connect for") {
-            ForEach(CommunityOptions.lookingFor, id: \.self) { option in
-                Button { toggleLookingFor(option) } label: {
-                    HStack {
-                        Text(option)
-                        Spacer()
-                        if lookingFor.contains(option) {
-                            Image(systemName: "checkmark")
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Theme.tabSelected)
-                        }
-                    }
-                    .contentShape(.rect)
+    private var childrenTab: some View {
+        VStack(spacing: 18) {
+            ForEach(Array(state.children.enumerated()), id: \.element.id) { index, child in
+                childCard(child, color: avatarColors[index % avatarColors.count])
+            }
+
+            Button { showAdd = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Theme.lavender))
+                    Text("Add a child")
+                        .scaledFont(17, weight: .semibold, maxScale: 1.25)
                 }
-                .foregroundStyle(.primary)
-                .accessibilityAddTraits(lookingFor.contains(option) ? .isSelected : [])
-            }
-        }
-
-        ForEach(state.children.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }) { child in
-            Section {
-                LabeledContent("Age", value: ageText(child))
-                LabeledContent("Level", value: child.level.isEmpty ? "Not set" : levelText(child))
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Interests")
-                    FlowLayout(spacing: 8) {
-                        ForEach(CommunityOptions.interests, id: \.self) { name in
-                            let isOn = child.interests.contains(name)
-                            Button { toggleInterest(name, for: child) } label: {
-                                Text(name)
-                                    .font(.subheadline.weight(isOn ? .semibold : .regular))
-                                    .foregroundStyle(isOn ? Theme.ink : Color.secondary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 7)
-                                    .background(Capsule().fill(isOn ? Theme.lavender : Theme.chipFill))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(isOn ? .isSelected : [])
-                        }
-                    }
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, minHeight: 68)
+                .background {
+                    let shape: RoundedRectangle = .rect(cornerRadius: 26)
+                    shape.strokeBorder(Theme.lilacBorder, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
                 }
-                .padding(.vertical, 4)
-            } header: {
-                Text("Meet \(child.displayName)")
+                .contentShape(.rect(cornerRadius: 26))
             }
-        }
-
-        Section {
-            NavigationLink {
-                ConnectView(parent: communityPreview, isPreview: true)
-            } label: {
-                Label("See how other parents see you", systemImage: "eye")
-            }
-        } footer: {
-            Text("Other families only see an approximate distance.")
+            .buttonStyle(.plain)
         }
     }
 
-    // MARK: Children
-
-    @ViewBuilder private var childrenSections: some View {
-        ForEach(Array(state.children.enumerated()), id: \.element.id) { index, child in
-            // Only the first child carries the "Children" shortcut id, so no two rows share one.
-            childSection(child, color: avatarColors[index % avatarColors.count])
-                .id(index == 0 ? "profile-\(ProfileSection.children.rawValue)" : child.id.uuidString)
+    private func toggleInterest(_ name: String, for child: Child) {
+        guard let index = state.children.firstIndex(where: { $0.id == child.id }) else { return }
+        if state.children[index].interests.contains(name) {
+            state.children[index].interests.remove(name)
+        } else {
+            state.children[index].interests.insert(name)
         }
     }
 
-    private func childSection(_ child: Child, color: Color) -> some View {
+    private func childCard(_ child: Child, color: Color) -> some View {
         let isCurrent = child.id == state.selectedChildID
 
-        return Section {
+        return ProfileCard {
             Button { openHome(with: child) } label: {
                 HStack(spacing: 14) {
                     Text(String(child.displayName.prefix(1)).uppercased())
-                        .font(.title2.weight(.semibold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(Theme.ink)
-                        .frame(width: 52, height: 52)
+                        .frame(width: 58, height: 58)
                         .background(Circle().fill(color))
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(child.displayName)
-                            .font(.headline)
-                            .foregroundStyle(.primary)
+                            .scaledFont(20, weight: .bold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
                         Text(child.programmeText)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .scaledFont(14, maxScale: 1.3)
+                            .foregroundStyle(Theme.gatherText)
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     if isCurrent {
                         Text("Viewing")
-                            .font(.caption.weight(.semibold))
+                            .scaledFont(12, weight: .semibold, maxScale: 1.2)
                             .foregroundStyle(Theme.ink)
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 5)
                             .background(Capsule().fill(Theme.lavender))
                     }
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.dotInactive)
                 }
-                .padding(.vertical, 4)
+                .contentShape(.rect)
             }
+            .buttonStyle(.plain)
             .accessibilityLabel("\(child.displayName). Open Home")
 
-            editRow("NIOS level", value: levelText(child)) { levelTarget = child }
-            editRow("Date of birth", value: dobText(child)) {
-                editTarget = EditTarget(child: child, step: 1, singleStep: false)
-            }
-            editRow("Subjects", value: subjectsText(child)) {
-                editTarget = EditTarget(child: child, step: 2, singleStep: true)
-            }
-            editRow("Learning rhythm", value: rhythmText(child)) {
-                editTarget = EditTarget(child: child, step: 3, singleStep: true)
+            ProfileDivider()
+
+            VStack(spacing: 4) {
+                editRow("graduationcap", "NIOS level", levelText(child)) { levelTarget = child }
+                editRow("calendar", "Date of birth", dobText(child)) {
+                    editTarget = EditTarget(child: child, step: 1, singleStep: false)
+                }
+                editRow("books.vertical", "Subjects", subjectsText(child)) {
+                    editTarget = EditTarget(child: child, step: 2, singleStep: true)
+                }
+                editRow("clock", "Learning rhythm", rhythmText(child)) {
+                    editTarget = EditTarget(child: child, step: 3, singleStep: true)
+                }
             }
 
-            ExamRows(child: child)
+            ProfileDivider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Interests")
+                    .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.ink)
+                Text("Shown to other parents so they can find you.")
+                    .scaledFont(13, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                FlowLayout(spacing: 8) {
+                    ForEach(CommunityOptions.interests, id: \.self) { name in
+                        SelectableChip(title: name, isOn: child.interests.contains(name)) {
+                            toggleInterest(name, for: child)
+                        }
+                    }
+                }
+            }
+
+            ProfileDivider()
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("NIOS exams")
+                    .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.ink)
+                ExamRows(child: child)
+            }
 
             Button { editTarget = EditTarget(child: child, step: 1, singleStep: false) } label: {
                 Label("Edit all details", systemImage: "pencil")
+                    .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.ink)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                    .background(Capsule().fill(Theme.chipFill))
             }
-        } header: {
-            Text(state.children.count == 1 ? "Your child" : child.displayName)
+            .buttonStyle(.plain)
         }
     }
 
-    private func editRow(_ title: String, value: String, action: @escaping () -> Void) -> some View {
+    private func editRow(_ symbol: String, _ title: String, _ value: String,
+                         action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            LabeledContent {
-                HStack(spacing: 6) {
-                    Text(value)
-                        .multilineTextAlignment(.trailing)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-            } label: {
-                Text(title)
-            }
+            ProfileInfoRow(symbol: symbol, title: title, value: value)
         }
-        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
         .accessibilityLabel("\(title), \(value). Edit")
     }
 
@@ -385,53 +431,69 @@ struct ProfileView: View {
         dismiss()
     }
 
-    // MARK: Settings
+    // MARK: Settings tab
 
-    private var settingsSection: some View {
-        Section {
-            Toggle("Show my approximate live location", isOn: Binding(
-                get: { state.usesLiveLocation },
-                set: { on in
-                    state.setLiveLocation(on)
-                    // Without live location the family chooses a city.
-                    if !on { showLocationPicker = true }
-                }))
-
-            if state.usesLiveLocation {
-                LabeledContent("Area") {
-                    if state.locationService.status == .locating {
-                        ProgressView()
-                    } else {
-                        Text(state.homeLocation.name)
-                    }
-                }
-            } else {
-                Button { showLocationPicker = true } label: {
-                    LabeledContent {
-                        HStack(spacing: 6) {
-                            Text(state.homeLocation.name)
-                            Image(systemName: "chevron.right")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.tertiary)
+    private var settingsTab: some View {
+        VStack(spacing: 18) {
+            ProfileCard(symbol: "location", title: "Your area",
+                        subtitle: "Used for “Near you” in Gather and Community") {
+                VStack(spacing: 12) {
+                    Toggle(isOn: Binding(
+                        get: { state.usesLiveLocation },
+                        set: { on in
+                            state.setLiveLocation(on)
+                            // Without live location the family chooses a city.
+                            if !on { showLocationPicker = true }
+                        })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Use my approximate live location")
+                                .scaledFont(16, maxScale: 1.25)
+                                .foregroundStyle(Theme.ink)
+                            Text("Never your exact position.")
+                                .scaledFont(13, maxScale: 1.3)
+                                .foregroundStyle(Theme.gatherText)
                         }
-                    } label: {
-                        Text("City")
+                    }
+                    .tint(Theme.tabSelected)
+
+                    ProfileDivider()
+
+                    if state.usesLiveLocation {
+                        HStack {
+                            ProfileInfoRow(symbol: "mappin.and.ellipse", title: "Area",
+                                           value: state.locationService.status == .locating ? "" : state.homeLocation.name,
+                                           showsChevron: false)
+                            if state.locationService.status == .locating { ProgressView() }
+                        }
+                    } else {
+                        Button { showLocationPicker = true } label: {
+                            ProfileInfoRow(symbol: "building.2", title: "City", value: state.homeLocation.name)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .foregroundStyle(.primary)
             }
 
-            Picker("Community distance", selection: Binding(
-                get: { state.communityRadiusKm },
-                set: { state.communityRadiusKm = $0 })) {
-                ForEach([1, 2, 3, 5, 10, 20], id: \.self) { Text("\($0) km").tag($0) }
+            ProfileCard(symbol: "scope", title: "Community distance",
+                        subtitle: "How far to look for other parents") {
+                FlowLayout(spacing: 8) {
+                    ForEach([1, 2, 3, 5, 10, 20], id: \.self) { km in
+                        SelectableChip(title: "\(km) km", isOn: state.communityRadiusKm == km) {
+                            state.communityRadiusKm = km
+                        }
+                    }
+                }
             }
-        } header: {
-            Text("Settings")
-        } footer: {
-            Text(state.usesLiveLocation
-                 ? "Only your approximate area is used, never your exact position. “Near you” in Gather and the Community list follow it."
-                 : "Choose your city. “Near you” in Gather and the Community list use it.")
+
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.shield")
+                    .font(.title3)
+                    .foregroundStyle(Theme.gatherAccent)
+                Text("Other families only see an approximate distance. Your exact location stays private.")
+                    .scaledFont(14, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+            }
+            .padding(.horizontal, 6)
         }
     }
 
