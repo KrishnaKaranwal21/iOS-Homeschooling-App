@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 /// The family's profile: a hero card, then three tabs (Parent, Children, Settings) made of cards.
 /// What other parents see on the community profile is edited here too.
@@ -28,13 +29,14 @@ struct ProfileView: View {
     @State private var tab: ProfileTab = .parent
     @Namespace private var tabNamespace
 
-    private let avatarColors: [Color] = [Theme.lavender, Theme.yellow, Theme.lime, Theme.pink]
-
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 18) {
+                Color.clear.frame(height: 0).id("profile-top")
                 examBanner
-                hero
+                // The profile card belongs to the Parent tab only.
+                if tab == .parent { hero }
 
                 Group {
                     switch tab {
@@ -49,8 +51,11 @@ struct ProfileView: View {
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
-        .scrollNavigationTitle("Profile")
+        // Switching tabs always starts at the top of the new tab.
+        .onChange(of: tab) { proxy.scrollTo("profile-top", anchor: .top) }
+        }
         .background(Theme.background)
+        .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         // The three parts stay in reach while scrolling.
         .safeAreaInset(edge: .top, spacing: 0) { tabBar }
@@ -259,15 +264,14 @@ struct ProfileView: View {
                         .padding(.top, 4)
                 }
                 Spacer(minLength: 0)
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 84)
-                    .accessibilityHidden(true)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.gatherText)
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.pink.opacity(0.55), in: .rect(cornerRadius: 26))
+            .background(Theme.lilac, in: .rect(cornerRadius: 26))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 26)
         }
         .buttonStyle(.plain)
     }
@@ -292,8 +296,8 @@ struct ProfileView: View {
 
     private var childrenTab: some View {
         VStack(spacing: 18) {
-            ForEach(Array(state.children.enumerated()), id: \.element.id) { index, child in
-                childCard(child, color: avatarColors[index % avatarColors.count])
+            ForEach(state.children) { child in
+                childCard(child)
             }
 
             Button { showAdd = true } label: {
@@ -326,7 +330,7 @@ struct ProfileView: View {
         }
     }
 
-    private func childCard(_ child: Child, color: Color) -> some View {
+    private func childCard(_ child: Child) -> some View {
         let isCurrent = child.id == state.selectedChildID
 
         return ProfileCard {
@@ -336,7 +340,7 @@ struct ProfileView: View {
                         .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(Theme.ink)
                         .frame(width: 58, height: 58)
-                        .background(Circle().fill(color))
+                        .background(Circle().fill(Theme.lavender))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(child.displayName)
                             .scaledFont(20, weight: .bold, maxScale: 1.2)
@@ -434,67 +438,7 @@ struct ProfileView: View {
     // MARK: Settings tab
 
     private var settingsTab: some View {
-        VStack(spacing: 18) {
-            ProfileCard(symbol: "location", title: "Your area",
-                        subtitle: "Used for “Near you” in Gather and Community") {
-                VStack(spacing: 12) {
-                    Toggle(isOn: Binding(
-                        get: { state.usesLiveLocation },
-                        set: { on in
-                            state.setLiveLocation(on)
-                            // Without live location the family chooses a city.
-                            if !on { showLocationPicker = true }
-                        })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Use my approximate live location")
-                                .scaledFont(16, maxScale: 1.25)
-                                .foregroundStyle(Theme.ink)
-                            Text("Never your exact position.")
-                                .scaledFont(13, maxScale: 1.3)
-                                .foregroundStyle(Theme.gatherText)
-                        }
-                    }
-                    .tint(Theme.tabSelected)
-
-                    ProfileDivider()
-
-                    if state.usesLiveLocation {
-                        HStack {
-                            ProfileInfoRow(symbol: "mappin.and.ellipse", title: "Area",
-                                           value: state.locationService.status == .locating ? "" : state.homeLocation.name,
-                                           showsChevron: false)
-                            if state.locationService.status == .locating { ProgressView() }
-                        }
-                    } else {
-                        Button { showLocationPicker = true } label: {
-                            ProfileInfoRow(symbol: "building.2", title: "City", value: state.homeLocation.name)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            ProfileCard(symbol: "scope", title: "Community distance",
-                        subtitle: "How far to look for other parents") {
-                FlowLayout(spacing: 8) {
-                    ForEach([1, 2, 3, 5, 10, 20], id: \.self) { km in
-                        SelectableChip(title: "\(km) km", isOn: state.communityRadiusKm == km) {
-                            state.communityRadiusKm = km
-                        }
-                    }
-                }
-            }
-
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.shield")
-                    .font(.title3)
-                    .foregroundStyle(Theme.gatherAccent)
-                Text("Other families only see an approximate distance. Your exact location stays private.")
-                    .scaledFont(14, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
-            }
-            .padding(.horizontal, 6)
-        }
+        SettingsTab(showLocationPicker: $showLocationPicker)
     }
 
     // MARK: Text helpers
@@ -571,5 +515,357 @@ private struct ParentEditSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+}
+
+
+// MARK: - Settings
+
+/// Replace these before release. They are placeholders so the rows work in the prototype.
+private enum AppInfo {
+    static let supportEmail = "support@example.com"
+    static let helpURL = URL(string: "https://example.com/help")!
+    static let termsURL = URL(string: "https://example.com/terms")!
+    static let privacyURL = URL(string: "https://example.com/privacy")!
+    static let shareURL = URL(string: "https://example.com/homeschool")!
+
+    static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(short) (\(build))"
+    }
+}
+
+/// The settings a person expects in an app: area, notifications, privacy, data, help, about and account.
+private struct SettingsTab: View {
+    @Binding var showLocationPicker: Bool
+
+    @Environment(AppState.self) private var state
+    @Environment(\.openURL) private var openURL
+
+    @AppStorage("pref.notifyChats") private var notifyChats = true
+    @AppStorage("pref.notifyCommunity") private var notifyCommunity = true
+    @AppStorage("pref.notifyGatherings") private var notifyGatherings = true
+    @AppStorage("pref.showProfile") private var showProfile = true
+    @AppStorage("pref.showDistance") private var showDistance = true
+
+    @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
+    @State private var confirmClearChats = false
+    @State private var confirmClearSaved = false
+    @State private var confirmSignOut = false
+    @State private var confirmDelete = false
+
+    var body: some View {
+        VStack(spacing: 18) {
+            notificationsCard
+            privacyCard
+            dataCard
+            helpCard
+            aboutCard
+            accountCard
+        }
+        .task { notificationStatus = await ExamReminders.authorizationStatus() }
+        .confirmationDialog("Clear all messages?", isPresented: $confirmClearChats, titleVisibility: .visible) {
+            Button("Clear all messages", role: .destructive) {
+                for thread in state.chats.threads { state.chats.clear(thread.id) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your chats stay, but their messages are removed from this device.")
+        }
+        .confirmationDialog("Remove all saved events?", isPresented: $confirmClearSaved, titleVisibility: .visible) {
+            Button("Remove saved events", role: .destructive) { state.clearSavedEvents() }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
+            Button("Sign out", role: .destructive) { state.signOut() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You can sign back in with your email. Your family’s details stay on this device.")
+        }
+        .confirmationDialog("Delete your account?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete account", role: .destructive) { state.deleteAccount() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes your account, your children’s details, your chats and your registrations from this device. It can’t be undone.")
+        }
+    }
+
+    // MARK: Notifications
+
+    private var notificationsCard: some View {
+        ProfileCard(symbol: "bell", title: "Notifications") {
+            VStack(spacing: 12) {
+                switch notificationStatus {
+                case .denied:
+                    Button {
+                        if let url = URL(string: "app-settings:") { openURL(url) }
+                    } label: {
+                        ProfileInfoRow(symbol: "bell.slash", title: "Turned off in iOS", value: "Open Settings")
+                    }
+                    .buttonStyle(.plain)
+                    ProfileDivider()
+                case .notDetermined:
+                    Button {
+                        Task {
+                            _ = await ExamReminders.requestAuthorization()
+                            notificationStatus = await ExamReminders.authorizationStatus()
+                        }
+                    } label: {
+                        ProfileInfoRow(symbol: "bell.badge", title: "Allow notifications", value: "Turn on")
+                    }
+                    .buttonStyle(.plain)
+                    ProfileDivider()
+                default:
+                    EmptyView()
+                }
+
+                toggleRow("Chat messages", symbol: "bubble.left", isOn: $notifyChats)
+                ProfileDivider()
+                toggleRow("Connection requests", symbol: "person.badge.plus", isOn: $notifyCommunity)
+                ProfileDivider()
+                toggleRow("Gathering reminders", "Events you registered for or saved.",
+                          symbol: "calendar", isOn: $notifyGatherings)
+            }
+        }
+    }
+
+    // MARK: Privacy
+
+    private var privacyCard: some View {
+        let blocked = state.chats.threads.filter(\.isBlocked).count
+        return ProfileCard(symbol: "lock", title: "Privacy") {
+            VStack(spacing: 12) {
+                toggleRow("Use my approximate live location", "Never your exact position.",
+                          symbol: "location.fill",
+                          isOn: Binding(
+                            get: { state.usesLiveLocation },
+                            set: { on in
+                                state.setLiveLocation(on)
+                                // Without live location the family chooses a city.
+                                if !on { showLocationPicker = true }
+                            }))
+                ProfileDivider()
+                if state.usesLiveLocation {
+                    HStack {
+                        ProfileInfoRow(symbol: "mappin.and.ellipse", title: "Location",
+                                       value: state.locationService.status == .locating ? "" : state.homeLocation.name,
+                                       showsChevron: false)
+                        if state.locationService.status == .locating { ProgressView() }
+                    }
+                } else {
+                    Button { showLocationPicker = true } label: {
+                        ProfileInfoRow(symbol: "mappin.and.ellipse", title: "Select location",
+                                       value: state.homeLocation.name)
+                    }
+                    .buttonStyle(.plain)
+                }
+                ProfileDivider()
+                toggleRow("Show my profile to other parents", "Turn off to hide yourself in Community.",
+                          symbol: "person.crop.circle", isOn: $showProfile)
+                ProfileDivider()
+                toggleRow("Show my approximate distance", "Rounded to the nearest half kilometre.",
+                          symbol: "mappin", isOn: $showDistance)
+                ProfileDivider()
+                NavigationLink {
+                    BlockedChatsView()
+                } label: {
+                    ProfileInfoRow(symbol: "nosign", title: "Blocked chats",
+                                   value: blocked == 0 ? "None" : "\(blocked)")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: Data
+
+    private var dataCard: some View {
+        ProfileCard(symbol: "externaldrive", title: "Data on this device") {
+            VStack(spacing: 12) {
+                Button { confirmClearChats = true } label: {
+                    destructiveRow("message", "Clear all messages")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                Button { confirmClearSaved = true } label: {
+                    destructiveRow("bookmark.slash", "Remove saved events")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: Help and about
+
+    private var helpCard: some View {
+        ProfileCard(symbol: "questionmark.circle", title: "Help") {
+            VStack(spacing: 12) {
+                Button { openURL(AppInfo.helpURL) } label: {
+                    ProfileInfoRow(symbol: "book", title: "Help centre", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                Button {
+                    if let url = URL(string: "mailto:\(AppInfo.supportEmail)?subject=Homeschool%20support") { openURL(url) }
+                } label: {
+                    ProfileInfoRow(symbol: "envelope", title: "Contact support", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                ShareLink(item: AppInfo.shareURL,
+                          message: Text("Homeschool helps families plan learning and meet other homeschoolers.")) {
+                    ProfileInfoRow(symbol: "square.and.arrow.up", title: "Share the app", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                Button {
+                    if let url = URL(string: "app-settings:") { openURL(url) }
+                } label: {
+                    ProfileInfoRow(symbol: "globe", title: "Language", value: "iOS Settings")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var aboutCard: some View {
+        ProfileCard(symbol: "info.circle", title: "About") {
+            VStack(spacing: 12) {
+                ProfileInfoRow(symbol: "number", title: "Version", value: AppInfo.version, showsChevron: false)
+                ProfileDivider()
+                Button { openURL(AppInfo.termsURL) } label: {
+                    ProfileInfoRow(symbol: "doc.text", title: "Terms of Service", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                Button { openURL(AppInfo.privacyURL) } label: {
+                    ProfileInfoRow(symbol: "hand.raised", title: "Privacy Policy", value: "")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: Account
+
+    private var accountCard: some View {
+        ProfileCard(symbol: "person.crop.circle.badge.exclamationmark", title: "Account") {
+            VStack(spacing: 12) {
+                Button { confirmSignOut = true } label: {
+                    ProfileInfoRow(symbol: "rectangle.portrait.and.arrow.right", title: "Sign out", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
+                Button { confirmDelete = true } label: {
+                    destructiveRow("trash", "Delete account")
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: Rows
+
+    private func toggleRow(_ title: String, _ subtitle: String? = nil, symbol: String,
+                           isOn: Binding<Bool>) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.gatherAccent)
+                .frame(width: 32, height: 32)
+                .background(Theme.lilac, in: .rect(cornerRadius: 10))
+                .accessibilityHidden(true)
+            Toggle(isOn: isOn) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .scaledFont(16, maxScale: 1.25)
+                        .foregroundStyle(Theme.ink)
+                    if let subtitle {
+                        Text(subtitle)
+                            .scaledFont(13, maxScale: 1.3)
+                            .foregroundStyle(Theme.gatherText)
+                    }
+                }
+            }
+            .tint(Theme.tabSelected)
+        }
+    }
+
+    private func destructiveRow(_ symbol: String, _ title: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.red)
+                .frame(width: 32, height: 32)
+                .background(Color.red.opacity(0.1), in: .rect(cornerRadius: 10))
+                .accessibilityHidden(true)
+            Text(title)
+                .scaledFont(16, maxScale: 1.25)
+                .foregroundStyle(Color.red)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+        .contentShape(.rect)
+    }
+}
+
+/// Chats the parent blocked, with a way to unblock them.
+private struct BlockedChatsView: View {
+    @Environment(AppState.self) private var state
+
+    var body: some View {
+        let blocked = state.chats.threads.filter(\.isBlocked)
+        ScrollView {
+            VStack(spacing: 18) {
+                if blocked.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "nosign")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Theme.tabIconInactive)
+                        Text("No blocked chats")
+                            .scaledFont(18, weight: .bold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                        Text("People you block can’t message you. They show up here so you can unblock them.")
+                            .scaledFont(15, maxScale: 1.3)
+                            .foregroundStyle(Theme.gatherText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 80)
+                    .padding(.horizontal, 24)
+                } else {
+                    ProfileCard {
+                        VStack(spacing: 12) {
+                            ForEach(Array(blocked.enumerated()), id: \.element.id) { index, thread in
+                                HStack(spacing: 14) {
+                                    ChatAvatar(thread: thread, size: 44)
+                                    Text(thread.title)
+                                        .scaledFont(17, maxScale: 1.25)
+                                        .foregroundStyle(Theme.ink)
+                                        .lineLimit(1)
+                                    Spacer(minLength: 8)
+                                    Button { state.chats.toggleBlock(thread.id) } label: {
+                                        Text("Unblock")
+                                            .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                                            .foregroundStyle(Theme.ink)
+                                            .padding(.horizontal, 14)
+                                            .frame(height: 34)
+                                            .background(Capsule().fill(Theme.lavender))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                if index < blocked.count - 1 { ProfileDivider() }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+        }
+        .background(Theme.background)
+        .navigationTitle("Blocked chats")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

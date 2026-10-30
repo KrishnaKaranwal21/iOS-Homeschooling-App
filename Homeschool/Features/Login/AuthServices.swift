@@ -40,6 +40,19 @@ enum AccountStore {
         all = accounts
     }
 
+    /// Ends the session on this device. The account itself stays.
+    static func signOut() {
+        Keychain.set(nil, for: currentKey)
+    }
+
+    /// Removes the account and ends the session.
+    static func delete(_ email: String) {
+        var accounts = all
+        accounts.removeValue(forKey: normalized(email))
+        all = accounts
+        Keychain.set(nil, for: currentKey)
+    }
+
     static func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

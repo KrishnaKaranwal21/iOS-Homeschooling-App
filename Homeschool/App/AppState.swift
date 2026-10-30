@@ -299,11 +299,38 @@ final class AppState {
         bookmarkedKeys.contains(event.storageKey)
     }
 
+    func clearSavedEvents() {
+        bookmarkedKeys = []
+        storedBookmarks = Self.encode([String]())
+    }
+
     func toggleBookmark(_ event: Event) {
         if !bookmarkedKeys.insert(event.storageKey).inserted {
             bookmarkedKeys.remove(event.storageKey)
         }
         storedBookmarks = Self.encode(bookmarkedKeys.sorted())
+    }
+
+    /// Signs out and goes back to the login page. The family's data stays on this device.
+    func signOut() {
+        AccountStore.signOut()
+        account = nil
+        storedStage = nil
+        stage = .login
+    }
+
+    /// Removes the account and everything saved on this device, then starts again from onboarding.
+    func deleteAccount() {
+        if let email = account?.email { AccountStore.delete(email) }
+        account = nil
+        storedChildren = Data()
+        storedRegistrant = Data()
+        storedBookmarks = Data()
+        savedRegistrant = nil
+        bookmarkedKeys = []
+        registrations = [:]
+        chats.reload(withSamples: false)
+        resetOnboarding()
     }
 
     func resetOnboarding() {

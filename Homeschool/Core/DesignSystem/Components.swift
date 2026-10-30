@@ -160,7 +160,7 @@ struct ProfileHero: View {
                     if !subtitle.isEmpty {
                         Text(subtitle)
                             .scaledFont(15, maxScale: 1.3)
-                            .foregroundStyle(Theme.ink.opacity(0.65))
+                            .foregroundStyle(Theme.gatherText)
                             .lineLimit(2)
                     }
                 }
@@ -171,7 +171,7 @@ struct ProfileHero: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Theme.ink)
                             .frame(width: 42, height: 42)
-                            .background(Circle().fill(Color.white.opacity(0.85)))
+                            .background(Circle().fill(Theme.chipFill))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(actionLabel)
@@ -189,40 +189,30 @@ struct ProfileHero: View {
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
-                        .background(Capsule().fill(Color.white.opacity(0.75)))
+                        .background(Capsule().fill(Theme.chipFill))
                     }
                 }
-                .padding(.trailing, 96)   // room for the mascot
+                .padding(.trailing, 80)   // room for the mascot
             }
         }
         .padding(20)
-        .frame(maxWidth: .infinity, minHeight: 196, alignment: .topLeading)
-        .background {
-            ZStack(alignment: .topLeading) {
-                LinearGradient(colors: [Theme.lavender, Color(hex: 0xE6E0FF)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing)
-                Circle().fill(Theme.pink.opacity(0.5))
-                    .frame(width: 160, height: 160)
-                    .offset(x: 220, y: -70)
-                Circle().fill(Theme.yellow.opacity(0.6))
-                    .frame(width: 90, height: 90)
-                    .offset(x: -34, y: 150)
-            }
-        }
+        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
+        .background(Color.white, in: .rect(cornerRadius: 28))
         .overlay(alignment: .bottomTrailing) {
             Image("HomeMascot")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 96)
-                .padding(.trailing, 16)
+                .frame(width: 76)
+                .padding(.trailing, 14)
                 .accessibilityHidden(true)
         }
-        .clipShape(.rect(cornerRadius: 32))
+        .clipShape(.rect(cornerRadius: 28))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
     }
 
     private var avatar: some View {
         ZStack {
-            Circle().fill(Theme.lilac)
+            Circle().fill(Theme.lavender)
             Text(initial)
                 .font(.system(size: 36, weight: .bold))
                 .foregroundStyle(Theme.ink)
@@ -232,8 +222,6 @@ struct ProfileHero: View {
         }
         .frame(width: 84, height: 84)
         .clipShape(.circle)
-        .overlay(Circle().stroke(Color.white, lineWidth: 4))
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
         .accessibilityHidden(true)
     }
 }

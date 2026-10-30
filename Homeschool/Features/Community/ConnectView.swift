@@ -8,8 +8,6 @@ struct ConnectView: View {
     /// True when a parent looks at their own profile from Profile. There is nothing to connect to.
     var isPreview = false
 
-    private let tileColors: [Color] = [Theme.lavender, Theme.yellow, Theme.lime, Theme.pink]
-
     private var requested: Bool { state.requestedParents.contains(parent.id) }
 
     private var myInterests: Set<String> {
@@ -43,7 +41,7 @@ struct ConnectView: View {
                 if !parent.lookingFor.isEmpty {
                     ProfileCard(symbol: "person.2.wave.2", title: "Looking to connect for") {
                         FlowLayout(spacing: 8) {
-                            ForEach(parent.lookingFor, id: \.self) { InfoChip(title: $0, tint: Theme.pink) }
+                            ForEach(parent.lookingFor, id: \.self) { InfoChip(title: $0) }
                         }
                     }
                 }
@@ -116,7 +114,7 @@ struct ConnectView: View {
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(Theme.ink)
                             .frame(width: 48, height: 48)
-                            .background(Circle().fill(tileColors[index % tileColors.count]))
+                            .background(Circle().fill(Theme.lavender))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(child.name)
                                 .scaledFont(17, weight: .semibold, maxScale: 1.25)
