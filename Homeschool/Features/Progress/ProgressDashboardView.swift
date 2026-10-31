@@ -2,67 +2,93 @@ import SwiftUI
 
 struct ProgressDashboardView: View {
     @Environment(AppState.self) private var state
+    @State private var showAddChild = false
+
+    var body: some View {
+        ProgressLearningPage(child: state.child, onAddChild: { showAddChild = true })
+            .id(state.child.id)
+            .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
+    }
+}
+
+private struct ProgressLearningPage: View {
+    @Environment(AppState.self) private var state
+    let child: Child
+    let onAddChild: () -> Void
+    @State private var generatedPlan: WeeklyPlan
+    @State private var expandedSubjectID: String?
+    @State private var completionFeedback = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedDay = WeeklyPlan.dayNames[(Calendar.current.component(.weekday, from: .now) + 5) % 7]
     @State private var metric: ProgressMetric = .time
-    @State private var showAddChild = false
     @Namespace private var selectionAnimation
 
-    private var plan: WeeklyPlan { state.weeklyPlans[state.child.id.uuidString] ?? .firstWeek(for: state.child) }
+    init(child: Child, onAddChild: @escaping () -> Void) {
+        self.child = child
+        self.onAddChild = onAddChild
+        _generatedPlan = State(initialValue: .firstWeek(for: child))
+    }
+
+    private var plan: WeeklyPlan { state.weeklyPlans[child.id.uuidString] ?? generatedPlan }
     private var progress: LearningProgress { LearningProgress(plan: plan, selectedSubjects: state.child.subjectNames) }
     private var day: DayLearningProgress { progress.day(selectedDay) }
     private var selectionMotion: Animation { reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86) }
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: 0) {
-                    VStack(alignment: .leading, spacing: 18) {
-                        header
-                        controls
-                        weeklyChart(height: min(218, max(170, geometry.size.height * 0.30)))
-                        Text("Tap a day. Watch its story unfold.")
-                            .scaledFont(12, maxScale: 1.25)
-                            .foregroundStyle(ProgressPalette.purple)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, -4)
-                        weeklyTotals
-                    }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 12)
-                    .padding(.bottom, 24)
+            ScrollViewReader { scrollProxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        VStack(alignment: .leading, spacing: 18) {
+                            header
+                            controls
+                            weeklyChart(height: min(218, max(170, geometry.size.height * 0.30)))
+                            Text("Tap a day. Watch its story unfold.")
+                                .scaledFont(12, maxScale: 1.25)
+                                .foregroundStyle(ProgressPalette.purple)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, -4)
+                            weeklyTotals
+                        }
+                        .padding(.horizontal, 22)
+                        .padding(.top, 12)
+                        .padding(.bottom, 24)
 
-                    VStack(alignment: .leading, spacing: 28) {
-                        dayDetail
-                        subjectSection
+                        VStack(alignment: .leading, spacing: 28) {
+                            dayDetail(scrollProxy: scrollProxy)
+                            subjectSection.id("subject-cards")
+                        }
+                        .padding(.horizontal, 22)
+                        .padding(.top, 24)
+                        .padding(.bottom, 28)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38))
+                        .padding(.horizontal, 10)
                     }
-                    .padding(.horizontal, 22)
-                    .padding(.top, 24)
-                    .padding(.bottom, 28)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38))
-                    .padding(.horizontal, 10)
+                    .frame(maxWidth: 650)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 12)
                 }
-                .frame(maxWidth: 650)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 12)
+                .scrollIndicators(.hidden)
+                .background(ProgressPalette.background.ignoresSafeArea())
+                .onChange(of: expandedSubjectID) { _, subjectID in
+                    guard let subjectID else { return }
+                    withAnimation(reduceMotion ? nil : selectionMotion) {
+                        scrollProxy.scrollTo(subjectID, anchor: .top)
+                    }
+                }
             }
-            .scrollIndicators(.hidden)
-            .background(ProgressPalette.background.ignoresSafeArea())
         }
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
-        .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
-        .onChange(of: state.child.id) { _, _ in
-            selectedDay = plan.day(for: .now)
-        }
+        .sensoryFeedback(.success, trigger: completionFeedback)
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Text("Progress").pageTitle()
             Spacer(minLength: 0)
-            ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
+            ChildSwitcherMenu(onAddChild: onAddChild) {
                 HStack(spacing: 8) {
                     AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(), color: Theme.lavender, size: 27)
                     Text(state.child.displayName).scaledFont(15, weight: .medium, maxScale: 1.2).lineLimit(1)
@@ -257,7 +283,7 @@ struct ProgressDashboardView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var dayDetail: some View {
+    private func dayDetail(scrollProxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -289,7 +315,7 @@ struct ProgressDashboardView: View {
                 dayStatistic(LearningProgress.duration(day.remainingMinutes), caption: "Left to explore")
             }
             Divider().overlay(Color(hex: 0xEEEEEE))
-            activityList
+            dayLearningInvitation(scrollProxy: scrollProxy)
         }
     }
 
@@ -304,58 +330,81 @@ struct ProgressDashboardView: View {
         .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder private var activityList: some View {
-        if day.activities.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("A little breathing room.").scaledFont(17, weight: .semibold, maxScale: 1.2)
-                Text("No activities planned for this day. Add something with + Plan whenever you’re ready.").caption()
-            }
-            .padding(.vertical, 8)
-        } else {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("THE DAY’S LEARNING")
-                    .scaledFont(10, weight: .semibold, maxScale: 1.2)
-                    .tracking(1.3).foregroundStyle(Theme.muted)
-                ForEach(day.activities) { activity in
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: activity.isDone ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundStyle(activity.isDone ? ProgressPalette.purple : Color(hex: 0xD4D0E3))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(activity.subject.uppercased()).scaledFont(9, weight: .medium, maxScale: 1.2)
-                                .tracking(0.4).foregroundStyle(Theme.muted)
-                            Text(activity.title).scaledFont(14, weight: .medium, maxScale: 1.25)
-                        }
-                        Spacer(minLength: 0)
-                        Text("\(activity.minutes)m").scaledFont(11, weight: .medium, maxScale: 1.2)
-                            .foregroundStyle(Theme.muted)
-                            .padding(.horizontal, 9).padding(.vertical, 5)
-                            .background(Theme.field, in: Capsule())
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityValue(activity.isDone ? "Completed" : "Planned")
-                    if activity.id != day.activities.last?.id { Divider().opacity(0.5) }
+    private func dayLearningInvitation(scrollProxy: ScrollViewProxy) -> some View {
+        Button {
+            withAnimation(reduceMotion ? nil : selectionMotion) { scrollProxy.scrollTo("subject-cards", anchor: .top) }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: day.isComplete ? "checkmark.seal.fill" : "rectangle.stack.fill")
+                    .font(.system(size: 23, weight: .medium))
+                    .foregroundStyle(ProgressPalette.purple)
+                    .rotationEffect(.degrees(reduceMotion ? 0 : -8))
+                    .frame(width: 46, height: 46)
+                    .background(.white.opacity(0.9), in: .rect(cornerRadius: 15))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(day.isComplete ? "A lovely day of learning." : "Your learning, in little cards.")
+                        .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                    Text(day.activities.isEmpty ? "Pick a subject to explore the week." : "\(day.remaining.count) left today · explore your subjects below")
+                        .scaledFont(12, maxScale: 1.25)
+                        .foregroundStyle(Theme.secondary)
                 }
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.down").font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(ProgressPalette.purple)
             }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(ProgressPalette.background.opacity(0.35), in: .rect(cornerRadius: 20))
+            .contentShape(RoundedRectangle(cornerRadius: 20))
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Explore subject cards, \(day.remaining.count) activities left on \(selectedDay)")
     }
 
     private var subjectSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Divider().padding(.bottom, 6)
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Subject progress").sectionTitle()
-                Text("Your chosen subjects · this weekly plan")
-                    .scaledFont(12, maxScale: 1.25).foregroundStyle(Theme.muted)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Subject progress").sectionTitle()
+                    Spacer()
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 19, weight: .medium))
+                        .foregroundStyle(ProgressPalette.purple)
+                }
+                Text("Pick a card. Explore your week.")
+                    .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.muted)
             }
-            ForEach(progress.subjects) { subject in
-                SubjectProgressRow(subject: subject)
+            ForEach(Array(progress.subjects.enumerated()), id: \.element.id) { index, subject in
+                SubjectLearningCard(subject: subject, index: index, selectedDate: day.date,
+                    isExpanded: Binding(
+                        get: { expandedSubjectID == subject.id },
+                        set: { expandedSubjectID = $0 ? subject.id : nil }),
+                    onToggleActivity: toggleActivity)
+                    .id(subject.id)
             }
             if progress.subjects.isEmpty {
                 Text("Your selected subjects will appear here when you build your weekly plan.").caption()
             }
         }
     }
+
+    private func toggleActivity(_ activity: WeekActivity) {
+        var updated = plan
+        guard let index = updated.activities.firstIndex(where: { $0.id == activity.id }) else { return }
+        let completing = !updated.activities[index].isDone
+        withAnimation(selectionMotion) {
+            updated.activities[index].isDone.toggle()
+            state.saveWeek(updated, for: child.id)
+            if completing { completionFeedback += 1 }
+        }
+        let activityDay = updated.day(for: activity.date)
+        if completing && updated.remainingActivities(on: activityDay).isEmpty {
+            withAnimation(.easeOut(duration: 0.2)) {
+                state.dailyWrapUp = updated.learningSummary(on: activityDay, childName: child.displayName)
+            }
+        }
+    }
+
 }
 
 private enum ProgressMetric: String, Identifiable, CaseIterable {
@@ -368,58 +417,4 @@ enum ProgressPalette {
     static let purple = Color(hex: 0x4430A5)
     static let inactive = Color(hex: 0x9B90B9)
     static let coral = Color(hex: 0xFFC9C5)
-}
-
-private struct SubjectProgressRow: View {
-    let subject: SubjectLearningProgress
-    private var percent: Int { Int((subject.fraction * 100).rounded()) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(ProgressPalette.purple)
-                    .frame(width: 38, height: 38)
-                    .background(.white.opacity(0.85), in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(subject.name).scaledFont(15, weight: .semibold, maxScale: 1.25)
-                    Text("\(subject.completedCount) of \(subject.activities.count) activities completed")
-                        .scaledFont(11, maxScale: 1.25).foregroundStyle(Theme.secondary)
-                }
-                Spacer(minLength: 0)
-                Text("\(percent)%").scaledFont(20, weight: .bold, maxScale: 1.2)
-                    .foregroundStyle(ProgressPalette.purple)
-            }
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(ProgressPalette.purple.opacity(0.08))
-                    Capsule().fill(ProgressPalette.purple)
-                        .frame(width: geometry.size.width * subject.fraction)
-                }
-            }
-            .frame(height: 6)
-            HStack {
-                Text("\(LearningProgress.duration(subject.loggedMinutes)) logged")
-                Spacer()
-                Text(subject.plannedMinutes == 0 ? "Not planned yet" : "\(LearningProgress.duration(subject.plannedMinutes)) planned")
-            }
-            .scaledFont(10, maxScale: 1.25).foregroundStyle(Theme.secondary)
-        }
-        .padding(15)
-        .background(ProgressPalette.background.opacity(0.38), in: .rect(cornerRadius: 19))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(subject.name), \(percent) percent of planned learning completed, \(subject.completedCount) of \(subject.activities.count) activities, \(LearningProgress.duration(subject.loggedMinutes)) logged")
-    }
-
-    private var symbol: String {
-        switch subject.id {
-        case "mathematics": return "function"
-        case "science": return "flask"
-        case "computer skills": return "chevron.left.forwardslash.chevron.right"
-        case "art & craft": return "paintpalette"
-        case "english", "hindi": return "text.book.closed"
-        default: return "book.closed"
-        }
-    }
 }
