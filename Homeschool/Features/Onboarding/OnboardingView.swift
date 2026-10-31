@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct OnboardingView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
+
     @State private var scrolledPage: Int? = 0
     private let pages = OnboardingPage.all
     var onFinish: () -> Void = {}
@@ -30,7 +33,8 @@ struct OnboardingView: View {
                         ForEach(Array(pages.enumerated()), id: \.element.id) { index, page in
                             OnboardingPageView(page: page)
                                 .containerRelativeFrame(.horizontal)
-                                .frame(maxHeight: .infinity, alignment: .top)
+                                // Phone: the page starts at the top. Wide screens: it sits in the middle.
+                                .frame(maxHeight: .infinity, alignment: isWide ? .center : .top)
                                 .id(index)
                         }
                     }
@@ -42,7 +46,7 @@ struct OnboardingView: View {
                 .scrollPosition(id: $scrolledPage)
                 .frame(maxHeight: .infinity)
 
-                PageDots(count: pages.count, current: currentPage)
+                PageDots(count: pages.count, current: currentPage, centered: isWide)
                     .padding(.top, 8)
                     .padding(.bottom, 28)
 
@@ -54,8 +58,9 @@ struct OnboardingView: View {
                     }
                 }
                 .buttonStyle(.primaryHomeschool)
+                .frame(maxWidth: isWide ? 400 : .infinity)
                 .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+                .padding(.bottom, isWide ? 28 : 16)
             }
         }
     }
@@ -64,6 +69,8 @@ struct OnboardingView: View {
 struct PageDots: View {
     let count: Int
     let current: Int
+    /// Centred on wide screens. On iPhone the dots stay on the left, as designed.
+    var centered = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -73,8 +80,9 @@ struct PageDots: View {
                     .frame(width: i == current ? 22 : 7, height: 7)
                     .animation(.easeInOut(duration: 0.25), value: current)
             }
-            Spacer()
+            if !centered { Spacer() }
         }
+        .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
         .padding(.horizontal, 28)
     }
 }

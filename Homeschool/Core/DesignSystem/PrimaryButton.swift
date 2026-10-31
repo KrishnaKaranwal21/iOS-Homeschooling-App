@@ -9,11 +9,13 @@ struct PrimaryButtonStyle: ButtonStyle {
     /// Solid grey look for "not ready yet". The button stays tappable.
     var isDimmed = false
 
+    @Environment(\.uiScale) private var uiScale
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .font(uiScale > 1 ? .title3.weight(.semibold) : .headline)
             .frame(maxWidth: .infinity)
-            .frame(minHeight: 56)
+            .frame(minHeight: uiScale > 1 ? 62 : 56)
             .foregroundStyle(foreground)
             .background(background, in: .capsule)
             .contentShape(.capsule)

@@ -16,8 +16,8 @@ extension EnvironmentValues {
     }
 }
 
-/// The original system tab bar. Only the colours are customised:
-/// muted purple for the current page, soft lilac icons and grey labels for the rest.
+/// The system tab bar: a bottom bar on iPhone and the floating bar at the top on iPad.
+/// Only the colours are customised: muted purple for the current page, and a softer purple for the rest.
 struct MainTabView: View {
     @Environment(AppState.self) private var state
     @Environment(\.displayScale) private var displayScale
@@ -66,9 +66,11 @@ struct MainTabView: View {
     }
 
     /// The icon is coloured by hand because the system draws unselected icons black on newer iOS versions.
+    /// The title colour is set too; the system uses it where it allows.
     private func label(_ title: String, symbol: String, tab: AppTab) -> some View {
         Label {
             Text(title)
+                .foregroundStyle(selection == tab ? Theme.tabSelected : Theme.tabUnselectedLabel)
         } icon: {
             icon(symbol, isSelected: selection == tab)
         }
@@ -77,7 +79,7 @@ struct MainTabView: View {
     /// Icons are drawn into plain bitmaps so the tab bar can't swap them for another symbol variant or recolour them.
     /// `ImageRenderer` is SwiftUI's own renderer, so no UIKit is needed.
     private func icon(_ symbol: String, isSelected: Bool) -> Image {
-        let color = isSelected ? Theme.tabSelected : Theme.tabIconInactive
+        let color = isSelected ? Theme.tabSelected : Theme.tabUnselectedIcon
         let renderer = ImageRenderer(content:
             Image(systemName: symbol)
                 .font(.system(size: 21, weight: .semibold))

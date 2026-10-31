@@ -53,22 +53,64 @@ struct FirstHomeView: View {
     /// How much room the page uses. It shows everything on one screen, and only scrolls on a very small phone.
     private enum Density { case regular, compact }
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
+
     var body: some View {
-        ViewThatFits(in: .vertical) {
-            page(.regular)
-            page(.compact)
-            ScrollView {
-                page(.regular)
+        Group {
+            if isWide {
+                wideHome
+            } else {
+                ViewThatFits(in: .vertical) {
+                    page(.regular)
+                    page(.compact)
+                    ScrollView {
+                        page(.regular)
+                    }
+                    .scrollIndicators(.hidden)
+                }
             }
-            .scrollIndicators(.hidden)
         }
         .background(Theme.background)
-        .toolbar(.hidden, for: .navigationBar)
+        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showFirstWeek) {
             FirstWeekSheet(days: days, hours: state.child.hoursPerDay, tasks: state.tasks)
         }
         .sheet(isPresented: $showIdea) { IdeaPreviewSheet() }
         .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
+    }
+
+    // MARK: iPad
+
+    /// A roomy single column: the greeting, the first-week card, then the explore cards two to a row.
+    private var wideHome: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 32) {
+                topRow
+                headline
+                firstWeekCard(.regular)
+                wideExplore
+            }
+            .padding(.horizontal, 36)
+            .padding(.top, 16)
+            .padding(.bottom, 44)
+            .frame(maxWidth: 880, alignment: .topLeading)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var wideExplore: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Explore more")
+                .sectionTitle()
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible())], spacing: 18) {
+                ForEach(ExploreCard.all) { card in
+                    ExploreCardView(card: card) { perform(card.action) }
+                }
+            }
+        }
     }
 
     private func page(_ density: Density) -> some View {
@@ -103,7 +145,7 @@ struct FirstHomeView: View {
             ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
                 HStack(spacing: 7) {
                     AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(),
-                               color: Theme.lavender, size: 26)
+                               color: Theme.lavender, size: isWide ? 32 : 26)
                     Text(state.child.displayName)
                         .scaledFont(15, weight: .medium, maxScale: 1.3)
                         .lineLimit(1)
@@ -112,8 +154,8 @@ struct FirstHomeView: View {
                 }
                 .foregroundStyle(Theme.ink)
                 .padding(.leading, 5)
-                .padding(.trailing, 12)
-                .frame(height: 36)
+                .padding(.trailing, 14)
+                .frame(height: isWide ? 46 : 36)
                 .background(Capsule().fill(Color(hex: 0xEFEDFB)))
             }
 
@@ -123,21 +165,30 @@ struct FirstHomeView: View {
                 Image(systemName: "person")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Theme.ink)
-                    .frame(width: 36, height: 36)
+                    .frame(width: isWide ? 46 : 36, height: isWide ? 46 : 36)
                     .background(Circle().fill(Color(hex: 0xEFEDFB)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
         }
-        .frame(minHeight: 36)
+        .frame(minHeight: isWide ? 46 : 36)
     }
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("A little plan.\nA lighter start.")
-                .pageTitle()
-                .lineSpacing(-3)
-                .fixedSize(horizontal: false, vertical: true)
+            if isWide {
+                Text("A little plan.\nA lighter start.")
+                    .scaledFont(40, weight: .heavy, maxScale: 1.15)
+                    .tracking(-1.3)
+                    .foregroundStyle(Theme.ink)
+                    .lineSpacing(-4)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("A little plan.\nA lighter start.")
+                    .pageTitle()
+                    .lineSpacing(-3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Text("Let’s shape \(childName)’s first week.")
                 .pageSubtitle()
         }
@@ -149,7 +200,7 @@ struct FirstHomeView: View {
 
     private func firstWeekCard(_ density: Density) -> some View {
         let compact = density == .compact
-        return VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+        return VStack(alignment: .leading, spacing: isWide ? 16 : (compact ? 6 : 8)) {
             Text("YOUR FIRST WEEK")
                 .scaledFont(11, weight: .medium, maxScale: 1.2)
                 .tracking(0.5)
@@ -175,7 +226,7 @@ struct FirstHomeView: View {
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 42)
+                    .frame(height: isWide ? 54 : 42)
                     .background(Capsule().fill(Theme.ink))
                     .contentShape(Capsule())
             }
@@ -186,24 +237,37 @@ struct FirstHomeView: View {
                 .foregroundStyle(warmText)
                 .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, compact ? 10 : 12)
-        .padding(.bottom, compact ? 10 : 12)
+        .padding(.horizontal, isWide ? 30 : 18)
+        .padding(.top, isWide ? 26 : (compact ? 10 : 12))
+        .padding(.bottom, isWide ? 26 : (compact ? 10 : 12))
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.pink, in: .rect(cornerRadius: 28))
+        .background(Theme.pink, in: .rect(cornerRadius: isWide ? 36 : 28))
         .overlay(alignment: .topTrailing) {
-            Image("HomeMascot")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 138)
-                .offset(x: 3, y: -66)
-                .accessibilityHidden(true)
+            if !isWide {
+                Image("HomeMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 138)
+                    .offset(x: 3, y: -66)
+                    .accessibilityHidden(true)
+            }
+        }
+        // iPad: the mascot sits behind the card and peeks over its top edge, so no cut edge shows.
+        .background(alignment: .topTrailing) {
+            if isWide {
+                Image("HomeMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 176)
+                    .offset(x: -28, y: -108)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
     private func rhythmRow(compact: Bool) -> some View {
-        let gap: CGFloat = 4
-        let inset: CGFloat = 18
+        let gap: CGFloat = isWide ? 10 : 4
+        let inset: CGFloat = isWide ? 30 : 18
 
         return ScrollView(.horizontal) {
             HStack(spacing: gap) {
@@ -220,7 +284,7 @@ struct FirstHomeView: View {
                     .containerRelativeFrame(.horizontal) { width, _ in
                         tileWidth(in: width, gap: gap, inset: inset)
                     }
-                    .frame(height: compact ? 70 : 76)
+                    .frame(height: isWide ? 104 : (compact ? 70 : 76))
                     .background(Color.white, in: .rect(cornerRadius: 14))
                     .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
                     .accessibilityElement(children: .combine)
@@ -240,6 +304,7 @@ struct FirstHomeView: View {
     private func tileWidth(in containerWidth: CGFloat, gap: CGFloat, inset: CGFloat) -> CGFloat {
         let count = CGFloat(max(days.count, 1))
         let fitted = (containerWidth - inset * 2 - gap * (count - 1)) / count
+        if isWide { return days.count <= 4 ? min(132, fitted) : min(104, fitted) }
         return days.count <= 4 ? min(82, fitted) : 74
     }
 

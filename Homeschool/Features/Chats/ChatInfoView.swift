@@ -39,6 +39,8 @@ struct ChatInfoView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .onAppear { state.tabBarHideCount += 1 }
+        .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
         .onChange(of: thread == nil) { _, isGone in
             if isGone { dismiss() }
         }

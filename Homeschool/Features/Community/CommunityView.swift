@@ -8,6 +8,8 @@ private enum CommunityFilter: String, CaseIterable {
 
 struct CommunityView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
     @State private var query = ""
     @State private var filter: CommunityFilter = .nearby
     @State private var isRadiusOpen = false
@@ -46,8 +48,18 @@ struct CommunityView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                locationBar
-                searchField
+                if isWide {
+                    // Distance and search share one row on a wide screen.
+                    HStack(alignment: .top, spacing: 14) {
+                        locationBar
+                        searchField
+                    }
+                    .padding(.horizontal, 24)
+                    .zIndex(1)
+                } else {
+                    locationBar
+                    searchField
+                }
                 filterChips
 
                 Text("Parents around you")
@@ -57,6 +69,23 @@ struct CommunityView: View {
 
                 if parents.isEmpty {
                     emptyState
+                } else if isWide {
+                    // Two parents in each row.
+                    let rows = stride(from: 0, to: parents.count, by: 2).map { start in
+                        Array(parents.enumerated())[start..<min(start + 2, parents.count)]
+                    }
+                    VStack(spacing: 18) {
+                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                            HStack(alignment: .top, spacing: 18) {
+                                ForEach(Array(row), id: \.element.id) { index, parent in
+                                    ParentCard(parent: parent, highlighted: index == 0)
+                                        .frame(maxWidth: .infinity, alignment: .top)
+                                }
+                                if row.count == 1 { Color.clear.frame(maxWidth: .infinity) }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
                 } else {
                     ForEach(Array(parents.enumerated()), id: \.element.id) { index, parent in
                         ParentCard(parent: parent, highlighted: index == 0)
@@ -77,7 +106,8 @@ struct CommunityView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationTitle("Community")
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Parent.self) { ConnectView(parent: $0) }
     }
 
@@ -141,7 +171,8 @@ struct CommunityView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
+            .frame(maxWidth: isWide ? 400 : .infinity)
+            .padding(.horizontal, isWide ? 0 : 24)
             .zIndex(1)
     }
 
@@ -238,9 +269,10 @@ struct CommunityView: View {
                 .submitLabel(.search)
         }
         .padding(.horizontal, 16)
-        .frame(minHeight: 52)
+        .frame(minHeight: isWide ? 60 : 52)
         .background(Theme.chipFill, in: .rect(cornerRadius: 20))
-        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, isWide ? 0 : 24)
     }
 
     /// Same look as the category labels on the Gatherings page.

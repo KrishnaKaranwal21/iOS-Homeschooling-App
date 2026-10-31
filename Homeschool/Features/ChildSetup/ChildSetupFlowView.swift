@@ -58,6 +58,10 @@ struct ChildSetupSteps: View {
     }
 
     var body: some View {
+        content.adaptiveColumn()
+    }
+
+    private var content: some View {
         VStack(spacing: 14) {
             header
             ScrollView(showsIndicators: false) {

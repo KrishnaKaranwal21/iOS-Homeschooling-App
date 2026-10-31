@@ -9,6 +9,9 @@ struct LoginView: View {
     /// Called after signing in. `true` when the account already existed.
     var onSuccess: (_ returning: Bool) -> Void = { _ in }
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.isLandscape) private var isLandscape
+
     @State private var route: Route = .entry
     @State private var email = ""
     @State private var attempted = false
@@ -52,9 +55,106 @@ struct LoginView: View {
     private let fixedContentHeight: CGFloat = 525
 
     private var entry: some View {
-        entryContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onSubmit(sendCode)
+        Group {
+            if sizeClass == .regular { wideEntry } else { entryContent }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onSubmit(sendCode)
+    }
+
+    // MARK: iPad: a centred sign-in card
+
+    private var wideEntry: some View {
+        let content = Group {
+            if isLandscape {
+                HStack(spacing: 64) {
+                    wideHero.frame(maxWidth: 420)
+                    wideForm
+                }
+            } else {
+                VStack(spacing: 36) {
+                    wideHero
+                    wideForm
+                }
+            }
+        }
+        .padding(40)
+        .frame(maxWidth: .infinity)
+
+        // Centred when it fits. Scrolls when the keyboard takes the room.
+        return ViewThatFits(in: .vertical) {
+            content.frame(maxHeight: .infinity)
+            ScrollView { content }
+                .scrollDismissesKeyboard(.interactively)
+        }
+    }
+
+    private var wideHero: some View {
+        VStack(spacing: 12) {
+            Image("LoginIllustration")
+                .resizable()
+                .scaledToFit()
+                .frame(maxHeight: isLandscape ? 360 : 280)
+                .accessibilityHidden(true)
+            Text("Come on in.")
+                .scaledFont(46, weight: .bold)
+                .tracking(-1.8)
+                .foregroundStyle(Theme.ink)
+            Text("Your family’s learning starts here.")
+                .scaledFont(18)
+                .foregroundStyle(Theme.muted)
+        }
+        .multilineTextAlignment(.center)
+    }
+
+    private var wideForm: some View {
+        VStack(spacing: 18) {
+            VStack(spacing: 14) {
+                SocialButton(kind: .apple, title: "Continue with Apple",
+                             isLoading: loadingProvider == .apple) { signIn(with: .apple) }
+                SocialButton(kind: .google, title: "Continue with Google",
+                             isLoading: loadingProvider == .google) { signIn(with: .google) }
+
+                if let socialError {
+                    Label(socialError, systemImage: "exclamationmark.circle.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .disabled(loadingProvider != nil)
+
+            OrDivider(text: "or continue with email")
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Email address")
+                    .scaledFont(16)
+                    .foregroundStyle(Theme.muted)
+
+                AuthField(icon: "envelope", error: emailError) {
+                    TextField("you@example.com", text: $email)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.send)
+                        .focused($emailFocused)
+                }
+
+                if emailError == nil {
+                    Text("We’ll email you a one-time code.")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.muted)
+                        .padding(.horizontal, 4)
+                }
+            }
+
+            sendSection
+        }
+        .padding(32)
+        .frame(maxWidth: 500)
+        .background(Color.white, in: .rect(cornerRadius: 36))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 36)
     }
 
     private var entryContent: some View {

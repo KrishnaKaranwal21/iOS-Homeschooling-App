@@ -260,6 +260,11 @@ final class AppState {
         return true
     }
 
+    /// Pages that cover the tab bar (an open chat) count themselves in here, so the bottom bar used on
+    /// iPad can hide too. The system tab bar on iPhone hides itself.
+    var tabBarHideCount = 0
+    var hidesTabBar: Bool { tabBarHideCount > 0 }
+
     /// Parents I sent a connection request to.
     var requestedParents: Set<Parent.ID> = []
 

@@ -68,6 +68,7 @@ struct AvatarView: View {
 /// Apply it directly to the `ScrollView`.
 private struct ScrollTitleBar: ViewModifier {
     let title: String
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isScrolled = false
 
     func body(content: Content) -> some View {
@@ -84,7 +85,8 @@ private struct ScrollTitleBar: ViewModifier {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(.bar)   // reaches up under the status bar
-                    .opacity(isScrolled ? 1 : 0)
+                    // On iPad the page has a real navigation bar, so this bar isn't needed.
+                    .opacity(isScrolled && sizeClass != .regular ? 1 : 0)
                     .animation(.easeInOut(duration: 0.2), value: isScrolled)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
@@ -96,6 +98,7 @@ private struct ScrollTitleBar: ViewModifier {
 /// and fades into the bar once the page has scrolled. Apply it directly to the `ScrollView`.
 private struct ScrollNavigationTitle: ViewModifier {
     let title: String
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var isScrolled = false
 
     func body(content: Content) -> some View {
@@ -112,9 +115,10 @@ private struct ScrollNavigationTitle: ViewModifier {
                         .font(.headline)
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
-                        .opacity(isScrolled ? 1 : 0)
+                        // The centre of the bar belongs to the tab bar on iPad.
+                        .opacity(isScrolled && sizeClass != .regular ? 1 : 0)
                         .animation(.easeInOut(duration: 0.2), value: isScrolled)
-                        .accessibilityHidden(!isScrolled)
+                        .accessibilityHidden(!isScrolled || sizeClass == .regular)
                 }
             }
     }
@@ -354,5 +358,28 @@ struct InfoChip: View {
 struct ProfileDivider: View {
     var body: some View {
         Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+    }
+}
+
+// MARK: - iPad layout
+
+/// On a wide screen (iPad, or a large iPhone turned sideways) the app stays in a centred column,
+/// so cards and text keep a comfortable width instead of stretching across the whole display.
+/// On a compact width nothing changes.
+private struct AdaptiveColumn: ViewModifier {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    let maxWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: sizeClass == .regular ? maxWidth : .infinity)
+            .frame(maxWidth: .infinity)
+            .background(Theme.background.ignoresSafeArea())
+    }
+}
+
+extension View {
+    func adaptiveColumn(maxWidth: CGFloat = 880) -> some View {
+        modifier(AdaptiveColumn(maxWidth: maxWidth))
     }
 }
