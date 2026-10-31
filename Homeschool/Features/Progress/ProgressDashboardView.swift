@@ -62,12 +62,21 @@ private struct ProgressLearningPage: View {
                         .padding(.top, 24)
                         .padding(.bottom, 28)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.white, in: UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38))
+                        .background {
+                            UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38)
+                                .fill(.white)
+                                .mask {
+                                    VStack(spacing: 0) {
+                                        Color.black
+                                        LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                            .frame(height: 72)
+                                    }
+                                }
+                        }
                         .padding(.horizontal, 10)
                     }
                     .frame(maxWidth: 650)
                     .frame(maxWidth: .infinity)
-                    .padding(.bottom, 12)
                 }
                 .scrollIndicators(.hidden)
                 .background(ProgressPalette.background.ignoresSafeArea())
