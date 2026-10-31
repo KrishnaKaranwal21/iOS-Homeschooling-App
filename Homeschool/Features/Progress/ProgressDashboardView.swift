@@ -55,8 +55,8 @@ private struct ProgressLearningPage: View {
                         .padding(.bottom, 24)
 
                         VStack(alignment: .leading, spacing: 28) {
-                            dayDetail(scrollProxy: scrollProxy)
-                            subjectSection.id("subject-cards")
+                            dayDetail
+                            subjectSection
                         }
                         .padding(.horizontal, 22)
                         .padding(.top, 24)
@@ -292,7 +292,7 @@ private struct ProgressLearningPage: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func dayDetail(scrollProxy: ScrollViewProxy) -> some View {
+    private var dayDetail: some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -324,7 +324,6 @@ private struct ProgressLearningPage: View {
                 dayStatistic(LearningProgress.duration(day.remainingMinutes), caption: "Left to explore")
             }
             Divider().overlay(Color(hex: 0xEEEEEE))
-            dayLearningInvitation(scrollProxy: scrollProxy)
         }
     }
 
@@ -337,37 +336,6 @@ private struct ProgressLearningPage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-
-    private func dayLearningInvitation(scrollProxy: ScrollViewProxy) -> some View {
-        Button {
-            withAnimation(reduceMotion ? nil : selectionMotion) { scrollProxy.scrollTo("subject-cards", anchor: .top) }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: day.isComplete ? "checkmark.seal.fill" : "rectangle.stack.fill")
-                    .font(.system(size: 23, weight: .medium))
-                    .foregroundStyle(ProgressPalette.purple)
-                    .rotationEffect(.degrees(reduceMotion ? 0 : -8))
-                    .frame(width: 46, height: 46)
-                    .background(.white.opacity(0.9), in: .rect(cornerRadius: 15))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(day.isComplete ? "A lovely day of learning." : "Your learning, in little cards.")
-                        .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                    Text(day.activities.isEmpty ? "Pick a subject to explore the week." : "\(day.remaining.count) left today · explore your subjects below")
-                        .scaledFont(12, maxScale: 1.25)
-                        .foregroundStyle(Theme.secondary)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "arrow.down").font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(ProgressPalette.purple)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(ProgressPalette.background.opacity(0.35), in: .rect(cornerRadius: 20))
-            .contentShape(RoundedRectangle(cornerRadius: 20))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Explore subject cards, \(day.remaining.count) activities left on \(selectedDay)")
     }
 
     private var subjectSection: some View {
