@@ -219,23 +219,27 @@ private struct ProgressLearningPage: View {
             withAnimation(selectionMotion) { selectedDay = name }
         } label: {
             VStack(spacing: 10) {
-                ZStack(alignment: .bottom) {
+                Group {
                     if planned > 0 {
                         Capsule().fill(.white.opacity(0.48))
                             .frame(height: max(4, plannedHeight))
-                    } else {
-                        Capsule().fill(ProgressPalette.inactive.opacity(0.65)).frame(height: 3)
-                    }
-                    if logged > 0 {
-                        Capsule().fill(isSelected ? ProgressPalette.purple : ProgressPalette.inactive)
-                            .frame(height: max(5, loggedHeight))
-                            .overlay(alignment: .top) {
-                                if value.isComplete && loggedHeight >= 24 {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                                        .padding(.top, 10)
+                            .overlay(alignment: .bottom) {
+                                if logged > 0 {
+                                    Rectangle()
+                                        .fill(isSelected ? ProgressPalette.purple : ProgressPalette.inactive)
+                                        .frame(height: min(max(4, plannedHeight), max(1, loggedHeight)))
+                                        .overlay(alignment: .top) {
+                                            if value.isComplete && loggedHeight >= 24 {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                                                    .padding(.top, 10)
+                                            }
+                                        }
                                 }
                             }
+                            .clipShape(Capsule())
+                    } else {
+                        Capsule().fill(ProgressPalette.inactive.opacity(0.65)).frame(height: 3)
                     }
                 }
                 .frame(maxWidth: 31)
