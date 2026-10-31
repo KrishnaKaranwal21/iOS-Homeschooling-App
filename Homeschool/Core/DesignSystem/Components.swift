@@ -153,7 +153,7 @@ struct ProfileHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .center, spacing: 16) {
                 avatar
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -162,27 +162,19 @@ struct ProfileHero: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
                     if !subtitle.isEmpty {
+                        // One line: a long email shrinks a little or is cut in the middle, never wrapped.
                         Text(subtitle)
                             .scaledFont(15, maxScale: 1.3)
                             .foregroundStyle(Theme.gatherText)
-                            .lineLimit(2)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .truncationMode(.middle)
                     }
                 }
                 Spacer(minLength: 0)
-                if let actionSymbol {
-                    Button(action: action) {
-                        Image(systemName: actionSymbol)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
-                            .frame(width: 42, height: 42)
-                            .background(Circle().fill(Theme.chipFill))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(actionLabel)
-                }
             }
 
-            if !chips.isEmpty {
+            if !chips.isEmpty || actionSymbol != nil {
                 FlowLayout(spacing: 8) {
                     ForEach(chips) { chip in
                         HStack(spacing: 6) {
@@ -194,6 +186,20 @@ struct ProfileHero: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(Capsule().fill(Theme.chipFill))
+                    }
+                    if let actionSymbol {
+                        Button(action: action) {
+                            HStack(spacing: 6) {
+                                Image(systemName: actionSymbol)
+                                Text(actionLabel)
+                            }
+                            .scaledFont(13, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Color.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(Theme.ink))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.trailing, 80)   // room for the mascot
@@ -344,14 +350,54 @@ struct SelectableChip: View {
 struct InfoChip: View {
     let title: String
     var tint: Color = Theme.lavender
+    var isCompact = false
+    /// A small icon in front of the title, for example to mark what you have in common.
+    var symbol: String? = nil
 
     var body: some View {
-        Text(title)
-            .scaledFont(15, weight: .medium, maxScale: 1.25)
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(Capsule().fill(tint))
+        HStack(spacing: 5) {
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(.system(size: isCompact ? 10 : 12, weight: .semibold))
+            }
+            Text(title)
+        }
+        .scaledFont(isCompact ? 13 : 15, weight: .medium, maxScale: 1.25)
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, isCompact ? 11 : 14)
+        .padding(.vertical, isCompact ? 6 : 9)
+        .background(Capsule().fill(tint))
+    }
+}
+
+/// A row of numbers, such as children, registrations and saved events.
+struct ProfileStatsCard: View {
+    struct Item { let value: String; let label: String }
+    let items: [Item]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                VStack(spacing: 4) {
+                    Text(item.value)
+                        .scaledFont(24, weight: .bold, maxScale: 1.2)
+                        .foregroundStyle(Theme.ink)
+                    Text(item.label)
+                        .scaledFont(12, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity)
+                if index < items.count - 1 {
+                    Rectangle().fill(Color.black.opacity(0.06)).frame(width: 1, height: 36)
+                }
+            }
+        }
+        .padding(.vertical, 16)
+        .background(Color.white, in: .rect(cornerRadius: 26))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 26)
+        .accessibilityElement(children: .combine)
     }
 }
 

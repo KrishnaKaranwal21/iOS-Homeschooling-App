@@ -316,8 +316,86 @@ final class AppState {
         storedBookmarks = Self.encode(bookmarkedKeys.sorted())
     }
 
-    /// Signs out and goes back to the login page. The family's data stays on this device.
+    // MARK: Several accounts on one device
+
+    /// What one account keeps: its children, the saved events and the last registration details.
+    private struct FamilySnapshot: Codable {
+        var children: Data
+        var selectedChildID: String
+        var bookmarks: Data
+        var registrant: Data
+    }
+
+    @ObservationIgnored @AppStorage("accountSnapshots") private var storedSnapshots = Data()
+
+    private var snapshots: [String: FamilySnapshot] {
+        get { Self.decode([String: FamilySnapshot].self, from: storedSnapshots) ?? [:] }
+        set { storedSnapshots = Self.encode(newValue) }
+    }
+
+    private func saveSnapshot() {
+        guard let email = account?.email else { return }
+        snapshots[AccountStore.normalized(email)] = FamilySnapshot(
+            children: Self.encode(children),
+            selectedChildID: selectedChildID.uuidString,
+            bookmarks: Self.encode(bookmarkedKeys.sorted()),
+            registrant: savedRegistrant.map { Self.encode($0) } ?? Data())
+    }
+
+    /// Loads an account's own family details. Returns false when it has none yet.
+    @discardableResult
+    private func restoreSnapshot(for email: String) -> Bool {
+        guard let snapshot = snapshots[AccountStore.normalized(email)],
+              let saved = Self.decode([Child].self, from: snapshot.children), !saved.isEmpty else {
+            clearFamily()
+            return false
+        }
+        children = saved
+        let savedID = UUID(uuidString: snapshot.selectedChildID)
+        selectedChildID = saved.contains { $0.id == savedID } ? (savedID ?? saved[0].id) : saved[0].id
+        bookmarkedKeys = Set(Self.decode([String].self, from: snapshot.bookmarks) ?? [])
+        storedBookmarks = Self.encode(bookmarkedKeys.sorted())
+        savedRegistrant = Self.decode(Registrant.self, from: snapshot.registrant)
+        storedRegistrant = snapshot.registrant
+        return true
+    }
+
+    /// Empties the family details, for a different account that starts from scratch.
+    private func clearFamily() {
+        children = [Child.empty]
+        selectedChildID = children[0].id
+        bookmarkedKeys = []
+        savedRegistrant = nil
+        storedBookmarks = Data()
+        storedRegistrant = Data()
+        registrations = [:]
+    }
+
+    /// Called after a successful login. An account that already has family details goes straight to Home.
+    func finishLogin(returning: Bool) {
+        refreshAccount()
+        let hadFamily = account.map { restoreSnapshot(for: $0.email) } ?? false
+        setReturningUser(returning)
+        advance(to: hadFamily ? .main : .setup)
+    }
+
+    /// Other accounts saved on this device.
+    var otherAccounts: [Account] {
+        let current = AccountStore.normalized(account?.email ?? "")
+        return AccountStore.savedAccounts.filter { AccountStore.normalized($0.email) != current }
+    }
+
+    /// Switches to another saved account without signing in again.
+    func switchAccount(to email: String) {
+        saveSnapshot()
+        AccountStore.switchTo(email)
+        finishLogin(returning: true)
+    }
+
+    /// Signs out and goes back to the login page. The family's details are kept with the account.
     func signOut() {
+        saveSnapshot()
+        clearFamily()
         AccountStore.signOut()
         account = nil
         storedStage = nil
@@ -326,7 +404,10 @@ final class AppState {
 
     /// Removes the account and everything saved on this device, then starts again from onboarding.
     func deleteAccount() {
-        if let email = account?.email { AccountStore.delete(email) }
+        if let email = account?.email {
+            snapshots.removeValue(forKey: AccountStore.normalized(email))
+            AccountStore.delete(email)
+        }
         account = nil
         storedChildren = Data()
         storedRegistrant = Data()

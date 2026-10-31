@@ -28,9 +28,7 @@ struct RootView: View {
             }
         case .login:
             LoginView { returning in
-                state.refreshAccount()
-                state.setReturningUser(returning)
-                state.advance(to: .setup)
+                state.finishLogin(returning: returning)
             }
         case .setup:
             ChildSetupFlowView()

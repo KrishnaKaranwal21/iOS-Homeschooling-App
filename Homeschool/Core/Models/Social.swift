@@ -4,6 +4,8 @@ struct ParentChild: Hashable {
     let name: String
     let age: Int
     let level: String
+    /// This child's own interests (names from child setup).
+    var interests: [String] = []
 }
 
 struct Parent: Identifiable, Hashable {

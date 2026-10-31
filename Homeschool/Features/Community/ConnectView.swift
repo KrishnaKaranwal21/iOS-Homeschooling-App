@@ -36,7 +36,11 @@ struct ConnectView: View {
 
                 if !parent.children.isEmpty { meetCard }
 
-                if !parent.interests.isEmpty { interestsCard }
+                // Interests belong to each child (shown on their tile). Only when none are given per child
+                // is one combined list shown.
+                if !parent.interests.isEmpty && parent.children.allSatisfy({ $0.interests.isEmpty }) {
+                    interestsCard
+                }
 
                 if !parent.lookingFor.isEmpty {
                     ProfileCard(symbol: "person.2.wave.2", title: "Looking to connect for") {
@@ -108,29 +112,69 @@ struct ConnectView: View {
         let names = parent.children.map(\.name).joined(separator: " & ")
         return ProfileCard(symbol: "face.smiling", title: "Meet \(names)") {
             VStack(spacing: 10) {
-                ForEach(Array(parent.children.enumerated()), id: \.offset) { index, child in
-                    HStack(spacing: 14) {
-                        Text(String(child.name.prefix(1)).uppercased())
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Theme.ink)
-                            .frame(width: 48, height: 48)
-                            .background(Circle().fill(Theme.lavender))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(child.name)
-                                .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                ForEach(Array(parent.children.enumerated()), id: \.offset) { _, child in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 14) {
+                            Text(String(child.name.prefix(1)).uppercased())
+                                .font(.system(size: 20, weight: .bold))
                                 .foregroundStyle(Theme.ink)
-                            Text(detail(for: child))
-                                .scaledFont(14, maxScale: 1.3)
-                                .foregroundStyle(Theme.gatherText)
+                                .frame(width: 48, height: 48)
+                                .background(Circle().fill(Theme.lavender))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(child.name)
+                                    .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                                    .foregroundStyle(Theme.ink)
+                                Text(detail(for: child))
+                                    .scaledFont(14, maxScale: 1.3)
+                                    .foregroundStyle(Theme.gatherText)
+                            }
+                            Spacer(minLength: 0)
                         }
-                        Spacer(minLength: 0)
+
+                        if !child.interests.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\(child.name)’s interests")
+                                    .scaledFont(13, weight: .semibold, maxScale: 1.25)
+                                    .foregroundStyle(Theme.gatherText)
+                                FlowLayout(spacing: 6) {
+                                    ForEach(child.interests, id: \.self) { name in
+                                        InfoChip(title: name, isCompact: true,
+                                                 symbol: !isPreview && myInterests.contains(name) ? "sparkles" : nil)
+                                    }
+                                }
+                            }
+                        }
                     }
-                    .padding(12)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.lilac, in: .rect(cornerRadius: 18))
                     .accessibilityElement(children: .combine)
                 }
+
+                if hasSharedInterest {
+                    sharedLegend
+                        .padding(.horizontal, 4)
+                }
             }
         }
+    }
+
+    /// Explains the sparkle on a chip.
+    private var sharedLegend: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+            Text("Also one of your family’s interests")
+        }
+        .scaledFont(13, maxScale: 1.3)
+        .foregroundStyle(Theme.gatherText)
+    }
+
+    /// True when at least one interest shown on this page is also one of yours.
+    private var hasSharedInterest: Bool {
+        guard !isPreview else { return false }
+        let shown = parent.children.flatMap(\.interests) + parent.interests
+        return shown.contains { myInterests.contains($0) }
     }
 
     private func detail(for child: ParentChild) -> String {
@@ -144,10 +188,13 @@ struct ConnectView: View {
         return ProfileCard(symbol: "sparkles",
                            title: isPreview ? "Interests" : (shared.isEmpty ? "Their interests" : "Interests we share"),
                            subtitle: shared.isEmpty ? nil : "\(shared.count) in common") {
-            FlowLayout(spacing: 8) {
-                ForEach(parent.interests, id: \.self) { name in
-                    InfoChip(title: name, tint: shared.contains(name) ? Theme.lavender : Theme.chipFill)
+            VStack(alignment: .leading, spacing: 12) {
+                FlowLayout(spacing: 8) {
+                    ForEach(parent.interests, id: \.self) { name in
+                        InfoChip(title: name, symbol: shared.contains(name) ? "sparkles" : nil)
+                    }
                 }
+                if !shared.isEmpty { sharedLegend }
             }
         }
     }
@@ -160,7 +207,9 @@ struct ConnectView: View {
             .buttonStyle(.primaryHomeschool(isDimmed: requested))
             .disabled(requested)
 
-            Text("Send a connection request. Chat once \(parent.firstName) accepts.")
+            Text(requested
+                 ? "Request sent. You can chat once \(parent.firstName) accepts."
+                 : "Send a connection request. Chat once \(parent.firstName) accepts.")
                 .scaledFont(14, maxScale: 1.3)
                 .foregroundStyle(Theme.gatherText)
                 .multilineTextAlignment(.center)

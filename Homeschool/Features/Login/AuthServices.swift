@@ -40,6 +40,18 @@ enum AccountStore {
         all = accounts
     }
 
+    /// Every account saved on this device.
+    static var savedAccounts: [Account] {
+        Array(all.values).sorted { $0.email < $1.email }
+    }
+
+    /// Makes another saved account the signed-in one.
+    static func switchTo(_ email: String) {
+        let key = normalized(email)
+        guard all[key] != nil else { return }
+        Keychain.set(key, for: currentKey)
+    }
+
     /// Ends the session on this device. The account itself stays.
     static func signOut() {
         Keychain.set(nil, for: currentKey)

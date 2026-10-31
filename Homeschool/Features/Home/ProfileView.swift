@@ -140,7 +140,7 @@ struct ProfileView: View {
                 ProfileHeroChip(symbol: "mappin.and.ellipse", text: state.homeLocation.name),
                 ProfileHeroChip(symbol: "location", text: "Within \(state.communityRadiusKm) km")
             ],
-            actionSymbol: "pencil", actionLabel: "Edit your details",
+            actionSymbol: "pencil", actionLabel: "Edit details",
             action: { showParentEdit = true })
     }
 
@@ -188,8 +188,10 @@ struct ProfileView: View {
 
     private var bioBinding: Binding<String> {
         Binding(get: { state.account?.bio ?? "" },
-                set: { state.updateCommunityProfile(bio: $0) })
+                set: { state.updateCommunityProfile(bio: String($0.prefix(Self.bioLimit))) })
     }
+
+    private static let bioLimit = 240
 
     private var lookingFor: [String] { state.account?.lookingFor ?? [] }
 
@@ -199,8 +201,50 @@ struct ProfileView: View {
         state.updateCommunityProfile(lookingFor: current)
     }
 
+    /// How far the profile is filled in, and what is still missing.
+    @ViewBuilder private var completenessCard: some View {
+        let missing = state.missingProfileItems
+        if !missing.isEmpty {
+            let total = 2 + 3 * max(state.children.count, 1)
+            let done = max(0, total - missing.count)
+            ProfileCard(symbol: "checkmark.seal", title: "Finish your profile",
+                        subtitle: "\(done) of \(total) steps done") {
+                VStack(alignment: .leading, spacing: 14) {
+                    ProgressView(value: Double(done), total: Double(total))
+                        .tint(Theme.tabSelected)
+                    FlowLayout(spacing: 8) {
+                        ForEach(missing, id: \.self) { InfoChip(title: $0, tint: Theme.chipFill, isCompact: true) }
+                    }
+                    Button {
+                        let parentMissing = missing.contains("Your name") || missing.contains("Your mobile number")
+                        if parentMissing { showParentEdit = true } else { tab = .children }
+                    } label: {
+                        Text("Add missing details")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                            .foregroundStyle(Theme.ink)
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(Capsule().fill(Theme.lavender))
+                    }
+                    .buttonStyle(.plain)
+                    Text("These are needed before you can host an event.")
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                }
+            }
+        }
+    }
+
     private var parentTab: some View {
         VStack(spacing: 18) {
+            ProfileStatsCard(items: [
+                .init(value: "\(state.children.count)", label: state.children.count == 1 ? "Child" : "Children"),
+                .init(value: "\(state.registrations.count)", label: "Registered"),
+                .init(value: "\(state.savedEvents.count)", label: "Saved"),
+                .init(value: "\(state.requestedParents.count)", label: "Requests")
+            ])
+
+            completenessCard
+
             ProfileCard(symbol: "person.crop.circle", title: "Your details") {
                 VStack(spacing: 6) {
                     Button { showParentEdit = true } label: {
@@ -216,13 +260,19 @@ struct ProfileView: View {
 
             ProfileCard(symbol: "text.quote", title: "A little about us",
                         subtitle: "Shown on your community profile") {
-                TextField("Tell other families a little about you", text: bioBinding, axis: .vertical)
-                    .lineLimit(3...8)
-                    .scaledFont(16, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.lilac, in: .rect(cornerRadius: 18))
+                VStack(alignment: .trailing, spacing: 6) {
+                    TextField("Tell other families a little about you", text: bioBinding, axis: .vertical)
+                        .lineLimit(3...8)
+                        .scaledFont(16, maxScale: 1.3)
+                        .foregroundStyle(Theme.ink)
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.lilac, in: .rect(cornerRadius: 18))
+                    Text("\((state.account?.bio ?? "").count)/\(Self.bioLimit)")
+                        .scaledFont(12, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .padding(.trailing, 4)
+                }
             }
 
             ProfileCard(symbol: "person.2.wave.2", title: "Looking to connect for",
@@ -287,7 +337,8 @@ struct ProfileView: View {
             children: kids.map { child in
                 ParentChild(name: child.name,
                             age: child.birthDate.map { AgeRules.age(of: $0, on: .now) } ?? 0,
-                            level: levels[child.id] ?? "")
+                            level: levels[child.id] ?? "",
+                            interests: CommunityOptions.interests.filter { child.interests.contains($0) })
             },
             interests: interests, lookingFor: lookingFor)
     }
@@ -445,11 +496,7 @@ struct ProfileView: View {
 
     private func levelText(_ child: Child) -> String {
         guard !child.level.isEmpty else { return "Not set" }
-        let name = Curriculum.displayName(for: child.level)
-        if let grade = AgeRules.rules.first(where: { $0.level == child.level })?.grade {
-            return "\(name) · \(grade)"
-        }
-        return name
+        return Curriculum.displayName(for: child.level)
     }
 
     private func dobText(_ child: Child) -> String {
@@ -528,16 +575,9 @@ private enum AppInfo {
     static let termsURL = URL(string: "https://example.com/terms")!
     static let privacyURL = URL(string: "https://example.com/privacy")!
     static let shareURL = URL(string: "https://example.com/homeschool")!
-
-    static var version: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = info?["CFBundleVersion"] as? String ?? "1"
-        return "\(short) (\(build))"
-    }
 }
 
-/// The settings a person expects in an app: area, notifications, privacy, data, help, about and account.
+/// The settings a person expects in an app: notifications, privacy, help, about and account.
 private struct SettingsTab: View {
     @Binding var showLocationPicker: Bool
 
@@ -551,8 +591,7 @@ private struct SettingsTab: View {
     @AppStorage("pref.showDistance") private var showDistance = true
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
-    @State private var confirmClearChats = false
-    @State private var confirmClearSaved = false
+    @State private var confirmAddAccount = false
     @State private var confirmSignOut = false
     @State private var confirmDelete = false
 
@@ -560,23 +599,16 @@ private struct SettingsTab: View {
         VStack(spacing: 18) {
             notificationsCard
             privacyCard
-            dataCard
             helpCard
             aboutCard
             accountCard
         }
         .task { notificationStatus = await ExamReminders.authorizationStatus() }
-        .confirmationDialog("Clear all messages?", isPresented: $confirmClearChats, titleVisibility: .visible) {
-            Button("Clear all messages", role: .destructive) {
-                for thread in state.chats.threads { state.chats.clear(thread.id) }
-            }
+        .confirmationDialog("Add another account?", isPresented: $confirmAddAccount, titleVisibility: .visible) {
+            Button("Continue") { state.signOut() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your chats stay, but their messages are removed from this device.")
-        }
-        .confirmationDialog("Remove all saved events?", isPresented: $confirmClearSaved, titleVisibility: .visible) {
-            Button("Remove saved events", role: .destructive) { state.clearSavedEvents() }
-            Button("Cancel", role: .cancel) {}
+            Text("You’ll sign in with a different email. This account stays on your device, and you can switch back to it from Settings.")
         }
         .confirmationDialog("Sign out?", isPresented: $confirmSignOut, titleVisibility: .visible) {
             Button("Sign out", role: .destructive) { state.signOut() }
@@ -637,7 +669,7 @@ private struct SettingsTab: View {
         let blocked = state.chats.threads.filter(\.isBlocked).count
         return ProfileCard(symbol: "lock", title: "Privacy") {
             VStack(spacing: 12) {
-                toggleRow("Use my approximate live location", "Never your exact position.",
+                toggleRow("Use my live location", "Keeps your area up to date automatically.",
                           symbol: "location.fill",
                           isOn: Binding(
                             get: { state.usesLiveLocation },
@@ -665,7 +697,7 @@ private struct SettingsTab: View {
                 toggleRow("Show my profile to other parents", "Turn off to hide yourself in Community.",
                           symbol: "person.crop.circle", isOn: $showProfile)
                 ProfileDivider()
-                toggleRow("Show my approximate distance", "Rounded to the nearest half kilometre.",
+                toggleRow("Show distance to other parents", "Only a rounded distance is shared, never where you are.",
                           symbol: "mappin", isOn: $showDistance)
                 ProfileDivider()
                 NavigationLink {
@@ -673,24 +705,6 @@ private struct SettingsTab: View {
                 } label: {
                     ProfileInfoRow(symbol: "nosign", title: "Blocked chats",
                                    value: blocked == 0 ? "None" : "\(blocked)")
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: Data
-
-    private var dataCard: some View {
-        ProfileCard(symbol: "externaldrive", title: "Data on this device") {
-            VStack(spacing: 12) {
-                Button { confirmClearChats = true } label: {
-                    destructiveRow("message", "Clear all messages")
-                }
-                .buttonStyle(.plain)
-                ProfileDivider()
-                Button { confirmClearSaved = true } label: {
-                    destructiveRow("bookmark.slash", "Remove saved events")
                 }
                 .buttonStyle(.plain)
             }
@@ -733,8 +747,6 @@ private struct SettingsTab: View {
     private var aboutCard: some View {
         ProfileCard(symbol: "info.circle", title: "About") {
             VStack(spacing: 12) {
-                ProfileInfoRow(symbol: "number", title: "Version", value: AppInfo.version, showsChevron: false)
-                ProfileDivider()
                 Button { openURL(AppInfo.termsURL) } label: {
                     ProfileInfoRow(symbol: "doc.text", title: "Terms of Service", value: "")
                 }
@@ -750,9 +762,62 @@ private struct SettingsTab: View {
 
     // MARK: Account
 
+    private func accountRow(_ account: Account, trailing: some View) -> some View {
+        HStack(spacing: 12) {
+            Text(String((account.name.isEmpty ? account.email : account.name).prefix(1)).uppercased())
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(Theme.lavender))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.name.isEmpty ? "Your account" : account.name)
+                    .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                Text(account.email)
+                    .scaledFont(13, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: 8)
+            trailing
+        }
+    }
+
     private var accountCard: some View {
-        ProfileCard(symbol: "person.crop.circle.badge.exclamationmark", title: "Account") {
+        ProfileCard(symbol: "person.crop.circle", title: "Account") {
             VStack(spacing: 12) {
+                if let current = state.account {
+                    accountRow(current, trailing:
+                        Text("Signed in")
+                            .scaledFont(12, weight: .semibold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(Theme.lavender)))
+                }
+
+                ForEach(state.otherAccounts, id: \.email) { other in
+                    ProfileDivider()
+                    accountRow(other, trailing:
+                        Button { state.switchAccount(to: other.email) } label: {
+                            Text("Switch")
+                                .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                                .foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 14)
+                                .frame(height: 34)
+                                .background(Capsule().fill(Theme.chipFill))
+                        }
+                        .buttonStyle(.plain))
+                }
+
+                ProfileDivider()
+                Button { confirmAddAccount = true } label: {
+                    ProfileInfoRow(symbol: "person.badge.plus", title: "Add another account", value: "")
+                }
+                .buttonStyle(.plain)
+                ProfileDivider()
                 Button { confirmSignOut = true } label: {
                     ProfileInfoRow(symbol: "rectangle.portrait.and.arrow.right", title: "Sign out", value: "")
                 }
