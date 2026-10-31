@@ -12,6 +12,9 @@ extension Theme {
     static let tabSelected     = Color(hex: 0x6F6A9A)
     static let tabIconInactive = Color(hex: 0xB5AED0)
     static let tabLabelInactive = Color(hex: 0x8E8E93)
+    /// Unselected tab icon and label: darker than the old lilac, still lighter than `tabSelected`.
+    static let tabUnselectedIcon  = Color(hex: 0x9A94BA)
+    static let tabUnselectedLabel = Color(hex: 0x8A85AA)
 }
 
 /// White rounded box with a hairline border, used for form fields on the Gather screens.

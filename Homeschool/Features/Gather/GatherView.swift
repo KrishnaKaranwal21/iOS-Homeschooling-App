@@ -2,8 +2,13 @@ import SwiftUI
 
 struct GatherView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isWide: Bool { sizeClass == .regular }
     @State private var query = ""
     @State private var category = "All"
+    /// True for a moment after a label or the place changes. The event cards ignore touches then,
+    /// so the tap that changed the list can't also open a card that appears under the finger.
+    @State private var isListSettling = false
     @State private var place: Place = .nearYou
     @State private var showLocationPicker = false
     @State private var ticketID: Event.ID?
@@ -70,8 +75,17 @@ struct GatherView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     sectionTitle(outingsTitle)
                         .id("outings")
-                    locationChip
-                    searchField
+                    if isWide {
+                        // Area and search share one row on a wide screen.
+                        HStack(spacing: 14) {
+                            locationChip
+                            searchField
+                        }
+                        .padding(.horizontal, 24)
+                    } else {
+                        locationChip
+                        searchField
+                    }
                 }
 
                 categoryChips
@@ -85,11 +99,14 @@ struct GatherView: View {
             .padding(.top, 8)
             .padding(.bottom, 24)
         }
+        .onChange(of: category) { settleList() }
+        .onChange(of: place) { settleList() }
         .scrollTitleBar("Gatherings")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationTitle("Gatherings")
-        .toolbarVisibility(.hidden, for: .navigationBar)
+        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
+        .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
         .sheet(item: $confirmation) { GatherConfirmationSheet(event: $0) }
         .navigationDestination(isPresented: $showHost) { HostEventView() }
@@ -189,7 +206,7 @@ struct GatherView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Location: \(place.name). Change location")
-        .padding(.horizontal, 24)
+        .padding(.horizontal, isWide ? 0 : 24)
     }
 
     private var searchField: some View {
@@ -204,7 +221,8 @@ struct GatherView: View {
         .frame(minHeight: 48)
         .background(Capsule().fill(Color.white))
         .overlay(Capsule().stroke(Theme.lilacBorder, lineWidth: 1))
-        .padding(.horizontal, 24)
+        .frame(maxWidth: isWide ? .infinity : nil)
+        .padding(.horizontal, isWide ? 0 : 24)
     }
 
     private var categoryChips: some View {
@@ -220,6 +238,7 @@ struct GatherView: View {
                             .background(Capsule().fill(name == category ? Theme.lavender : Theme.chipFill))
                     }
                     .buttonStyle(.plain)
+                    .contentShape(.capsule)
                     .accessibilityAddTraits(name == category ? .isSelected : [])
                 }
             }
@@ -235,23 +254,40 @@ struct GatherView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Your next gathering")
 
-            ScrollView(.horizontal) {
-                LazyHStack(spacing: 0) {
-                    ForEach(registered) { event in
-                        TicketCard(event: event) { confirmation = event }
-                            .padding(.horizontal, 24)
-                            .containerRelativeFrame(.horizontal)
-                            .id(event.id)
+            if isWide {
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 18) {
+                        ForEach(registered) { event in
+                            TicketCard(event: event) { confirmation = event }
+                                .containerRelativeFrame(.horizontal, count: 2, spacing: 18)
+                                .id(event.id)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $ticketID)
-            .scrollIndicators(.hidden)
+                .scrollTargetBehavior(.viewAligned)
+                .contentMargins(.horizontal, 24, for: .scrollContent)
+                .scrollPosition(id: $ticketID)
+                .scrollIndicators(.hidden)
+            } else {
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(registered) { event in
+                            TicketCard(event: event) { confirmation = event }
+                                .padding(.horizontal, 24)
+                                .containerRelativeFrame(.horizontal)
+                                .id(event.id)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $ticketID)
+                .scrollIndicators(.hidden)
 
-            if registered.count > 1 {
-                GatherPageDots(count: registered.count, current: ticketPage)
+                if registered.count > 1 {
+                    GatherPageDots(count: registered.count, current: ticketPage)
+                }
             }
         }
     }
@@ -297,6 +333,7 @@ struct GatherView: View {
         VStack(alignment: .leading, spacing: 14) {
             sectionTitle("Your next gathering")
             EmptyTicketCard()
+                .frame(maxWidth: isWide ? 560 : .infinity, alignment: .leading)
                 .padding(.horizontal, 24)
         }
     }
@@ -316,13 +353,47 @@ struct GatherView: View {
                 .caption()
                 .padding(.horizontal, 24)
 
-            LazyVStack(spacing: 16) {
-                ForEach(outings) { event in
-                    NavigationLink(value: event) { OutingCard(event: event, coverHeight: 180) }
-                        .buttonStyle(.plain)
+            // Plain stacks (the list is short), so cards aren't recycled while the list changes.
+            Group {
+                if isWide {
+                    // Two outings in each row.
+                    let rows = stride(from: 0, to: outings.count, by: 2).map { start in
+                        Array(outings[start..<min(start + 2, outings.count)])
+                    }
+                    VStack(spacing: 20) {
+                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                            HStack(alignment: .top, spacing: 20) {
+                                ForEach(row) { event in outingLink(event, coverHeight: 200) }
+                                if row.count == 1 { Color.clear.frame(maxWidth: .infinity) }
+                            }
+                        }
+                    }
+                } else {
+                    VStack(spacing: 16) {
+                        ForEach(outings) { event in outingLink(event, coverHeight: 180) }
+                    }
                 }
             }
             .padding(.horizontal, 24)
+            .allowsHitTesting(!isListSettling)
+        }
+    }
+
+    private func outingLink(_ event: Event, coverHeight: CGFloat) -> some View {
+        NavigationLink(value: event) {
+            OutingCard(event: event, coverHeight: coverHeight)
+                .contentShape(.rect(cornerRadius: 26))
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    /// Blocks taps on the cards for a short moment after the list changed.
+    private func settleList() {
+        isListSettling = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            isListSettling = false
         }
     }
 

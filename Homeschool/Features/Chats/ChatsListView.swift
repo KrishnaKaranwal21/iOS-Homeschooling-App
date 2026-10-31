@@ -1,4 +1,5 @@
 import SwiftUI
+import LocalAuthentication
 
 /// All conversations: search, filter chips and a swipeable list.
 struct ChatsListView: View {
@@ -14,6 +15,9 @@ struct ChatsListView: View {
     @State private var showNewChat = false
     @State private var deleteTarget: ChatThread.ID?
     @State private var isConfirmingDelete = false
+    @State private var manageLabelID: String?
+    @State private var showReorder = false
+    @State private var showLocked = false
 
     private let accent = Color(hex: 0xD9D2FF)
     private let unreadTime = Color(hex: 0x5B6B2F)
@@ -42,6 +46,7 @@ struct ChatsListView: View {
             .padding(.bottom, 8)
 
             labelStrip
+            lockedRow
 
             if threads.isEmpty {
                 emptyState
@@ -54,7 +59,23 @@ struct ChatsListView: View {
         .navigationDestination(item: $openID) { id in
             ChatDetailView(threadID: id)
         }
-        .onAppear(perform: openPendingChat)
+        .navigationDestination(item: $manageLabelID) { ManageListView(labelID: $0) }
+        .overlay(alignment: .bottom) {
+            if let toast = state.chats.toast {
+                ChatToastView(toast: toast) {
+                    state.chats.toast = nil
+                    showReorder = true
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 12)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: state.chats.toast)
+        .onAppear {
+            openPendingChat()
+            state.chats.purgeExpired()
+        }
         .onChange(of: state.chats.pendingOpenID) { openPendingChat() }
         .sheet(isPresented: $showNewChat) {
             NewChatSheet { id in
@@ -64,6 +85,13 @@ struct ChatsListView: View {
             }
         }
         .sheet(isPresented: $showLabelEditor) { LabelEditorSheet(editing: nil) }
+        .sheet(isPresented: $showReorder) { ReorderListsSheet() }
+        .sheet(isPresented: $showLocked) {
+            LockedChatsView { id in
+                showLocked = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openID = id }
+            }
+        }
         .sheet(item: $editingLabel) { label in LabelEditorSheet(editing: label) }
         .sheet(item: $broadcastLabel) { label in BroadcastSheet(label: label) }
         .sheet(item: $labelsThread) { ref in ThreadLabelsSheet(threadID: ref.id) }
@@ -144,7 +172,7 @@ struct ChatsListView: View {
                         .background(Capsule().fill(Theme.field))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Add a label")
+                .accessibilityLabel("Add a list")
             }
             .padding(.horizontal, 18)
         }
@@ -155,7 +183,6 @@ struct ChatsListView: View {
     private func chip(_ label: ChatLabel) -> some View {
         let selected = state.chats.selectedLabelID == label.id
         let canBroadcast = !label.isBuiltIn || label.id == ChatLabel.favourites.id
-        let index = state.chats.labels.firstIndex(of: label) ?? 0
 
         return Button { state.chats.select(label.id) } label: {
             HStack(spacing: 6) {
@@ -178,28 +205,30 @@ struct ChatsListView: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .contextMenu {
+            if label.id != ChatLabel.allID {
+                Button { state.chats.setMuted(!state.chats.isMuted(label), for: label) } label: {
+                    Label(state.chats.isMuted(label) ? "Unmute" : "Mute",
+                          systemImage: state.chats.isMuted(label) ? "bell" : "bell.slash")
+                }
+            }
+            if canManage(label) {
+                Button { manageLabelID = label.id } label: { Label("Edit", systemImage: "pencil") }
+            }
             if canBroadcast {
                 Button { broadcastLabel = label } label: {
                     Label("Send to everyone here", systemImage: "paperplane")
                 }
             }
-            if !label.isBuiltIn {
-                Button { editingLabel = label } label: { Label("Edit label", systemImage: "pencil") }
-            }
-            if label.id != ChatLabel.allID {
-                Button { state.chats.moveLabel(label.id, by: -1) } label: {
-                    Label("Move left", systemImage: "arrow.left")
-                }
-                .disabled(index <= 1)
-                Button { state.chats.moveLabel(label.id, by: 1) } label: {
-                    Label("Move right", systemImage: "arrow.right")
-                }
-                .disabled(index >= state.chats.labels.count - 1)
-                Button(role: .destructive) { state.chats.removeLabel(label.id) } label: {
-                    Label(label.isBuiltIn ? "Remove from bar" : "Delete label", systemImage: "trash")
-                }
+            Divider()
+            Button { showReorder = true } label: {
+                Label("Reorder lists", systemImage: "line.3.horizontal")
             }
         }
+    }
+
+    /// Lists whose members can be edited: the ones made by the parent, and Favourites.
+    private func canManage(_ label: ChatLabel) -> Bool {
+        !label.isBuiltIn || label.id == ChatLabel.favourites.id
     }
 
     /// Shown above the list while a custom label is selected.
@@ -222,6 +251,53 @@ struct ChatsListView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 6)
+        }
+    }
+
+    /// "Manage Tp": opens the list's page to add or remove chats and mute it.
+    @ViewBuilder private var manageButton: some View {
+        if canManage(selectedLabel) {
+            Button { manageLabelID = selectedLabel.id } label: {
+                Text("Manage \(selectedLabel.name)")
+                    .scaledFont(16, weight: .semibold, maxScale: 1.3)
+                    .foregroundStyle(Theme.tabSelected)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Chats locked with "Chat lock" are kept out of the list. They open after unlocking the phone.
+    @ViewBuilder private var lockedRow: some View {
+        let locked = state.chats.lockedThreads
+        if selectedLabel.id == ChatLabel.allID, !locked.isEmpty, query.isEmpty {
+            Button {
+                Task { if await ChatAuth.unlock(reason: "Open your locked chats") { showLocked = true } }
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(Theme.ink)
+                        .frame(width: 48, height: 48)
+                        .background(Circle().fill(Theme.lavender))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Locked chats")
+                            .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                            .foregroundStyle(Theme.ink)
+                        Text(locked.count == 1 ? "1 chat" : "\(locked.count) chats")
+                            .scaledFont(14, maxScale: 1.25)
+                            .foregroundStyle(Theme.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.dotInactive)
+                }
+                .padding(.horizontal, 18)
+                .frame(minHeight: 64)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -264,7 +340,7 @@ struct ChatsListView: View {
                     }
                     .contextMenu {
                         Button { labelsThread = ThreadRef(id: thread.id) } label: {
-                            Label("Labels…", systemImage: "tag")
+                            Label("Lists…", systemImage: "tag")
                         }
                         Button { state.chats.toggleFavourite(thread.id) } label: {
                             Label(thread.isFavourite ? "Remove from favourites" : "Add to favourites",
@@ -288,6 +364,7 @@ struct ChatsListView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.immediately)
+        .safeAreaInset(edge: .bottom, spacing: 0) { manageButton }
     }
 
     private func row(_ thread: ChatThread) -> some View {
@@ -391,7 +468,7 @@ struct ChatsListView: View {
                 Text(query.isEmpty
                      ? (selectedLabel.isBuiltIn
                         ? "Chats that match this filter will show up here."
-                        : "Press and hold a chat, then choose Labels to add it to \(selectedLabel.name).")
+                        : "Tap Manage \(selectedLabel.name) below to add people or groups.")
                      : "Try a name or a word from a message.")
                     .pageSubtitle()
                     .multilineTextAlignment(.center)
@@ -400,6 +477,7 @@ struct ChatsListView: View {
             }
             .padding(.horizontal, 32)
             .frame(maxWidth: .infinity)
+            .safeAreaInset(edge: .bottom, spacing: 0) { manageButton }
         }
     }
 
@@ -483,5 +561,84 @@ struct ReadTicks: View {
         .font(.system(size: 11, weight: .bold))
         .foregroundStyle(status == .read ? Theme.tabSelected : Theme.secondary)
         .accessibilityLabel(status == .sent ? "Sent" : (status == .delivered ? "Delivered" : "Read"))
+    }
+}
+
+
+// MARK: - Locked chats
+
+enum ChatAuth {
+    /// Asks for Face ID, Touch ID or the passcode. A phone without any lock has nothing to ask, so it passes.
+    @MainActor static func unlock(reason: String) async -> Bool {
+        let context = LAContext()
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return true }
+        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
+    }
+}
+
+/// The chats hidden with "Chat lock". Swipe a chat to take the lock off.
+struct LockedChatsView: View {
+    let onOpen: (ChatThread.ID) -> Void
+
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if state.chats.lockedThreads.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "lock")
+                            .font(.system(size: 36))
+                            .foregroundStyle(Theme.tabIconInactive)
+                        Text("No locked chats")
+                            .scaledFont(18, weight: .bold, maxScale: 1.2)
+                            .foregroundStyle(Theme.ink)
+                        Text("Turn on Chat lock in a chat's info to hide it here.")
+                            .scaledFont(15, maxScale: 1.3)
+                            .foregroundStyle(Theme.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(40)
+                } else {
+                    List {
+                        ForEach(state.chats.lockedThreads) { thread in
+                            Button { onOpen(thread.id) } label: {
+                                HStack(spacing: 14) {
+                                    ChatAvatar(thread: thread, size: 52)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(thread.title)
+                                            .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                                            .foregroundStyle(Theme.ink)
+                                        Text(thread.preview)
+                                            .scaledFont(15, maxScale: 1.25)
+                                            .foregroundStyle(Theme.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                .contentShape(.rect)
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions {
+                                Button { state.chats.toggleLock(thread.id) } label: {
+                                    Label("Unlock", systemImage: "lock.open")
+                                }
+                                .tint(Theme.tabSelected)
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.background)
+            .navigationTitle("Locked chats")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+        }
     }
 }

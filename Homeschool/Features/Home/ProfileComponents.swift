@@ -62,7 +62,7 @@ struct LevelPickerSheet: View {
 
 // MARK: - Exam registration
 
-/// Rows for a child's NIOS exams, made to sit inside a grouped list: registered or not, the last date for the level,
+/// A child's NIOS exams, made to sit inside a card: registered or not, the last date for the level,
 /// and a reminder switch.
 struct ExamRows: View {
     let child: Child
@@ -78,7 +78,7 @@ struct ExamRows: View {
     }
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 14) {
             if let window = child.examWindow {
                 Toggle(isOn: Binding(
                     get: { child.isExamRegistered },
@@ -127,6 +127,7 @@ struct ExamRows: View {
                 }
             }
         }
+        .tint(Theme.tabSelected)
         .task { notificationStatus = await ExamReminders.authorizationStatus() }
     }
 

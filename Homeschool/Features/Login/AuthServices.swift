@@ -40,6 +40,31 @@ enum AccountStore {
         all = accounts
     }
 
+    /// Every account saved on this device.
+    static var savedAccounts: [Account] {
+        Array(all.values).sorted { $0.email < $1.email }
+    }
+
+    /// Makes another saved account the signed-in one.
+    static func switchTo(_ email: String) {
+        let key = normalized(email)
+        guard all[key] != nil else { return }
+        Keychain.set(key, for: currentKey)
+    }
+
+    /// Ends the session on this device. The account itself stays.
+    static func signOut() {
+        Keychain.set(nil, for: currentKey)
+    }
+
+    /// Removes the account and ends the session.
+    static func delete(_ email: String) {
+        var accounts = all
+        accounts.removeValue(forKey: normalized(email))
+        all = accounts
+        Keychain.set(nil, for: currentKey)
+    }
+
     static func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }

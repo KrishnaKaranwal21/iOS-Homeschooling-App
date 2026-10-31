@@ -1,9 +1,27 @@
 import SwiftUI
 
+private struct UIScaleKey: EnvironmentKey { static let defaultValue: CGFloat = 1 }
+private struct IsLandscapeKey: EnvironmentKey { static let defaultValue = false }
+
+extension EnvironmentValues {
+    /// 1 on iPhone. A little more on iPad, so text keeps its proportion on a big screen.
+    var uiScale: CGFloat {
+        get { self[UIScaleKey.self] }
+        set { self[UIScaleKey.self] = newValue }
+    }
+
+    /// True while the window is wider than it is tall.
+    var isLandscape: Bool {
+        get { self[IsLandscapeKey.self] }
+        set { self[IsLandscapeKey.self] = newValue }
+    }
+}
+
 /// A fixed design size that still follows the user's Dynamic Type setting.
 /// Use it instead of `.font(.system(size:))`, which never grows with the text-size setting.
 /// `maxScale` stops very large accessibility sizes from breaking tight layouts.
 struct ScaledFontModifier: ViewModifier {
+    @Environment(\.uiScale) private var uiScale
     @ScaledMetric private var scaledSize: CGFloat
     private let size: CGFloat
     private let weight: Font.Weight
@@ -17,7 +35,7 @@ struct ScaledFontModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.font(.system(size: min(scaledSize, size * maxScale), weight: weight))
+        content.font(.system(size: min(scaledSize, size * maxScale) * uiScale, weight: weight))
     }
 
     /// Larger design sizes scale like titles, smaller ones like captions.

@@ -16,6 +16,8 @@ struct ChatMessage: Identifiable, Equatable {
     /// A recorded voice note.
     var audioData: Data? = nil
     var audioDuration: TimeInterval = 0
+    /// Starred messages stay in the chat even when disappearing messages is on.
+    var isStarred = false
 }
 
 struct ChatThread: Identifiable {
@@ -34,6 +36,13 @@ struct ChatThread: Identifiable {
     var isFavourite = false
     /// Ids of the custom labels on this chat.
     var labelIDs: Set<String> = []
+    /// Photos show as a placeholder and are left out of the media gallery.
+    var hidesMedia = false
+    /// A locked chat is hidden from the list and opens from "Locked chats" after unlocking the phone.
+    var isLocked = false
+    /// Messages sent after `disappearSince` are removed this many seconds after they were sent.
+    var disappearAfter: TimeInterval? = nil
+    var disappearSince: Date = .distantFuture
 
     var lastDate: Date { messages.last?.date ?? .distantPast }
     var hasUnread: Bool { unreadCount > 0 || markedUnread }
@@ -53,7 +62,8 @@ struct ChatThread: Identifiable {
         return palette[seed % palette.count]
     }
 
-    var mediaMessages: [ChatMessage] { messages.filter { $0.image != nil } }
+    var mediaMessages: [ChatMessage] { hidesMedia ? [] : messages.filter { $0.image != nil } }
+    var starredMessages: [ChatMessage] { messages.filter(\.isStarred) }
 
     /// The line shown in the chat list.
     var preview: String {
@@ -101,6 +111,13 @@ enum ChatFormat {
         if calendar.isDateInYesterday(date) { return "Yesterday" }
         return date.formatted(.dateTime.weekday(.wide).day().month(.abbreviated))
     }
+}
+
+/// The short dark message at the bottom of the chat list, like "List was created".
+struct ChatToast: Identifiable, Equatable {
+    let id = UUID()
+    var message: String
+    var actionTitle: String? = nil
 }
 
 // MARK: - Store
@@ -176,7 +193,7 @@ final class ChatStore {
 
     /// How many chats have something unread (not how many messages). Muted chats aren't counted.
     var unreadChatCount: Int {
-        threads.filter { $0.hasUnread && !$0.isMuted }.count
+        threads.filter { $0.hasUnread && !$0.isMuted && !$0.isLocked }.count
     }
 
     /// A chat to open as soon as the Chats tab appears, for example after messaging an event host.
@@ -209,9 +226,12 @@ final class ChatStore {
         }
     }
 
+    /// Locked chats are left out of every list. They open from "Locked chats".
     func threads(for label: ChatLabel) -> [ChatThread] {
-        sortedThreads.filter { matches($0, label: label) }
+        sortedThreads.filter { !$0.isLocked && matches($0, label: label) }
     }
+
+    var lockedThreads: [ChatThread] { sortedThreads.filter(\.isLocked) }
 
     /// Built-in labels that are not on the bar right now.
     var removedBuiltIns: [ChatLabel] {
@@ -234,6 +254,7 @@ final class ChatStore {
               !labels.contains(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return nil }
         let label = ChatLabel(id: UUID().uuidString, name: trimmed, colorIndex: colorIndex)
         labels.append(label)
+        showToast("List was created", actionTitle: "Manage lists")
         return label
     }
 
@@ -276,6 +297,116 @@ final class ChatStore {
     func toggleFavourite(_ id: ChatThread.ID) {
         update(id) { $0.isFavourite.toggle() }
         saveTags()
+    }
+
+    // MARK: Lists: mute, members and order
+
+    /// True when the list has chats and every one of them is muted.
+    func isMuted(_ label: ChatLabel) -> Bool {
+        let members = threads(for: label)
+        return !members.isEmpty && members.allSatisfy(\.isMuted)
+    }
+
+    /// Mutes or unmutes every chat in the list.
+    func setMuted(_ muted: Bool, for label: ChatLabel) {
+        for thread in threads(for: label) { update(thread.id) { $0.isMuted = muted } }
+    }
+
+    /// Puts a chat in a list or takes it out. Favourites and custom lists can be edited this way.
+    func setMember(_ isMember: Bool, threadID: ChatThread.ID, label: ChatLabel) {
+        switch label.id {
+        case ChatLabel.favourites.id:
+            update(threadID) { $0.isFavourite = isMember }
+        case ChatLabel.allID, "unread", "groups", "direct", "muted":
+            return
+        default:
+            update(threadID) { thread in
+                if isMember { thread.labelIDs.insert(label.id) } else { thread.labelIDs.remove(label.id) }
+            }
+        }
+        saveTags()
+    }
+
+    /// Saves the order and the set of lists from the "Reorder lists" sheet. `All` always stays first.
+    func applyBar(_ ordered: [ChatLabel]) {
+        let keep = Set(ordered.map(\.id))
+        for label in labels where label.id != ChatLabel.allID && !keep.contains(label.id) {
+            removeLabel(label.id)
+        }
+        labels = [ChatLabel.all] + ordered
+    }
+
+    // MARK: Message at the bottom ("List was created")
+
+    var toast: ChatToast?
+
+    func showToast(_ message: String, actionTitle: String? = nil) {
+        let item = ChatToast(message: message, actionTitle: actionTitle)
+        toast = item
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            if toast?.id == item.id { toast = nil }
+        }
+    }
+
+    // MARK: Per-chat settings
+
+    func toggleStar(_ messageID: ChatMessage.ID, in id: ChatThread.ID) {
+        update(id) { thread in
+            if let index = thread.messages.firstIndex(where: { $0.id == messageID }) {
+                thread.messages[index].isStarred.toggle()
+            }
+        }
+    }
+
+    func toggleLock(_ id: ChatThread.ID) { update(id) { $0.isLocked.toggle() } }
+
+    func setHidesMedia(_ hide: Bool, for id: ChatThread.ID) { update(id) { $0.hidesMedia = hide } }
+
+    /// Turns disappearing messages on (`interval` in seconds) or off (`nil`). Only new messages are affected.
+    func setDisappearing(_ interval: TimeInterval?, for id: ChatThread.ID) {
+        update(id) {
+            $0.disappearAfter = interval
+            $0.disappearSince = .now
+        }
+        purgeExpired()
+    }
+
+    /// Removes messages that have outlived their chat's disappearing timer. Starred messages stay.
+    func purgeExpired(now: Date = .now) {
+        for index in threads.indices {
+            guard let interval = threads[index].disappearAfter else { continue }
+            let since = threads[index].disappearSince
+            threads[index].messages.removeAll {
+                $0.date >= since && now.timeIntervalSince($0.date) > interval && !$0.isStarred
+            }
+        }
+    }
+
+    /// What a chat holds, for the "Manage storage" page.
+    func storage(for id: ChatThread.ID) -> (photos: Int, voiceNotes: Int, voiceBytes: Int)? {
+        guard let thread = thread(id) else { return nil }
+        let voice = thread.messages.compactMap(\.audioData)
+        return (thread.messages.filter { $0.image != nil }.count, voice.count, voice.reduce(0) { $0 + $1.count })
+    }
+
+    /// Removes photos from a chat. Messages that also have text keep the text.
+    func clearPhotos(in id: ChatThread.ID) {
+        update(id) { thread in
+            for index in thread.messages.indices.reversed() where thread.messages[index].image != nil {
+                if thread.messages[index].text.isEmpty && thread.messages[index].audioData == nil {
+                    thread.messages.remove(at: index)
+                } else {
+                    thread.messages[index].image = nil
+                }
+            }
+        }
+    }
+
+    func clearVoiceNotes(in id: ChatThread.ID) {
+        update(id) { thread in
+            thread.messages.removeAll { $0.audioData != nil && $0.text.isEmpty && $0.image == nil }
+        }
     }
 
     private func saveLabels() {
