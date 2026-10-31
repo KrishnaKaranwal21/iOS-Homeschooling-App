@@ -2,12 +2,14 @@ import SwiftUI
 
 /// Keeps the Home tab bar visible while the family reviews their first week.
 struct FirstWeekView: View {
+    var initialDay: String? = nil
+    var backTitle = "Home"
     @Environment(AppState.self) private var state
     @State private var showAddChild = false
 
     var body: some View {
         WeekPlanPage(child: state.child, savedPlan: state.weeklyPlans[state.child.id.uuidString],
-                     onAddChild: { showAddChild = true })
+                     initialDay: initialDay, backTitle: backTitle, onAddChild: { showAddChild = true })
             .id(state.child.id)
             .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
     }
@@ -18,6 +20,7 @@ private struct WeekPlanPage: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let child: Child
+    let backTitle: String
     let onAddChild: () -> Void
     @State private var plan: WeeklyPlan
     @State private var selectedDay: String
@@ -31,12 +34,13 @@ private struct WeekPlanPage: View {
     @State private var completionFeedback = 0
     @State private var wrapUpRequest: DayLearningSummary?
 
-    init(child: Child, savedPlan: WeeklyPlan?, onAddChild: @escaping () -> Void) {
+    init(child: Child, savedPlan: WeeklyPlan?, initialDay: String?, backTitle: String, onAddChild: @escaping () -> Void) {
         self.child = child
+        self.backTitle = backTitle
         self.onAddChild = onAddChild
         let plan = savedPlan ?? .firstWeek(for: child)
         _plan = State(initialValue: plan)
-        _selectedDay = State(initialValue: plan.days.first ?? "Mon")
+        _selectedDay = State(initialValue: initialDay.flatMap { WeeklyPlan.dayNames.contains($0) ? $0 : nil } ?? plan.days.first ?? "Mon")
         _saved = State(initialValue: savedPlan != nil)
     }
 
@@ -145,7 +149,7 @@ private struct WeekPlanPage: View {
     private var header: some View {
         HStack {
             Button { dismiss() } label: {
-                Label("Home", systemImage: "chevron.left")
+                Label(backTitle, systemImage: "chevron.left")
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(WeekStyle.secondary)
                     .frame(minHeight: 44)
