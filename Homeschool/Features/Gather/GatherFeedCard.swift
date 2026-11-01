@@ -78,7 +78,7 @@ struct GatherFeedCard: View {
             }
             .scaledFont(12, weight: .semibold, maxScale: 1.35).frame(minHeight: 24)
         }
-        .fullScreenCover(isPresented: $showTicket) { GatherConfirmationSheet(event: event) }
+        .fullScreenCover(isPresented: $showTicket) { BookingTicketView(event: event) }
         .task(id: state.locationService.lastLocation?.timestamp) {
             guard state.usesLiveLocation, state.locationService.lastLocation != nil else { return }
             _ = await state.eventLocations.resolve(event)

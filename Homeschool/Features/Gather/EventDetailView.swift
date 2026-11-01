@@ -324,7 +324,7 @@ struct EventDetailView: View {
             } else {
                 NavigationLink {
                     RegistrationView(event: current).toolbarVisibility(.visible, for: .navigationBar)
-                } label: { Text("Attend") }
+                } label: { Text("Register") }
                 .buttonStyle(EventAttendButtonStyle())
             }
         }

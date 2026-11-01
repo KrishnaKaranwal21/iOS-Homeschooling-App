@@ -12,9 +12,9 @@ struct Registrant: Codable, Equatable {
 }
 
 /// One confirmed place at one event.
-struct Registration: Identifiable {
-    let id = UUID()
-    let eventID: Event.ID
+struct Registration: Identifiable, Codable {
+    var id = UUID()
+    var eventID: Event.ID
     let registrant: Registrant
     let registeredAt: Date
     /// Rupees paid at registration. `nil` for free events.
@@ -29,4 +29,13 @@ struct Registration: Identifiable {
 
     /// Short reference shown on the confirmation, e.g. "HS-3F9A21".
     var code: String { "HS-" + id.uuidString.prefix(6).uppercased() }
+}
+
+extension Registration {
+    /// Event UUIDs are recreated when the catalog loads; the booking identity stays the same.
+    func forEvent(_ eventID: Event.ID) -> Registration {
+        var copy = self
+        copy.eventID = eventID
+        return copy
+    }
 }

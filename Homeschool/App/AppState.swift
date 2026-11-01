@@ -84,6 +84,7 @@ final class AppState {
     @ObservationIgnored @AppStorage("homeLocation") private var storedHomeLocation = Data()
     @ObservationIgnored @AppStorage("savedRegistrant") private var storedRegistrant = Data()
     @ObservationIgnored @AppStorage("bookmarkedEvents") private var storedBookmarks = Data()
+    @ObservationIgnored @AppStorage("eventBookingsByAccount") private var storedBookings = Data()
 
     private static func encode<T: Encodable>(_ value: T) -> Data {
         (try? JSONEncoder().encode(value)) ?? Data()
@@ -115,14 +116,8 @@ final class AppState {
         savedRegistrant = Self.decode(Registrant.self, from: storedRegistrant)
         bookmarkedKeys = Set(Self.decode([String].self, from: storedBookmarks) ?? [])
 
-        // Sample data: the events already marked as registered get a sample registration.
-        let sample = Registrant(parentName: "Asha Patel", email: "asha.patel@example.com",
-                                mobile: "+91 98765 43210", childName: "Maya", childAge: "10", notes: "")
-        for event in events where event.isRegistered {
-            registrations[event.id] = Registration(eventID: event.id, registrant: sample,
-                                                   registeredAt: Date.now.addingTimeInterval(-3 * 86_400),
-                                                   amountPaid: event.price)
-        }
+        restoreBookings()
+
     }
 
     func advance(to newStage: LaunchStage) {
@@ -251,6 +246,7 @@ final class AppState {
 
     func register(_ event: Event, as registrant: Registrant, accompanying: Bool = true, places: Int = 1) {
         guard let index = events.firstIndex(where: { $0.id == event.id }) else { return }
+        guard registrations[event.id] == nil else { return }
         events[index].updateRegistration(true)
         registrations[event.id] = Registration(eventID: event.id, registrant: registrant,
                                                registeredAt: .now,
@@ -259,6 +255,7 @@ final class AppState {
 
         savedRegistrant = registrant
         storedRegistrant = Self.encode(registrant)
+        saveBookings()
     }
 
     /// Free registrations can be cancelled at any time. Paid ones cannot, and are not refunded.
@@ -273,7 +270,41 @@ final class AppState {
               let index = events.firstIndex(where: { $0.id == event.id }), events[index].isRegistered else { return false }
         events[index].updateRegistration(false)
         registrations[event.id] = nil
+        saveBookings()
         return true
+    }
+
+    private var bookingAccountKey: String {
+        account.map { AccountStore.normalized($0.email) } ?? "local-family"
+    }
+
+    private var bookingsByAccount: [String: [String: Registration]] {
+        get { Self.decode([String: [String: Registration]].self, from: storedBookings) ?? [:] }
+        set { storedBookings = Self.encode(newValue) }
+    }
+
+    private func saveBookings() {
+        // Retain bookings for events outside the current catalog as well.
+        var saved = bookingsByAccount[bookingAccountKey] ?? [:]
+        for event in events {
+            saved[event.storageKey] = registrations[event.id]
+        }
+        bookingsByAccount[bookingAccountKey] = saved
+    }
+
+    private func restoreBookings() {
+        registrations = [:]
+        let saved = bookingsByAccount[bookingAccountKey] ?? [:]
+        for index in events.indices {
+            let event = events[index]
+            if var booking = saved[event.storageKey] {
+                booking = booking.forEvent(event.id)
+                registrations[event.id] = booking
+                events[index].updateRegistration(true)
+            } else {
+                events[index].updateRegistration(false)
+            }
+        }
     }
 
     /// Pages that cover the tab bar (an open chat) count themselves in here, so the bottom bar used on
@@ -512,12 +543,14 @@ final class AppState {
         storedBookmarks = Data()
         storedRegistrant = Data()
         registrations = [:]
+        for index in events.indices { events[index].updateRegistration(false) }
     }
 
     /// Called after a successful login. An account that already has family details goes straight to Home.
     func finishLogin(returning: Bool) {
         refreshAccount()
         let hadFamily = account.map { restoreSnapshot(for: $0.email) } ?? false
+        restoreBookings()
         setReturningUser(returning)
         advance(to: hadFamily ? .main : .setup)
     }
@@ -549,6 +582,7 @@ final class AppState {
     func deleteAccount() {
         if let email = account?.email {
             snapshots.removeValue(forKey: AccountStore.normalized(email))
+            bookingsByAccount.removeValue(forKey: AccountStore.normalized(email))
             AccountStore.delete(email)
         }
         account = nil

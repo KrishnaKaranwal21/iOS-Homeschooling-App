@@ -198,7 +198,7 @@ struct GatherWaveShape: Shape {
     }
 }
 
-private struct DashedLine: Shape {
+struct DashedLine: Shape {
     let vertical: Bool
 
     func path(in rect: CGRect) -> Path {
@@ -256,7 +256,7 @@ struct TicketCard: View {
                     .foregroundStyle(Theme.secondary)
                 Spacer(minLength: 8)
                 Button(action: onViewConfirmation) {
-                    Text("View Confirmation")
+                    Text("View ticket")
                         .scaledFont(15, weight: .semibold, maxScale: 1.3)
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 16)
@@ -447,89 +447,5 @@ struct OutingCard: View {
         .padding(6)
         .background(Theme.surface, in: .rect(cornerRadius: 26))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
-    }
-}
-
-/// Everything about the event and what was submitted for it.
-struct RegistrationDetailView: View {
-    let event: Event
-    let registration: Registration?
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let registration {
-                    group("Registration", rows: [
-                        ("Reference", registration.code),
-                        ("Registered on", registration.registeredAt.formatted(date: .abbreviated, time: .shortened)),
-                        ("Payment", registration.amountPaid.map {
-                            registration.places > 1
-                                ? "Paid ₹\($0) for \(registration.places) children · non-refundable"
-                                : "Paid ₹\($0) · non-refundable"
-                        } ?? "Free · cancel any time"),
-                        ("Parent or guardian", registration.accompanying ? "Staying with child" : "Drop-off")
-                    ])
-                }
-
-                group("Event", rows: [
-                    ("Event", event.title),
-                    ("Date", event.start.formatted(.dateTime.weekday(.wide).day().month(.wide).year())),
-                    ("Time", "\(event.time) – \(event.end.formatted(date: .omitted, time: .shortened))"),
-                    ("Where", event.mode == .online ? "Online" : event.location.replacingOccurrences(of: "\n", with: ", ")),
-                    ("Hosted by", event.host),
-                    ("Ages", event.ages),
-                    ("Price", event.priceText)
-                ])
-
-                if let registration {
-                    let details = registration.registrant
-                    group("Parent or guardian", rows: [
-                        ("Name", details.parentName),
-                        ("Email", details.email),
-                        ("Mobile", details.mobile)
-                    ])
-                    group("Little explorer", rows: [
-                        ("Name", details.childName),
-                        ("Age", details.childAge),
-                        ("Notes", details.notes.isEmpty ? "None" : details.notes)
-                    ])
-                }
-            }
-            .padding(20)
-        }
-        .background(Theme.background)
-        .navigationTitle("Registration details")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func group(_ title: String, rows: [(String, String)]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .scaledFont(18, weight: .bold, maxScale: 1.3)
-                .foregroundStyle(Theme.ink)
-
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(row.0)
-                            .scaledFont(15, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherText)
-                            .frame(width: 104, alignment: .leading)
-                        Text(row.1.isEmpty ? "—" : row.1)
-                            .scaledFont(16, weight: .medium, maxScale: 1.3)
-                            .foregroundStyle(Theme.ink)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.vertical, 12)
-
-                    if index < rows.count - 1 {
-                        Rectangle().fill(Theme.cardBorder).frame(height: 1)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .background(Theme.surface, in: .rect(cornerRadius: 20))
-            .roundedStroke(Theme.lilacBorder, cornerRadius: 20, lineWidth: 1)
-        }
     }
 }

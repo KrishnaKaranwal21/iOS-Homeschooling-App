@@ -35,6 +35,7 @@ struct GatherConfirmationSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     @State private var showCalendar = false
+    @State private var showTicket = false
     @State private var calendarSaved = false
     @State private var confirmCancel = false
     @State private var showHost = false
@@ -82,10 +83,8 @@ struct GatherConfirmationSheet: View {
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("event.confirmation.calendar")
 
-                    NavigationLink {
-                        RegistrationDetailView(event: current, registration: state.registrations[current.id])
-                    } label: {
-                        Label("View registration details", systemImage: "ticket")
+                    Button { showTicket = true } label: {
+                        Label("View registration", systemImage: "ticket")
                             .scaledFont(15, weight: .semibold, maxScale: 1.3)
                             .foregroundStyle(Theme.ink)
                             .frame(maxWidth: .infinity, minHeight: 48)
@@ -108,6 +107,7 @@ struct GatherConfirmationSheet: View {
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
             .navigationDestination(isPresented: $showProfile) { ProfileView() }
+            .fullScreenCover(isPresented: $showTicket) { BookingTicketView(event: current) }
             .sheet(isPresented: $showCalendar) {
                 EventCalendarSheet(event: current, onSaved: { calendarSaved = true }).ignoresSafeArea()
             }
