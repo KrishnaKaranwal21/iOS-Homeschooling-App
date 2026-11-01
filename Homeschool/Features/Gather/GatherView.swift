@@ -59,17 +59,21 @@ struct GatherView: View {
         .background(Theme.background.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
-            HStack {
-                Spacer()
-                Button(action: hostEvent) {
-                    Label("Host an event", systemImage: "plus")
-                        .scaledFont(14, weight: .semibold, maxScale: 1.3)
-                        .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 15).frame(minHeight: 44)
-                        .background(Theme.lilac, in: Capsule())
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Text("Gather").pageTitle().fixedSize()
+                    Spacer(minLength: 8)
+                    likedEventsButton
+                    hostEventButton
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("gather.hostEvent")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Gather").pageTitle()
+                        Spacer()
+                        likedEventsButton
+                    }
+                    hostEventButton.frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
             .background(Theme.background)
@@ -97,6 +101,34 @@ struct GatherView: View {
         .onChange(of: place) { resetPagination() }
         .onChange(of: state.child.interests) { resetPagination() }
         .onChange(of: state.child.id) { resetPagination() }
+    }
+
+    private var likedEventsButton: some View {
+        NavigationLink {
+            SavedEventsView()
+        } label: {
+            Image(systemName: state.savedEvents.isEmpty ? "heart" : "heart.fill")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 44, height: 44)
+                .gatherGlass(in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Liked events, \(state.savedEvents.count) saved")
+        .accessibilityIdentifier("gather.likedEvents")
+    }
+
+    private var hostEventButton: some View {
+        Button(action: hostEvent) {
+            Label("Host an event", systemImage: "plus")
+                .scaledFont(14, weight: .semibold, maxScale: 1.3)
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 15).frame(minHeight: 44)
+                .background(Theme.lilac, in: Capsule())
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("gather.hostEvent")
     }
 
     private var discoveryControls: some View {
@@ -184,7 +216,7 @@ struct GatherView: View {
                 }
                 Section("Your gatherings") {
                     NavigationLink { SavedEventsView() } label: {
-                        Label("Saved events (\(state.savedEvents.count))", systemImage: "heart")
+                        Label("Liked events (\(state.savedEvents.count))", systemImage: "heart")
                     }
                     Button {
                         filter.category = .yours

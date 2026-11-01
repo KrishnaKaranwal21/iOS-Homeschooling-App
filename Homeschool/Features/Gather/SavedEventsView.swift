@@ -1,21 +1,21 @@
 import SwiftUI
 
-/// Every event the parent has bookmarked. Reached from the bookmark button on the Gatherings page.
+/// Every event the parent has liked, reached from the Gather header’s heart.
 struct SavedEventsView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
         ScrollView {
-            Text("Saved events")
+            Text("Liked events")
                 .pageTitle()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
 
             if state.savedEvents.isEmpty {
-                ContentUnavailableView("No saved events yet",
-                                       systemImage: "bookmark",
-                                       description: Text("Tap the bookmark on any event to keep it here."))
+                ContentUnavailableView("No liked events yet",
+                                       systemImage: "heart",
+                                       description: Text("Tap the heart on any event to keep it here."))
                     .padding(.top, 60)
             } else {
                 LazyVStack(spacing: 12) {
@@ -28,7 +28,8 @@ struct SavedEventsView: View {
                 .padding(.bottom, 24)
             }
         }
-        .scrollNavigationTitle("Saved events")
+        .scrollNavigationTitle("Liked events")
+        .toolbarVisibility(.visible, for: .navigationBar)
         .animation(.snappy, value: state.savedEvents.count)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
@@ -66,13 +67,13 @@ private struct SavedEventRow: View {
             Button {
                 state.toggleBookmark(event)
             } label: {
-                Image(systemName: "bookmark.fill")
+                Image(systemName: "heart.fill")
                     .foregroundStyle(Theme.gatherAccent)
                     .frame(width: 40, height: 40)
                     .gatherGlass(in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Remove from saved events")
+            .accessibilityLabel("Unlike \(event.title)")
         }
         .padding(10)
         .background(Theme.surface, in: .rect(cornerRadius: 24))
