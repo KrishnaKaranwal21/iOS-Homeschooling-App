@@ -125,7 +125,7 @@ struct PhoneField: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Country code, \(country.name) plus \(country.dial). Change")
 
-            Rectangle().fill(Color.black.opacity(0.12)).frame(width: 1, height: 22)
+            Rectangle().fill(Theme.ink.opacity(0.12)).frame(width: 1, height: 22)
 
             TextField("Mobile number", text: Binding(
                 get: {
@@ -202,7 +202,5 @@ struct CountryCodeSheet: View {
         .presentationDragIndicator(.visible)
         .presentationBackground(.regularMaterial)
         .presentationCornerRadius(36)
-        // The pop-up always uses the light look.
-        .preferredColorScheme(.light)
     }
 }

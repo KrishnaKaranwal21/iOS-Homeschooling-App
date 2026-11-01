@@ -230,7 +230,7 @@ struct RegistrationView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-            .background(isSelected ? Theme.lilac : Color.white, in: .rect(cornerRadius: 16))
+            .background(isSelected ? Theme.lilac : Theme.surface, in: .rect(cornerRadius: 16))
             .roundedStroke(isSelected ? Theme.gatherAccent : Theme.cardBorder,
                            cornerRadius: 16, lineWidth: isSelected ? 1.5 : 1)
             .contentShape(.rect)
@@ -297,12 +297,12 @@ struct RegistrationView: View {
             if isMultiple {
                 summaryRow("Price per child", event.priceText)
                 summaryRow("Children", "× \(placeCount)")
-                Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(Theme.ink.opacity(0.08)).frame(height: 1)
             }
             summaryRow("Total", totalText, isTotal: true)
         }
         .padding(16)
-        .background(Color.white, in: .rect(cornerRadius: 18))
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
         .roundedStroke(Theme.cardBorder, cornerRadius: 18)
         .animation(.snappy, value: placeCount)
         .accessibilityElement(children: .combine)
@@ -369,7 +369,7 @@ struct RegistrationView: View {
                     .foregroundStyle(Theme.ink)
                     .opacity(isOn.wrappedValue ? 1 : 0)
                     .frame(width: 30, height: 30)
-                    .background(isOn.wrappedValue ? Theme.lavender : Color.white, in: .rect(cornerRadius: 9))
+                    .background(isOn.wrappedValue ? Theme.lavender : Theme.surface, in: .rect(cornerRadius: 9))
                     .roundedStroke(isOn.wrappedValue ? Color.clear : Theme.lilacBorder, cornerRadius: 9, lineWidth: 1.5)
                 Text(text)
                     .scaledFont(15, maxScale: 1.3)

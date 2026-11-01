@@ -113,14 +113,14 @@ struct WeekTaskSheet: View {
                 }
                 .scaledFont(14, weight: .medium, maxScale: 1.2)
                 .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Color(hex: 0xECEAF6), in: Capsule())
+                .background(Color.adaptive(0xECEAF6, 0x30283F), in: Capsule())
                 .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
             }
             .accessibilityLabel("Subject, \(activity.subject)")
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: 0xEEEEEE), in: .rect(cornerRadius: 16))
+        .background(Color.adaptive(0xEEEEEE, 0x303033), in: .rect(cornerRadius: 16))
     }
 
     private var subjectSymbol: String {
@@ -250,7 +250,7 @@ struct WeekTaskSheet: View {
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 46)
-                    .background(Color(hex: 0x2D3531).opacity(title.isEmpty ? 0.45 : 1), in: Capsule())
+                    .background(Theme.buttonFill.opacity(title.isEmpty ? 0.45 : 1), in: Capsule())
             }
             .buttonStyle(.plain)
             .disabled(title.isEmpty || (activity.reminder && !hasTime))
@@ -307,7 +307,7 @@ struct WeekTaskSheet: View {
 
 private extension View {
     func weekFormCard() -> some View {
-        background(.white, in: .rect(cornerRadius: 16))
+        background(Theme.surface, in: .rect(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(WeekStyle.border, lineWidth: 0.8))
     }
 }

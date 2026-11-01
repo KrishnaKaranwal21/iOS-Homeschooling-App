@@ -197,8 +197,8 @@ struct OutlinedChip: View {
         .foregroundStyle(Theme.obsidian)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(selected ? Theme.pink : Color.white, in: .rect(cornerRadius: 20))
-        .roundedStroke(selected ? Color(hex: 0xEFB4B4) : Theme.cardBorder, cornerRadius: 20, lineWidth: 1)
+        .background(selected ? Theme.pink : Theme.surface, in: .rect(cornerRadius: 20))
+        .roundedStroke(selected ? Color.adaptive(0xEFB4B4, 0x75505D) : Theme.cardBorder, cornerRadius: 20, lineWidth: 1)
     }
 }
 

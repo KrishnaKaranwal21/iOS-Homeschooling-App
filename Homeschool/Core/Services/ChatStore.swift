@@ -57,7 +57,7 @@ struct ChatThread: Identifiable {
     }
 
     var avatarColor: Color {
-        let palette: [Color] = [Color(hex: 0xE6E1FF), Theme.pink, Theme.lime, Theme.yellow, Color(hex: 0xFAD9C9)]
+        let palette: [Color] = [Color.adaptive(0xE6E1FF, 0x30283F), Theme.pink, Theme.lime, Theme.yellow, Color.adaptive(0xFAD9C9, 0x4B332D)]
         let seed = title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
         return palette[seed % palette.count]
     }

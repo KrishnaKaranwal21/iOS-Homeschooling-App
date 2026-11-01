@@ -43,7 +43,7 @@ struct DailyWrapUpView: View {
             Text("Learning, wrapped up.")
                 .scaledFont(25, weight: .bold, maxScale: 1.25)
                 .tracking(-0.5)
-                .foregroundStyle(Color(hex: 0x1E2923))
+                .foregroundStyle(Color.adaptive(0x1E2923, 0xF5F5F7))
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityFocused($titleFocused)
@@ -57,7 +57,7 @@ struct DailyWrapUpView: View {
             VStack(spacing: 4) {
                 Text("\(summary.minutes) min of learning logged")
                     .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Color(hex: 0x1E2923))
+                    .foregroundStyle(Color.adaptive(0x1E2923, 0xF5F5F7))
                 Text("\(summary.activityCount) \(summary.activityCount == 1 ? "activity" : "activities") completed")
                     .scaledFont(13, maxScale: 1.25)
                     .foregroundStyle(WeekStyle.secondary)
@@ -65,7 +65,7 @@ struct DailyWrapUpView: View {
             .multilineTextAlignment(.center)
             .padding(.horizontal, 12).padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(Color(hex: 0xDCD9FF), in: .rect(cornerRadius: 18))
+            .background(Color.adaptive(0xDCD9FF, 0x3B3059), in: .rect(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(.white.opacity(0.8), lineWidth: 1))
             .accessibilityElement(children: .combine)
 
@@ -81,14 +81,14 @@ struct DailyWrapUpView: View {
                     .scaledFont(16, weight: .semibold, maxScale: 1.25)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(Color(hex: 0x2D3531), in: Capsule())
+                    .background(Theme.buttonFill, in: Capsule())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("week.wrapUp.continue")
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(hex: 0xEBEBF0), in: .rect(cornerRadius: 30))
+        .background(Color.adaptive(0xEBEBF0, 0x242426), in: .rect(cornerRadius: 30))
         .overlay(RoundedRectangle(cornerRadius: 30).strokeBorder(.white.opacity(0.7), lineWidth: 1))
         .shadow(color: .black.opacity(0.14), radius: 30, y: 12)
     }

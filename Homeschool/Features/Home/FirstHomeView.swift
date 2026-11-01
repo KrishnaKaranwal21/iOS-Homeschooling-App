@@ -11,7 +11,7 @@ struct FirstHomeView: View {
     @State private var showAddChild = false
     @State private var exploreID: ExploreCard.ID? = ExploreCard.all.first?.id
 
-    private let warmText = Color(hex: 0x9C4A4B)
+    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
     private static let weekOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     private var childName: String {
@@ -156,7 +156,7 @@ struct FirstHomeView: View {
                 .padding(.leading, 5)
                 .padding(.trailing, 14)
                 .frame(height: isWide ? 46 : 36)
-                .background(Capsule().fill(Color(hex: 0xEFEDFB)))
+                .background(Capsule().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
             }
 
             NavigationLink {
@@ -166,7 +166,7 @@ struct FirstHomeView: View {
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(Theme.ink)
                     .frame(width: isWide ? 46 : 36, height: isWide ? 46 : 36)
-                    .background(Circle().fill(Color(hex: 0xEFEDFB)))
+                    .background(Circle().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
@@ -211,7 +211,7 @@ struct FirstHomeView: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)
                 .frame(height: 26)
-                .background(Capsule().fill(Color.white))
+                .background(Capsule().fill(Theme.surface))
 
             Text("Your chosen rhythm")
                 .scaledFont(21, weight: .heavy, maxScale: 1.2)
@@ -227,7 +227,7 @@ struct FirstHomeView: View {
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: isWide ? 54 : 42)
-                    .background(Capsule().fill(Theme.ink))
+                    .background(Capsule().fill(Theme.buttonFill))
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -285,7 +285,7 @@ struct FirstHomeView: View {
                         tileWidth(in: width, gap: gap, inset: inset)
                     }
                     .frame(height: isWide ? 104 : (compact ? 70 : 76))
-                    .background(Color.white, in: .rect(cornerRadius: 14))
+                    .background(Theme.surface, in: .rect(cornerRadius: 14))
                     .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(day), \(state.child.hoursPerDay) hours")
@@ -392,11 +392,11 @@ struct ExploreCard: Identifiable {
     let action: Action
     let layout: ExploreLayout
 
-    private static let lavender = Color(red: 231 / 255, green: 229 / 255, blue: 253 / 255)
-    private static let lavenderDeep = Color(red: 229 / 255, green: 227 / 255, blue: 253 / 255)
-    private static let grey = Color(red: 241 / 255, green: 242 / 255, blue: 246 / 255)
-    private static let slate = Color(red: 116 / 255, green: 122 / 255, blue: 150 / 255)
-    private static let mutedLavender = Color(red: 133 / 255, green: 133 / 255, blue: 163 / 255)
+    private static let lavender = Color.adaptive(0xE7E5FD, 0x30283F)
+    private static let lavenderDeep = Color.adaptive(0xE5E3FD, 0x30283F)
+    private static let grey = Color.adaptive(0xF1F2F6, 0x242426)
+    private static let slate = Color.adaptive(0x747A96, 0xB7AFC9)
+    private static let mutedLavender = Color.adaptive(0x8585A3, 0xB7AFC9)
 
     static let all: [ExploreCard] = [
         ExploreCard(
@@ -452,8 +452,21 @@ struct ExploreCard: Identifiable {
 
 /// Draws one explore card at the same proportions as the design, at any width.
 private struct ExploreCardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let card: ExploreCard
     let onTap: () -> Void
+
+    private var artwork: String {
+        guard colorScheme == .dark else { return card.art }
+        // The original Explore crops have baked-in light backgrounds. Reuse the
+        // existing transparent illustrations so they blend into dark paper.
+        switch card.action {
+        case .findPeople: return "HomeArtPeople"
+        case .previewIdea: return "HomeArtComic"
+        case .exploreWorkshops: return "HomeArtWorkshop"
+        case .viewProgress: return "HomeArtProgress"
+        }
+    }
 
     private let designWidth: CGFloat = 2435
     private let designHeight: CGFloat = 1259
@@ -465,11 +478,11 @@ private struct ExploreCardView: View {
     private let buttonSize: CGFloat = 88
     private let chipSize: CGFloat = 66
 
-    private let ink = Color(red: 17 / 255, green: 18 / 255, blue: 21 / 255)
-    private let pillColor = Color(red: 26 / 255, green: 30 / 255, blue: 27 / 255)
-    private let border = Color(red: 213 / 255, green: 210 / 255, blue: 224 / 255)
-    private let fold = Color(red: 239 / 255, green: 221 / 255, blue: 223 / 255)
-    private let chipPurple = Color(red: 133 / 255, green: 114 / 255, blue: 190 / 255)
+    private let ink = Color.adaptive(0x111215, 0xF5F5F7)
+    private let pillColor = Color.adaptive(0x1A1E1B, 0x795DD0)
+    private let border = Color.adaptive(0xD5D2E0, 0x484052)
+    private let fold = Color.adaptive(0xEFDDDF,0x482D38)
+    private let chipPurple = Color.adaptive(0x8572BE, 0xBBA4FF)
 
     var body: some View {
         Color.clear
@@ -496,8 +509,9 @@ private struct ExploreCardView: View {
                             .accessibilityHidden(true)
                         }
 
-                        Image(card.art)
+                        Image(artwork)
                             .resizable()
+                            .scaledToFit()
                             .frame(width: layout.art.width * s, height: layout.art.height * s)
                             .offset(x: layout.art.minX * s, y: layout.art.minY * s)
                             .accessibilityHidden(true)
@@ -562,7 +576,7 @@ private struct ExploreCardView: View {
         .padding(.leading, 42 * s)
         .padding(.trailing, 60 * s)
         .frame(height: rect.height * s)
-        .background(Capsule().fill(Color.white))
+        .background(Capsule().fill(Theme.surface))
         .fixedSize()
         .offset(x: rect.minX * s, y: rect.minY * s)
     }
@@ -605,7 +619,7 @@ private struct IdeaPreviewSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Label("Art + Maths", systemImage: "paintpalette")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(Color(hex: 0x7B5FC0))
+                        .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(Capsule().fill(Theme.field))

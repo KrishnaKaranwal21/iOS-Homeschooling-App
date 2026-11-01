@@ -1,12 +1,12 @@
 import SwiftUI
 
 extension Theme {
-    static let linen       = Color(hex: 0xF8F6F0)
-    static let cardBorder  = Color(hex: 0xEFECE6)
-    static let obsidian    = Color(hex: 0x1A1A1A)
-    static let systemGray  = Color(hex: 0x8E8E93)
-    static let pillFill    = Color(hex: 0xF2F2F7)
-    static let checkBorder = Color(hex: 0xD1D5DB)
+    static let linen       = Color.adaptive(0xF8F6F0, 0x171719)
+    static let cardBorder  = Color.adaptive(0xEFECE6, 0x333236)
+    static let obsidian    = Color.adaptive(0x1A1A1A, 0xF5F5F7)
+    static let systemGray  = Color.adaptive(0x8E8E93, 0xA4A3AA)
+    static let pillFill    = Color.adaptive(0xF2F2F7, 0x29292D)
+    static let checkBorder = Color.adaptive(0xD1D5DB, 0x56535D)
     static let insetRadius: CGFloat = 24
 }
 
@@ -14,7 +14,7 @@ extension Theme {
 struct InsetCardStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.white, in: .rect(cornerRadius: Theme.insetRadius))
+            .background(Theme.surface, in: .rect(cornerRadius: Theme.insetRadius))
             .roundedStroke(Theme.cardBorder, cornerRadius: Theme.insetRadius, lineWidth: 1)
     }
 }

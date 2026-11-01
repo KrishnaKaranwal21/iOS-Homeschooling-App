@@ -258,7 +258,7 @@ struct ChatDetailView: View {
                         }
                         .foregroundStyle(Theme.secondary)
                         .frame(width: 220, height: 120)
-                        .background(Color.black.opacity(0.05), in: .rect(cornerRadius: 16))
+                        .background(Theme.ink.opacity(0.05), in: .rect(cornerRadius: 16))
                     } else {
                         picked.image
                             .resizable()
@@ -293,7 +293,7 @@ struct ChatDetailView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(shape.fill(mine ? Theme.pink : Color(hex: 0xF0F1F4)))
+            .background(shape.fill(mine ? Theme.pink : Color.adaptive(0xF0F1F4, 0x262628)))
             .contextMenu {
                 Button { state.chats.toggleStar(message.id, in: threadID) } label: {
                     Label(message.isStarred ? "Unstar" : "Star", systemImage: message.isStarred ? "star.slash" : "star")
@@ -390,7 +390,7 @@ struct ChatDetailView: View {
                                 .font(.system(size: 17, weight: .bold))
                                 .foregroundStyle(Color.white)
                                 .frame(width: 42, height: 42)
-                                .background(Circle().fill(Theme.ink))
+                                .background(Circle().fill(Theme.buttonFill))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Send")
@@ -449,7 +449,7 @@ struct ChatDetailView: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(Color.white)
                     .frame(width: 42, height: 42)
-                    .background(Circle().fill(Theme.ink))
+                    .background(Circle().fill(Theme.buttonFill))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Send voice message")

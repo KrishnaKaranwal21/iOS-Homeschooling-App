@@ -53,7 +53,7 @@ private struct WeeklyActivityCard: View {
                 HStack {
                     Button("Start activity") {}
                         .buttonStyle(.primaryHomeschool)
-                    Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(minHeight: 56).background(.white, in: Capsule()) }.buttonStyle(.plain)
+                    Button { } label: { Text("Swap").font(.headline).foregroundStyle(Theme.ink).padding(.horizontal, 28).frame(minHeight: 56).background(Theme.surface, in: Capsule()) }.buttonStyle(.plain)
                 }
             }
         }

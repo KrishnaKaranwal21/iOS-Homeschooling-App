@@ -27,19 +27,12 @@ struct EventCover: View {
     }
 
     @ViewBuilder private var content: some View {
-        ZStack {
-            // Fallback shown whenever there is no picked photo or the named asset is missing.
-            LinearGradient(colors: [event.tint.opacity(0.6), event.tint],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            Image(systemName: event.symbol)
-                .font(.system(size: 56))
-                .foregroundStyle(Color.white.opacity(0.9))
-
-            if let cover = event.coverImage {
-                cover.image.resizable().scaledToFill()
-            } else if let name = event.coverName {
-                Image(name).resizable().scaledToFill()
-            }
+        if let cover = event.coverImage {
+            cover.image.resizable().scaledToFill()
+        } else if let name = event.coverName, let image = UIImage(named: name) {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            GatherEventPoster(event: event)
         }
     }
 }
@@ -113,7 +106,7 @@ struct GatherSegmented<Value: Hashable>: View {
             }
         }
         .padding(4)
-        .background(Capsule().fill(Color.white))
+        .background(Capsule().fill(Theme.surface))
         .overlay(Capsule().stroke(Theme.cardBorder, lineWidth: 1))
     }
 }
@@ -228,8 +221,8 @@ struct TicketCard: View {
     let onViewConfirmation: () -> Void
 
     private let tileColumn: CGFloat = 114
-    private let dashColor = Color.black.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
+    private let dashColor = Theme.ink.opacity(0.22)
+    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
     fileprivate static let topHeight: CGFloat = 128
     fileprivate static let cardHeight: CGFloat = 176
 
@@ -260,7 +253,7 @@ struct TicketCard: View {
             HStack {
                 Text("Your place is saved")
                     .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(Theme.secondary)
                 Spacer(minLength: 8)
                 Button(action: onViewConfirmation) {
                     Text("View Confirmation")
@@ -294,7 +287,7 @@ struct TicketCard: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .frame(width: 72, height: 86)
-        .background(Color.white, in: .rect(cornerRadius: 18))
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
         .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
         .rotationEffect(.degrees(-6))
     }
@@ -311,7 +304,7 @@ struct TicketCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "clock.fill")
                 Text(event.time)
-                Rectangle().fill(Color.black.opacity(0.35)).frame(width: 1, height: 14).padding(.horizontal, 2)
+                Rectangle().fill(Theme.ink.opacity(0.35)).frame(width: 1, height: 14).padding(.horizontal, 2)
                 Image(systemName: "mappin.circle.fill")
                 Text(event.locality).lineLimit(1)
             }
@@ -320,7 +313,7 @@ struct TicketCard: View {
 
             Text("By \(event.host)")
                 .scaledFont(14, maxScale: 1.2)
-                .foregroundStyle(Color.black.opacity(0.45))
+                .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
         }
     }
@@ -330,8 +323,8 @@ struct TicketCard: View {
 
 struct EmptyTicketCard: View {
     private let tileColumn: CGFloat = 114
-    private let dashColor = Color.black.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
+    private let dashColor = Theme.ink.opacity(0.22)
+    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -347,7 +340,7 @@ struct EmptyTicketCard: View {
                         .minimumScaleFactor(0.75)
                     Text("Reserve a spot and your ticket will show up here.")
                         .scaledFont(14, maxScale: 1.2)
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(Theme.secondary)
                         .lineLimit(3)
                 }
                 .padding(.leading, 20)
@@ -370,7 +363,7 @@ struct EmptyTicketCard: View {
             HStack(spacing: 8) {
                 Text("Free spots can be cancelled anytime")
                     .scaledFont(13, maxScale: 1.3)
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(Theme.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
@@ -388,7 +381,7 @@ struct EmptyTicketCard: View {
             .font(.system(size: 34, weight: .semibold))
             .foregroundStyle(warmText)
             .frame(width: 72, height: 86)
-            .background(Color.white, in: .rect(cornerRadius: 18))
+            .background(Theme.surface, in: .rect(cornerRadius: 18))
             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             .rotationEffect(.degrees(-6))
             .accessibilityHidden(true)
@@ -432,7 +425,7 @@ struct OutingCard: View {
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white))
+                        .background(Capsule().fill(Theme.surface))
                         .padding(8)
                 }
 
@@ -452,7 +445,7 @@ struct OutingCard: View {
             .padding(.vertical, 12)
         }
         .padding(6)
-        .background(Color.white, in: .rect(cornerRadius: 26))
+        .background(Theme.surface, in: .rect(cornerRadius: 26))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
     }
 }
@@ -629,7 +622,7 @@ struct RegistrationDetailView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .background(Color.white, in: .rect(cornerRadius: 20))
+            .background(Theme.surface, in: .rect(cornerRadius: 20))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 20, lineWidth: 1)
         }
     }

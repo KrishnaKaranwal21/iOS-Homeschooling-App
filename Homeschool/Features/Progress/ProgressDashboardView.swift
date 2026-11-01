@@ -64,7 +64,7 @@ private struct ProgressLearningPage: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background {
                             UnevenRoundedRectangle(topLeadingRadius: 38, topTrailingRadius: 38)
-                                .fill(.white)
+                                .fill(Theme.surface)
                                 .mask {
                                     VStack(spacing: 0) {
                                         Color.black
@@ -104,8 +104,8 @@ private struct ProgressLearningPage: View {
                     Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
                 }
                 .padding(.leading, 6).padding(.trailing, 12).padding(.vertical, 7)
-                .background(.white.opacity(0.38), in: Capsule())
-                .overlay(Capsule().strokeBorder(.white.opacity(0.8), lineWidth: 1))
+                .background(Theme.surface.opacity(0.38), in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.lilacBorder, lineWidth: 1))
                 .shadow(color: ProgressPalette.purple.opacity(0.04), radius: 4, y: 2)
             }
         }
@@ -123,7 +123,7 @@ private struct ProgressLearningPage: View {
                             .frame(maxWidth: .infinity).frame(height: 30)
                             .background {
                                 if metric == option {
-                                    Capsule().fill(.white).matchedGeometryEffect(id: "metric", in: selectionAnimation)
+                                    Capsule().fill(Theme.surface).matchedGeometryEffect(id: "metric", in: selectionAnimation)
                                         .shadow(color: ProgressPalette.purple.opacity(0.06), radius: 3, y: 1)
                                 }
                             }
@@ -166,7 +166,7 @@ private struct ProgressLearningPage: View {
                     .lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
                 legend("Logged", color: ProgressPalette.inactive)
-                legend("Planned", color: .white.opacity(0.65))
+                legend("Planned", color: Theme.surface.opacity(0.65))
             }
             .foregroundStyle(ProgressPalette.purple)
             HStack(alignment: .top, spacing: 10) {
@@ -221,7 +221,7 @@ private struct ProgressLearningPage: View {
             VStack(spacing: 10) {
                 Group {
                     if planned > 0 {
-                        Capsule().fill(.white.opacity(0.48))
+                        Capsule().fill(Theme.surface.opacity(0.48))
                             .frame(height: max(4, plannedHeight))
                             .overlay(alignment: .bottom) {
                                 if logged > 0 {
@@ -231,7 +231,7 @@ private struct ProgressLearningPage: View {
                                         .overlay(alignment: .top) {
                                             if value.isComplete && loggedHeight >= 24 {
                                                 Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.background)
                                                     .padding(.top, 10)
                                             }
                                         }
@@ -316,8 +316,8 @@ private struct ProgressLearningPage: View {
                     Label("Plan", systemImage: "plus")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
                         .padding(.horizontal, 16).frame(height: 44)
-                        .background(.white, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color(hex: 0xE5E5E5), lineWidth: 1))
+                        .background(Theme.surface, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.adaptive(0xE5E5E5, 0x38363D), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Plan \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")
@@ -327,7 +327,7 @@ private struct ProgressLearningPage: View {
                 dayStatistic("\(day.completed.count) / \(day.activities.count)", caption: "Activities")
                 dayStatistic(LearningProgress.duration(day.remainingMinutes), caption: "Left to explore")
             }
-            Divider().overlay(Color(hex: 0xEEEEEE))
+            Divider().overlay(Color.adaptive(0xEEEEEE, 0x303033))
         }
     }
 
@@ -394,8 +394,8 @@ private enum ProgressMetric: String, Identifiable, CaseIterable {
 }
 
 enum ProgressPalette {
-    static let background = Color(hex: 0xE6DEFF)
-    static let purple = Color(hex: 0x4430A5)
-    static let inactive = Color(hex: 0x9B90B9)
-    static let coral = Color(hex: 0xFFC9C5)
+    static let background = Color.adaptive(0xE6DEFF, 0x19151F)
+    static let purple = Color.adaptive(0x4430A5, 0xBBA4FF)
+    static let inactive = Color.adaptive(0x9B90B9, 0x9687B2)
+    static let coral = Color.adaptive(0xFFC9C5, 0x573642)
 }

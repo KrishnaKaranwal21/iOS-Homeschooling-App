@@ -58,7 +58,7 @@ struct SubjectLearningCard: View {
         .foregroundStyle(Theme.ink)
         .clipShape(RoundedRectangle(cornerRadius: 25))
         .background(palette.paper, in: .rect(cornerRadius: 25))
-        .overlay(RoundedRectangle(cornerRadius: 25).strokeBorder(.white.opacity(0.85), lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 25).strokeBorder(Theme.surface.opacity(0.85), lineWidth: 1.5))
         .shadow(color: palette.ink.opacity(isExpanded ? 0.13 : 0.07), radius: isExpanded ? 14 : 5, x: 0, y: isExpanded ? 8 : 3)
         .rotationEffect(.degrees(isExpanded || reduceMotion ? 0 : (index.isMultiple(of: 2) ? -0.8 : 0.8)))
         .padding(.vertical, 3)
@@ -77,7 +77,7 @@ struct SubjectLearningCard: View {
                         Image(systemName: symbol)
                             .font(.system(size: 16, weight: .semibold))
                             .frame(width: 32, height: 32)
-                            .background(.white.opacity(0.85), in: .rect(cornerRadius: 10))
+                            .background(Theme.surface.opacity(0.85), in: .rect(cornerRadius: 10))
                             .rotationEffect(.degrees(reduceMotion || isExpanded ? 0 : -6))
                         Text(finished ? "WEEK, WELL EXPLORED" : "A LITTLE MORE DISCOVERY")
                             .scaledFont(8, weight: .bold, maxScale: 1.2)
@@ -119,7 +119,7 @@ struct SubjectLearningCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.58), in: .rect(cornerRadius: 15))
+            .background(Theme.surface.opacity(0.58), in: .rect(cornerRadius: 15))
 
             HStack {
                 Text("\(LearningProgress.duration(subject.loggedMinutes)) logged")
@@ -137,7 +137,7 @@ struct SubjectLearningCard: View {
 
     private var progressSticker: some View {
         ZStack {
-            Circle().fill(.white.opacity(0.7))
+            Circle().fill(Theme.surface.opacity(0.7))
             Circle().stroke(palette.ink.opacity(0.1), lineWidth: 5)
                 .padding(6)
             Circle().trim(from: 0, to: subject.fraction)
@@ -172,7 +172,7 @@ struct SubjectLearningCard: View {
                 scopeButton("Whole week", wholeWeek: true)
             }
             .padding(4)
-            .background(.white.opacity(0.45), in: Capsule())
+            .background(Theme.surface.opacity(0.45), in: Capsule())
 
             if visibleActivities.isEmpty {
                 Text(showWholeWeek ? "No activities in this subject yet. There’s room for a little curiosity." : "A little pause for this subject today. Take a look at the whole week or plan something new.")
@@ -197,7 +197,7 @@ struct SubjectLearningCard: View {
                     .scaledFont(12, weight: .semibold, maxScale: 1.25)
                     .foregroundStyle(palette.ink)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(.white.opacity(0.7), in: Capsule())
+                    .background(Theme.surface.opacity(0.7), in: Capsule())
             }
             .buttonStyle(.plain)
         }
@@ -219,7 +219,7 @@ struct SubjectLearningCard: View {
             Text(title).scaledFont(12, weight: .semibold, maxScale: 1.2)
                 .foregroundStyle(palette.ink)
                 .frame(maxWidth: .infinity, minHeight: 36)
-                .background(showWholeWeek == wholeWeek ? .white : .clear, in: Capsule())
+                .background(showWholeWeek == wholeWeek ? Theme.surface : .clear, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(showWholeWeek == wholeWeek ? .isSelected : [])
@@ -289,7 +289,7 @@ struct SubjectLearningCard: View {
         }
         .padding(.horizontal, 4).padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white.opacity(activity.isDone ? 0.45 : 0.75), in: .rect(cornerRadius: 16))
+        .background(Theme.surface.opacity(activity.isDone ? 0.45 : 0.75), in: .rect(cornerRadius: 16))
     }
 
     private func detailText(_ label: String, text: String) -> some View {
@@ -319,10 +319,10 @@ private struct SubjectCardPalette {
     let paper: Color
     let ink: Color
     static let all = [
-        SubjectCardPalette(paper: Color(hex: 0xEEE7FF), ink: Color(hex: 0x5940A5)),
-        SubjectCardPalette(paper: Color(hex: 0xFFE7DD), ink: Color(hex: 0x9B4D3B)),
-        SubjectCardPalette(paper: Color(hex: 0xE2F0E7), ink: Color(hex: 0x386553)),
-        SubjectCardPalette(paper: Color(hex: 0xFFF1CE), ink: Color(hex: 0x88621E))
+        SubjectCardPalette(paper: Color.adaptive(0xEEE7FF, 0x2F263F), ink: Color.adaptive(0x5940A5, 0xD2BCFF)),
+        SubjectCardPalette(paper: Color.adaptive(0xFFE7DD, 0x3D2A29), ink: Color.adaptive(0x9B4D3B, 0xF4B8A7)),
+        SubjectCardPalette(paper: Color.adaptive(0xE2F0E7, 0x22352D), ink: Color.adaptive(0x386553, 0xA8DAC0)),
+        SubjectCardPalette(paper: Color.adaptive(0xFFF1CE, 0x393122), ink: Color.adaptive(0x88621E, 0xE8CC8C))
     ]
 }
 

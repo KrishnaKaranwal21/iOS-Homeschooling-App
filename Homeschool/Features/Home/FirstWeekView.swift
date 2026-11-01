@@ -56,7 +56,7 @@ private struct WeekPlanPage: View {
                 header
                 Text(saved ? "WEEK 1" : "WEEK 1 · DRAFT")
                     .scaledFont(11, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Color(hex: 0x8D4540))
+                    .foregroundStyle(Color.adaptive(0x8D4540, 0xF2ABA3))
                     .padding(.horizontal, 15).padding(.vertical, 6)
                     .background(WeekStyle.pink, in: Capsule())
 
@@ -90,7 +90,7 @@ private struct WeekPlanPage: View {
                 if !completed.isEmpty { completedSection }
                 if dailyMinutes > plan.hoursPerDay * 60 {
                     Text("This day is \(dailyMinutes - plan.hoursPerDay * 60) min over your chosen rhythm. You can adjust any task before saving.")
-                        .caption().foregroundStyle(Color(hex: 0x9C4A4B))
+                        .caption().foregroundStyle(Color.adaptive(0x9C4A4B, 0xF0ADAA))
                 }
             }
             .padding(.horizontal, 20)
@@ -181,7 +181,7 @@ private struct WeekPlanPage: View {
                                 .foregroundStyle(WeekStyle.secondary)
                         }
                         .frame(width: 79, height: 76)
-                        .background(selectedDay == day ? Color.white : WeekStyle.pink, in: .rect(cornerRadius: 9))
+                        .background(selectedDay == day ? Theme.surface : WeekStyle.pink, in: .rect(cornerRadius: 9))
                         .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(selectedDay == day ? WeekStyle.purple : .clear, lineWidth: 1))
                         .rotationEffect(.degrees([-5, 5, -5, 5][index % 4]))
                         .padding(.vertical, 5)
@@ -225,7 +225,7 @@ private struct WeekPlanPage: View {
                 HStack(spacing: 10) {
                     Text("\(activity.minutes) min")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(activity.subject.lowercased().contains("math") ? Color(hex: 0x8D4540) : WeekStyle.purple)
+                        .foregroundStyle(activity.subject.lowercased().contains("math") ? Color.adaptive(0x8D4540, 0xF2ABA3) : WeekStyle.purple)
                         .frame(width: 62, height: 32)
                         .background(activity.subject.lowercased().contains("math") ? WeekStyle.pink : Theme.field, in: Capsule())
                     VStack(alignment: .leading, spacing: 2) {
@@ -252,7 +252,7 @@ private struct WeekPlanPage: View {
                     .foregroundStyle(WeekStyle.purple)
                     .frame(width: 30, height: 30)
                     .background(WeekStyle.field, in: Circle())
-                    .overlay(Circle().strokeBorder(Color(hex: 0xB5A9DA), lineWidth: 1))
+                    .overlay(Circle().strokeBorder(Color.adaptive(0xB5A9DA, 0x8F7DAE), lineWidth: 1))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -263,7 +263,7 @@ private struct WeekPlanPage: View {
             Button { remove(activity) } label: {
                 Image(systemName: "minus.circle")
                     .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color(hex: 0x9C6C73))
+                    .foregroundStyle(Color.adaptive(0x9C6C73, 0xD7A1AE))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -273,7 +273,7 @@ private struct WeekPlanPage: View {
         }
         .padding(.leading, 11).padding(.trailing, 5).padding(.vertical, 3)
         .frame(minHeight: 52)
-        .background(.white, in: .rect(cornerRadius: 11))
+        .background(Theme.surface, in: .rect(cornerRadius: 11))
         .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(WeekStyle.border, lineWidth: 0.8))
     }
 
@@ -323,7 +323,7 @@ private struct WeekPlanPage: View {
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 44)
-                    .background(Color(hex: 0x2D3531), in: Capsule())
+                    .background(Theme.buttonFill, in: Capsule())
             }
             .buttonStyle(.plain)
             Text("Review now. Adjust anytime.")
@@ -356,7 +356,7 @@ private struct WeekPlanPage: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity)
-        .background(.white, in: .rect(cornerRadius: 20))
+        .background(Theme.surface, in: .rect(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(WeekStyle.border, lineWidth: 0.8))
         .transition(.opacity)
     }
@@ -463,12 +463,12 @@ private struct WeekPlanPage: View {
 }
 
 enum WeekStyle {
-    static let pink = Color(hex: 0xFFC4C8)
-    static let lavender = Color(hex: 0xE9E5FF)
-    static let field = Color(hex: 0xF4F2FF)
-    static let secondary = Color(hex: 0x817D9F)
-    static let purple = Color(hex: 0x2B2859)
-    static let border = Color(hex: 0xDFDDED)
+    static let pink = Color.adaptive(0xFFC4C8, 0x482D38)
+    static let lavender = Color.adaptive(0xE9E5FF, 0x30283F)
+    static let field = Color.adaptive(0xF4F2FF, 0x24212D)
+    static let secondary = Color.adaptive(0x817D9F, 0xAEA6C3)
+    static let purple = Color.adaptive(0x2B2859, 0xD4C8F4)
+    static let border = Color.adaptive(0xDFDDED, 0x40384F)
 }
 
 private struct DayStartTimeSheet: View {

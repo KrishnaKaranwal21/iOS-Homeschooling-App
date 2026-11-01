@@ -30,7 +30,7 @@ struct VerifyCodeView: View {
 
                 VStack(alignment: .leading, spacing: 18) {
                     Circle()
-                        .fill(Color(hex: 0xFFC8C9))
+                        .fill(Color.adaptive(0xFFC8C9, 0x482D38))
                         .frame(width: 56, height: 56)
                         .overlay(Image(systemName: "envelope")
                             .scaledFont(24)
@@ -114,14 +114,14 @@ struct VerifyCodeView: View {
             .foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 60)
-            .background(Color.white, in: .rect(cornerRadius: 16))
+            .background(Theme.surface, in: .rect(cornerRadius: 16))
             .roundedStroke(borderColor(active: isActive, filled: !digit.isEmpty), cornerRadius: 16, lineWidth: isActive || showError ? 1.5 : 1)
     }
 
     private func borderColor(active: Bool, filled: Bool) -> Color {
         if showError { return Color.red.opacity(0.7) }
         if active { return Theme.ink }
-        return filled ? Color(hex: 0xEFB4B4) : Theme.cardBorder
+        return filled ? Color.adaptive(0xEFB4B4, 0x75505D) : Theme.cardBorder
     }
 
     // MARK: Resend

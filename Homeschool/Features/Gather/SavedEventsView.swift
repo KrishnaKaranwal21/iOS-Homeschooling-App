@@ -75,7 +75,7 @@ private struct SavedEventRow: View {
             .accessibilityLabel("Remove from saved events")
         }
         .padding(10)
-        .background(Color.white, in: .rect(cornerRadius: 24))
+        .background(Theme.surface, in: .rect(cornerRadius: 24))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
     }
 }

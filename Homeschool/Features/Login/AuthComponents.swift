@@ -69,7 +69,7 @@ struct SocialButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(minHeight: 56)
-            .background(Color.white, in: .rect(cornerRadius: 20))
+            .background(Theme.surface, in: .rect(cornerRadius: 20))
             .roundedStroke(Theme.lavender.opacity(0.7), cornerRadius: 20, lineWidth: 1)
             .contentShape(.rect(cornerRadius: 20))
         }

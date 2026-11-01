@@ -110,7 +110,7 @@ struct ChatInfoView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 66)
-            .background(Color.white, in: .rect(cornerRadius: 18))
+            .background(Theme.surface, in: .rect(cornerRadius: 18))
         }
         .buttonStyle(.plain)
     }
@@ -264,7 +264,7 @@ struct ChatInfoView: View {
                     .foregroundStyle(Theme.tabSelected)
                     .padding(.horizontal, 10)
                     .frame(height: 24)
-                    .background(Capsule().fill(Color(hex: 0xEFEDFB)))
+                    .background(Capsule().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
             }
         }
         .padding(.horizontal, 14)
@@ -313,11 +313,11 @@ struct ChatInfoView: View {
 
     private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0, content: content)
-            .background(Color.white, in: .rect(cornerRadius: 22))
+            .background(Theme.surface, in: .rect(cornerRadius: 22))
     }
 
     private var separator: some View {
-        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1).padding(.leading, 52)
+        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1).padding(.leading, 52)
     }
 
     private func row(icon: String, title: String, trailing: String?, showsChevron: Bool,

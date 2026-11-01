@@ -144,7 +144,7 @@ struct CommunityView: View {
                         .scaledFont(11, weight: .bold, maxScale: 1.2)
                         .foregroundStyle(Color.white)
                         .frame(minWidth: 18, minHeight: 18)
-                        .background(Circle().fill(Theme.ink))
+                        .background(Circle().fill(Theme.buttonFill))
                 }
             }
             .accessibilityLabel(unread > 0 ? "Notifications, \(unread) new" : "Notifications")
@@ -334,7 +334,7 @@ struct ParentCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(highlight ? Theme.lilac : Color.white, in: .rect(cornerRadius: 28))
+        .background(highlight ? Theme.lilac : Theme.surface, in: .rect(cornerRadius: 28))
         .roundedStroke(highlight ? Theme.lavender : Theme.lilacBorder, cornerRadius: 28, lineWidth: highlight ? 1.5 : 1)
     }
 
@@ -356,10 +356,10 @@ struct ParentCard: View {
             Button { state.sendRequest(to: parent) } label: {
                 Text(requested ? "Requested" : "Connect")
                     .scaledFont(15, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(requested ? Theme.gatherText : Color.white)
+                    .foregroundStyle(requested ? Theme.gatherText : Theme.buttonText)
                     .padding(.horizontal, 22)
                     .frame(minHeight: 42)
-                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.ink))
+                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.buttonFill))
             }
             .buttonStyle(.plain)
             .disabled(requested)
@@ -468,7 +468,7 @@ struct NotificationsView: View {
                             .scaledFont(15, weight: .semibold, maxScale: 1.25)
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity, minHeight: 42)
-                            .background(Capsule().fill(Theme.ink))
+                            .background(Capsule().fill(Theme.buttonFill))
                     }
                     .buttonStyle(.plain)
 
@@ -483,7 +483,7 @@ struct NotificationsView: View {
                 }
             }
             .padding(14)
-            .background(Color.white, in: .rect(cornerRadius: 24))
+            .background(Theme.surface, in: .rect(cornerRadius: 24))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
         } else {
             Button {
@@ -546,7 +546,7 @@ private struct NotificationCard: View {
         }
         .padding(framed ? 14 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(framed ? Color.white : Color.clear, in: .rect(cornerRadius: 24))
+        .background(framed ? Theme.surface : Color.clear, in: .rect(cornerRadius: 24))
         .roundedStroke(framed ? Theme.lilacBorder : Color.clear, cornerRadius: 24)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)

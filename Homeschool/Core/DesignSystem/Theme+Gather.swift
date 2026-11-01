@@ -2,19 +2,19 @@ import SwiftUI
 
 extension Theme {
     /// Purple-tinted greys and fills used on the Gather screens.
-    static let gatherText   = Color(hex: 0x77748F)
-    static let gatherAccent = Color(hex: 0x3D2FA0)
-    static let lilac        = Color(hex: 0xEFEBFC)
-    static let lilacBorder  = Color(hex: 0xDDD7F5)
-    static let chipFill     = Color(hex: 0xF0EFF8)
+    static let gatherText   = Color.adaptive(0x77748F, 0xA7A3B3)
+    static let gatherAccent = Color.adaptive(0x3D2FA0, 0xBBA4FF)
+    static let lilac        = Color.adaptive(0xEFEBFC, 0x2D273D)
+    static let lilacBorder  = Color.adaptive(0xDDD7F5, 0x40384F)
+    static let chipFill     = Color.adaptive(0xF0EFF8, 0x28252F)
 
     /// Tab bar colours, the same on every tab.
-    static let tabSelected     = Color(hex: 0x6F6A9A)
-    static let tabIconInactive = Color(hex: 0xB5AED0)
-    static let tabLabelInactive = Color(hex: 0x8E8E93)
+    static let tabSelected     = Color.adaptive(0x6F6A9A, 0xBBA4FF)
+    static let tabIconInactive = Color.adaptive(0xB5AED0, 0x81798F)
+    static let tabLabelInactive = Color.adaptive(0x8E8E93, 0xA4A3AA)
     /// Unselected tab icon and label: darker than the old lilac, still lighter than `tabSelected`.
-    static let tabUnselectedIcon  = Color(hex: 0x9A94BA)
-    static let tabUnselectedLabel = Color(hex: 0x8A85AA)
+    static let tabUnselectedIcon  = Color.adaptive(0x9A94BA, 0xA49BAD)
+    static let tabUnselectedLabel = Color.adaptive(0x8A85AA, 0xADA5BC)
 }
 
 /// White rounded box with a hairline border, used for form fields on the Gather screens.
@@ -26,7 +26,7 @@ struct GatherFieldStyle: ViewModifier {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: 16))
+            .background(Theme.surface, in: .rect(cornerRadius: 16))
             .roundedStroke(Theme.cardBorder, cornerRadius: 16, lineWidth: 1)
     }
 }

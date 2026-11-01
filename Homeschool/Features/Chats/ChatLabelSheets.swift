@@ -55,7 +55,7 @@ struct LabelEditorSheet: View {
                                 Circle()
                                     .fill(ChatLabel.palette[index])
                                     .frame(width: 32, height: 32)
-                                    .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                                    .overlay(Circle().stroke(Theme.ink.opacity(0.12), lineWidth: 0.5))
                                     .overlay {
                                         if colorIndex == index {
                                             Image(systemName: "checkmark")
@@ -141,7 +141,7 @@ struct ThreadLabelsSheet: View {
                         Button { state.chats.toggleLabel(label.id, on: threadID) } label: {
                             HStack(spacing: 12) {
                                 Circle().fill(label.color).frame(width: 14, height: 14)
-                                    .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                                    .overlay(Circle().stroke(Theme.ink.opacity(0.12), lineWidth: 0.5))
                                 Text(label.name).foregroundStyle(Theme.ink)
                                 Spacer()
                                 if thread?.labelIDs.contains(label.id) == true {
@@ -241,7 +241,7 @@ struct BroadcastSheet: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(canSend ? Color.white : Theme.secondary)
                             .frame(width: 42, height: 42)
-                            .background(Circle().fill(canSend ? Theme.ink : Theme.field))
+                            .background(Circle().fill(canSend ? Theme.buttonFill : Theme.field))
                     }
                     .buttonStyle(.plain)
                     .disabled(!canSend)
@@ -544,14 +544,15 @@ struct ChatToastView: View {
                 Button(action: onAction) {
                     Text(title)
                         .scaledFont(15, weight: .semibold, maxScale: 1.3)
-                        .foregroundStyle(Theme.lavender)
+                        .foregroundStyle(Theme.buttonText)
+                        .underline()
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 18)
         .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
-        .background(Theme.ink, in: .rect(cornerRadius: 16))
+        .background(Theme.buttonFill, in: .rect(cornerRadius: 16))
         .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
         .accessibilityElement(children: .combine)
     }

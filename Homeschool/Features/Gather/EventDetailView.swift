@@ -112,7 +112,7 @@ struct EventDetailView: View {
                 .foregroundStyle(Theme.secondary)
         }
         .frame(width: 72, height: 82)
-        .background(Color.white, in: .rect(cornerRadius: 22))
+        .background(Theme.surface, in: .rect(cornerRadius: 22))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
         .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
@@ -150,7 +150,7 @@ struct EventDetailView: View {
                 .scaledFont(16, maxScale: 1.2)
                 .foregroundStyle(Theme.gatherText)
                 .frame(width: 42, height: 42)
-                .background(Circle().fill(Color.white))
+                .background(Circle().fill(Theme.surface))
                 .overlay(Circle().stroke(Theme.lilacBorder, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
@@ -178,7 +178,7 @@ struct EventDetailView: View {
                 .scaledFont(17, maxScale: 1.2)
                 .foregroundStyle(Theme.gatherText)
                 .frame(width: 42, height: 42)
-                .background(Circle().fill(Color.white.opacity(0.8)))
+                .background(Circle().fill(Theme.surface.opacity(0.8)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Hosted by \(current.host)")
@@ -193,7 +193,7 @@ struct EventDetailView: View {
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 14)
                     .frame(height: 36)
-                    .background(Capsule().fill(Color.white))
+                    .background(Capsule().fill(Theme.surface))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Message the host")
@@ -226,12 +226,12 @@ struct EventDetailView: View {
                     }
                     .tint(Theme.secondary)
                     if index < faqs.count - 1 {
-                        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+                        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
                     }
                 }
             }
             .padding(.horizontal, 16)
-            .background(Color.white, in: .rect(cornerRadius: 24))
+            .background(Theme.surface, in: .rect(cornerRadius: 24))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
 
         }
@@ -250,7 +250,7 @@ struct EventDetailView: View {
                     .rowDetail()
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white, in: .rect(cornerRadius: 24))
+                    .background(Theme.surface, in: .rect(cornerRadius: 24))
                     .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
             } else {
                 VStack(spacing: 0) {
@@ -283,12 +283,12 @@ struct EventDetailView: View {
                         }
                         .padding(.vertical, 14)
                         if index < mine.count - 1 {
-                            Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
                         }
                     }
                 }
                 .padding(.horizontal, 16)
-                .background(Color.white, in: .rect(cornerRadius: 24))
+                .background(Theme.surface, in: .rect(cornerRadius: 24))
                 .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
             }
 
@@ -313,7 +313,7 @@ struct EventDetailView: View {
                 .scaledFont(17, maxScale: 1.2)
                 .foregroundStyle(Theme.ink)
                 .frame(width: 42, height: 42)
-                .background(Circle().fill(Color.white.opacity(0.8)))
+                .background(Circle().fill(Theme.surface.opacity(0.8)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("You’re hosting this event")
@@ -331,7 +331,7 @@ struct EventDetailView: View {
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 14)
                         .frame(height: 36)
-                        .background(Capsule().fill(Theme.ink))
+                        .background(Capsule().fill(Theme.buttonFill))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(current.unansweredCount) new questions. Show questions")
@@ -363,7 +363,7 @@ struct EventDetailView: View {
                     .rowDetail()
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white, in: .rect(cornerRadius: 24))
+                    .background(Theme.surface, in: .rect(cornerRadius: 24))
                     .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
             } else {
                 VStack(spacing: 0) {
@@ -373,12 +373,12 @@ struct EventDetailView: View {
                             state.answerQuestion(question.id, on: current.id, answer: answer, publish: publish)
                         }
                         if index < items.count - 1 {
-                            Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
                         }
                     }
                 }
                 .padding(.horizontal, 16)
-                .background(Color.white, in: .rect(cornerRadius: 24))
+                .background(Theme.surface, in: .rect(cornerRadius: 24))
                 .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
             }
         }
@@ -408,14 +408,14 @@ struct EventDetailView: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .padding(.horizontal, 20)
                     .frame(minHeight: 52)
-                    .gatherGlass(in: Capsule(), tint: Theme.ink)
+                    .gatherGlass(in: Capsule(), tint: Theme.buttonFill)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
         .background {
-            Color.white
+            Theme.surface
                 .clipShape(.rect(cornerRadius: 32))
                 .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
         }
@@ -457,7 +457,7 @@ struct EventDetailView: View {
                         .foregroundStyle(Color.white)
                         .frame(width: 150)
                         .frame(minHeight: 52)
-                        .gatherGlass(in: Capsule(), tint: Theme.ink)
+                        .gatherGlass(in: Capsule(), tint: Theme.buttonFill)
                 }
                 .buttonStyle(.plain)
             }
@@ -465,7 +465,7 @@ struct EventDetailView: View {
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
         .background {
-            Color.white
+            Theme.surface
                 .clipShape(.rect(cornerRadius: 32))
                 .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
         }

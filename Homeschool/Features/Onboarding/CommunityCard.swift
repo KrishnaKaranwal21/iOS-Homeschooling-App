@@ -12,7 +12,7 @@ struct CommunityCard: View {
             HStack {
                 SmileyFace()
                 Spacer()
-                Circle().fill(Color(hex: 0xFFC8C9))
+                Circle().fill(Color.adaptive(0xFFC8C9, 0x482D38))
                     .frame(width: 54, height: 54)
                     .overlay(Image(systemName: "bubble.left.and.bubble.right")
                         .scaledFont(24, maxScale: 1.15)
@@ -36,7 +36,7 @@ struct CommunityCard: View {
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
-            .background(.white, in: Capsule())
+            .background(Theme.surface, in: Capsule())
             .padding(.leading, 28)
             .padding(.top, 24)
 
@@ -45,7 +45,7 @@ struct CommunityCard: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
-                .background(Theme.ink, in: Capsule())
+                .background(Theme.buttonFill, in: Capsule())
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.top, 14)
 
@@ -60,7 +60,7 @@ struct CommunityCard: View {
 private struct SmileyFace: View {
     var body: some View {
         Circle()
-            .fill(Theme.ink)
+            .fill(Theme.buttonFill)
             .frame(width: 54, height: 54)
             .overlay(
                 VStack(spacing: 6) {
