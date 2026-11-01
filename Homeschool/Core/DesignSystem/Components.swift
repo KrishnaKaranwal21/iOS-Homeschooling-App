@@ -44,10 +44,7 @@ struct ScreenHeader: View {
 struct Mascot: View {
     var size: CGFloat = 80
     var body: some View {
-        ZStack {
-            Circle().fill(Theme.coral.opacity(0.85))
-            Image(systemName: "face.smiling.inverse").font(.system(size: size * 0.5)).foregroundStyle(.white)
-        }.frame(width: size, height: size)
+        HomeMascotView().frame(width: size, height: size)
     }
 }
 
@@ -209,9 +206,7 @@ struct ProfileHero: View {
         .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
         .background(Theme.surface, in: .rect(cornerRadius: 28))
         .overlay(alignment: .bottomTrailing) {
-            Image("HomeMascot")
-                .resizable()
-                .scaledToFit()
+            HomeMascotView()
                 .frame(width: 76)
                 .padding(.trailing, 14)
                 .accessibilityHidden(true)

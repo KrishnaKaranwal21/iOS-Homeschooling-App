@@ -142,9 +142,7 @@ struct AppPopupView: View {
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.center)
 
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(height: 120)
                     .accessibilityHidden(true)
 

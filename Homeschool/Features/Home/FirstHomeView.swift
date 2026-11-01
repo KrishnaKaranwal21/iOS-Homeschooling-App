@@ -244,9 +244,7 @@ struct FirstHomeView: View {
         .background(Theme.pink, in: .rect(cornerRadius: isWide ? 36 : 28))
         .overlay(alignment: .topTrailing) {
             if !isWide {
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(width: 138)
                     .offset(x: 3, y: -66)
                     .accessibilityHidden(true)
@@ -255,9 +253,7 @@ struct FirstHomeView: View {
         // iPad: the mascot sits behind the card and peeks over its top edge, so no cut edge shows.
         .background(alignment: .topTrailing) {
             if isWide {
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(width: 176)
                     .offset(x: -28, y: -108)
                     .accessibilityHidden(true)

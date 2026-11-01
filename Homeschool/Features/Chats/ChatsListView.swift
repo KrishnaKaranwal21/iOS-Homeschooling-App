@@ -485,9 +485,7 @@ struct ChatsListView: View {
     private var welcomeCallout: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(width: 120)
                     .accessibilityHidden(true)
 
