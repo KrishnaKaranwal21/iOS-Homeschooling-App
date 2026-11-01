@@ -11,6 +11,12 @@ struct EventDetailView: View {
     @State private var showCalendar = false
     @State private var showOrganizerBanner = true
     @State private var expandedAbout = false
+    @State private var expandedFAQs = false
+    @State private var descriptionFullHeight: CGFloat = 0
+    @State private var descriptionPreviewHeight: CGFloat = 0
+    @State private var showReport = false
+    @State private var reportSaved = false
+    @State private var reportNoticePending = false
     @State private var showDetails = false
     @State private var expandedQuestions = false
     @State private var showHost = false
@@ -33,7 +39,6 @@ struct EventDetailView: View {
                     eventSummary
                     organizerCard
                     descriptionSection
-                    attendanceSection
                     if current.isHostedByMe {
                         hostPanel(proxy)
                         hostQuestionsSection.id("questions")
@@ -47,6 +52,7 @@ struct EventDetailView: View {
                     }
                     EventLocationSection(event: current)
                     EventPhotosSection(event: current)
+                    reportButton
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -64,6 +70,22 @@ struct EventDetailView: View {
             .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
             .sheet(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
             .sheet(isPresented: $showContactHost) { ContactHostSheet(event: current) }
+            .sheet(isPresented: $showReport, onDismiss: {
+                if reportNoticePending {
+                    reportNoticePending = false
+                    reportSaved = true
+                }
+            }) {
+                ReportEventSheet(event: current) {
+                    reportNoticePending = true
+                    showReport = false
+                }
+            }
+            .alert("Report saved", isPresented: $reportSaved) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your report has been saved on this device.")
+            }
             .sheet(isPresented: $showDetails) { detailsSheet }
             .sheet(isPresented: $showCalendar) { EventCalendarSheet(event: current).ignoresSafeArea() }
             .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
@@ -215,15 +237,33 @@ struct EventDetailView: View {
         .accessibilityLabel(current.isHostedByMe ? "You are hosting this event" : "Contact organizer, \(current.host)")
     }
 
+    private var descriptionText: some View {
+        let content = (try? AttributedString(markdown: current.about,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(current.about)
+        return Text(content).scaledFont(16, maxScale: 1.35)
+            .foregroundStyle(Theme.secondary).lineSpacing(5)
+    }
+
     private var descriptionSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(current.about).scaledFont(16, maxScale: 1.35).foregroundStyle(Theme.secondary)
-                .lineSpacing(5).lineLimit(expandedAbout ? nil : 5)
+            descriptionText
+                .lineLimit(expandedAbout ? nil : 6)
                 .fixedSize(horizontal: false, vertical: true)
-            if current.about.count > 220 {
+                .background(alignment: .topLeading) {
+                    descriptionText.lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+                        .hidden().accessibilityHidden(true)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { descriptionFullHeight = $0 }
+                }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                    if !expandedAbout { descriptionPreviewHeight = $0 }
+                }
+            if expandedAbout || descriptionFullHeight > descriptionPreviewHeight + 1 {
                 Button(expandedAbout ? "Read less" : "Read more") {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { expandedAbout.toggle() }
-                }.scaledFont(16, weight: .semibold, maxScale: 1.3).foregroundStyle(Theme.accent).buttonStyle(.plain)
+                }
+                .scaledFont(16, weight: .semibold, maxScale: 1.3)
+                .foregroundStyle(Theme.accent).buttonStyle(.plain)
+                .accessibilityIdentifier("event.readMore")
             }
             Text(current.category).scaledFont(13, weight: .semibold, maxScale: 1.25)
                 .foregroundStyle(Theme.ink).padding(.horizontal, 14).padding(.vertical, 7)
@@ -231,24 +271,16 @@ struct EventDetailView: View {
         }
     }
 
-    private var attendanceSection: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Hosting 1").scaledFont(15, weight: .semibold, maxScale: 1.3)
-                Text(initials(current.host)).scaledFont(14, weight: .semibold, maxScale: 1.3)
-                    .frame(width: 42, height: 42).background(Theme.lavender, in: Circle())
-                    .accessibilityLabel(current.host)
-            }.frame(maxWidth: .infinity, alignment: .leading)
-            Rectangle().fill(Theme.cardBorder).frame(width: 1, height: 78).padding(.horizontal, 24)
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Going \(current.registeredCount)").scaledFont(15, weight: .semibold, maxScale: 1.3)
-                Image(systemName: current.isRegistered ? "checkmark" : "person.2")
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 42, height: 42).background(Theme.pink, in: Circle())
-                    .accessibilityLabel(current.isRegistered ? "Your family is going" : "\(current.registeredCount) registered")
-            }.frame(maxWidth: .infinity, alignment: .leading)
+    private var reportButton: some View {
+        Button { showReport = true } label: {
+            Label("Report this event", systemImage: "flag")
+                .scaledFont(17, weight: .semibold, maxScale: 1.35)
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .contentShape(Rectangle())
         }
-        .foregroundStyle(Theme.ink).padding(.vertical, 6)
+        .buttonStyle(.plain).padding(.top, 12).padding(.bottom, 90)
+        .accessibilityIdentifier("event.report")
     }
 
     private var detailsSheet: some View {
@@ -308,35 +340,47 @@ struct EventDetailView: View {
     // MARK: FAQs
 
     private var faqSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(current.isHostedByMe ? "FAQs families see" : "FAQs")
-                .sectionTitle()
-                .padding(.horizontal, 6)
+        VStack(alignment: .leading, spacing: expandedFAQs ? 10 : 0) {
+            Button {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { expandedFAQs.toggle() }
+            } label: {
+                HStack {
+                    Text(current.isHostedByMe ? "FAQs families see" : "FAQs").sectionTitle()
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.secondary)
+                        .rotationEffect(.degrees(expandedFAQs ? 180 : 0))
+                }
+                .frame(minHeight: 48).padding(.horizontal, 6).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(expandedFAQs ? "Expanded" : "Collapsed")
+            .accessibilityHint("Show or hide the event questions")
+            .accessibilityIdentifier("event.faqToggle")
 
-            VStack(spacing: 0) {
-                let faqs = current.allFAQs
-                ForEach(Array(faqs.enumerated()), id: \.element.id) { index, faq in
-                    DisclosureGroup {
-                        Text(faq.answer)
-                            .rowDetail()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.bottom, 12)
-                    } label: {
-                        Text(faq.question)
-                            .rowTitle()
-                            .multilineTextAlignment(.leading)
-                            .padding(.vertical, 12)
-                    }
-                    .tint(Theme.secondary)
-                    if index < faqs.count - 1 {
-                        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
+            if expandedFAQs {
+                VStack(spacing: 0) {
+                    let faqs = current.allFAQs
+                    ForEach(Array(faqs.enumerated()), id: \.element.id) { index, faq in
+                        DisclosureGroup {
+                            Text(faq.answer).rowDetail()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.bottom, 12)
+                        } label: {
+                            Text(faq.question).rowTitle().multilineTextAlignment(.leading)
+                                .padding(.vertical, 12)
+                        }
+                        .tint(Theme.secondary)
+                        if index < faqs.count - 1 {
+                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .background(Theme.surface, in: .rect(cornerRadius: 24))
+                .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
+                .transition(.opacity)
             }
-            .padding(.horizontal, 16)
-            .background(Theme.surface, in: .rect(cornerRadius: 24))
-            .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-
         }
     }
 
