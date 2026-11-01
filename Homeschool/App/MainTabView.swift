@@ -26,7 +26,8 @@ struct MainTabView: View {
     @State private var resetCounts: [AppTab: Int] = [:]
 
     var body: some View {
-        TabView(selection: $selection) {
+        @Bindable var bindableState = state
+        return TabView(selection: $selection) {
             Tab(value: AppTab.home) {
                 NavigationStack { HomeView() }.id(resetCounts[.home, default: 0])
             } label: {
@@ -38,7 +39,7 @@ struct MainTabView: View {
                 label("Progress", symbol: "chart.bar.fill", tab: .progress)
             }
             Tab(value: AppTab.gather) {
-                NavigationStack { GatherView() }.id(resetCounts[.gather, default: 0])
+                NavigationStack(path: $bindableState.gatherPath) { GatherView() }.id(resetCounts[.gather, default: 0])
             } label: {
                 label("Gather", symbol: "calendar", tab: .gather)
             }
@@ -57,7 +58,21 @@ struct MainTabView: View {
         .tint(Theme.tabSelected)
         .task { state.refreshLiveLocation() }
         .environment(\.openTab, { selection = $0 })
+        .overlay {
+            if let popup = state.popup {
+                AppPopupView(popup: popup) {
+                    state.popup = nil
+                } onOpen: {
+                    state.popup = nil
+                    state.open(popup.action) { selection = $0 }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.snappy, value: state.popup?.id)
         .onChange(of: selection) { old, new in
+            // An event opened from a notification shouldn't stay open once you leave Gatherings.
+            if old == .gather { state.gatherPath = NavigationPath() }
             // Leaving Home for the first time ends the first-time Home.
             if old == .home && new != .home { state.markFirstHomeSeen() }
             // Coming back to a tab shows its first page, not the last page you had open.
@@ -88,5 +103,70 @@ struct MainTabView: View {
         renderer.scale = displayScale
         guard let bitmap = renderer.cgImage else { return Image(systemName: symbol) }
         return Image(decorative: bitmap, scale: displayScale).renderingMode(.original)
+    }
+}
+
+// MARK: - Pop-up over the app
+
+/// A card over the whole app, like "Learning, wrapped up", for news the person should not miss.
+struct AppPopupView: View {
+    let popup: AppPopup
+    let onDismiss: () -> Void
+    let onOpen: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            VStack(spacing: 16) {
+                Text(popup.title)
+                    .scaledFont(30, weight: .bold, maxScale: 1.15)
+                    .tracking(-0.8)
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+
+                Image("HomeMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 120)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 4) {
+                    Text(popup.headline)
+                        .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                        .foregroundStyle(Theme.ink)
+                        .multilineTextAlignment(.center)
+                    Text(popup.detail)
+                        .scaledFont(14, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(Theme.lavender.opacity(0.55), in: .rect(cornerRadius: 20))
+
+                Text(popup.message)
+                    .scaledFont(15, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                    .multilineTextAlignment(.center)
+
+                Button(popup.buttonTitle, action: onOpen)
+                    .buttonStyle(.primaryHomeschool)
+
+                Button("Not now", action: onDismiss)
+                    .scaledFont(15, weight: .medium, maxScale: 1.25)
+                    .foregroundStyle(Theme.gatherText)
+                    .frame(minHeight: 36)
+            }
+            .padding(24)
+            .frame(maxWidth: 420)
+            .background(Color.white, in: .rect(cornerRadius: 40))
+            .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
+            .padding(.horizontal, 28)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+        }
     }
 }

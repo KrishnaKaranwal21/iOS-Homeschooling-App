@@ -267,9 +267,134 @@ final class AppState {
 
     /// Parents I sent a connection request to.
     var requestedParents: Set<Parent.ID> = []
+    /// Parents I am connected with, so I can message them.
+    var connectedParents: Set<Parent.ID> = MockData.initiallyConnected
 
     func sendRequest(to parent: Parent) {
         requestedParents.insert(parent.id)
+    }
+
+    // MARK: Notifications and pop-ups
+
+    var notifications: [AppNotification] = MockData.notifications
+    /// A message over the app, such as "The host answered your question".
+    var popup: AppPopup?
+    /// The Gatherings page's stack of pages, so a notification can open an event straight away.
+    var gatherPath = NavigationPath()
+    /// Set when an event should open scrolled to its questions.
+    var scrollEventToQuestions = false
+    private let incomingQuestionTexts = ["Is there parking near the entrance?", "Can my 6 year old join?", "Do we need to bring anything?"]
+
+    var unreadNotificationCount: Int { notifications.filter(\.isNew).count }
+
+    func markRead(_ id: AppNotification.ID) {
+        guard let index = notifications.firstIndex(where: { $0.id == id }), notifications[index].isNew else { return }
+        notifications[index].isNew = false
+    }
+
+    func addNotification(_ item: AppNotification) {
+        notifications.insert(item, at: 0)
+    }
+
+    /// Accepts a connection request. Returns the chat to open.
+    @discardableResult
+    func acceptRequest(from parentID: Parent.ID) -> ChatThread.ID? {
+        guard let parent = MockData.parents.first(where: { $0.id == parentID }) else { return nil }
+        connectedParents.insert(parentID)
+        notifications.removeAll { $0.action == .connectionRequest(parentID) }
+        addNotification(AppNotification(symbol: "bubble.left", title: "You and \(parent.firstName) are connected",
+                                        detail: "Say hello.", time: "Just now", isNew: false,
+                                        action: .openChat(parentID)))
+        return chats.startChat(with: parent)
+    }
+
+    func declineRequest(from parentID: Parent.ID) {
+        notifications.removeAll { $0.action == .connectionRequest(parentID) }
+    }
+
+    /// Does what a notification or pop-up points to: open an event, its questions or a chat.
+    func open(_ action: NotificationAction, openTab: (AppTab) -> Void) {
+        switch action {
+        case .none, .connectionRequest:
+            break
+        case .openEvent(let id):
+            showEvent(id, questions: false, openTab: openTab)
+        case .openEventQuestions(let id):
+            showEvent(id, questions: true, openTab: openTab)
+        case .openChat(let parentID):
+            guard let parent = MockData.parents.first(where: { $0.id == parentID }) else { return }
+            chats.pendingOpenID = chats.startChat(with: parent)
+            openTab(.chats)
+        }
+    }
+
+    private func showEvent(_ id: Event.ID, questions: Bool, openTab: (AppTab) -> Void) {
+        guard let event = events.first(where: { $0.id == id }) else { return }
+        scrollEventToQuestions = questions
+        gatherPath = NavigationPath([event])
+        openTab(.gather)
+    }
+
+    // MARK: Questions to a host
+
+    /// A parent asks an event's host a question. It is kept on the event page, not in Chats.
+    func askHost(of eventID: Event.ID, text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let index = events.firstIndex(where: { $0.id == eventID }) else { return }
+        let question = EventQuestion(asker: account?.name ?? "You", text: trimmed, date: .now, askedByMe: true)
+        events[index].questions.append(question)
+        simulateHostAnswer(eventID: eventID, questionID: question.id)
+    }
+
+    /// A family asks the signed-in host a question. Shows a pop-up and a notification.
+    func receiveQuestion(eventID: Event.ID, from asker: String, text: String) {
+        guard let index = events.firstIndex(where: { $0.id == eventID }) else { return }
+        events[index].questions.append(EventQuestion(asker: asker, text: text, date: .now))
+        let title = events[index].title
+        addNotification(AppNotification(symbol: "bubble.left.and.text.bubble.right",
+                                        title: "New question on \(title)", detail: "\(asker): “\(text)”",
+                                        time: "Just now", isNew: true, action: .openEventQuestions(eventID)))
+        guard stage == .main else { return }
+        popup = AppPopup(title: "A new question", headline: "\(asker) asked about “\(title)”",
+                         detail: "\(events[index].unansweredCount) waiting for your answer",
+                         message: "Families like quick replies. Answer when you have a moment.",
+                         buttonTitle: "View question", action: .openEventQuestions(eventID))
+    }
+
+    /// The host's answer to a question I asked. Shows a pop-up and a notification.
+    func receiveAnswer(eventID: Event.ID, questionID: EventQuestion.ID, answer: String) {
+        guard let e = events.firstIndex(where: { $0.id == eventID }),
+              let q = events[e].questions.firstIndex(where: { $0.id == questionID }) else { return }
+        events[e].questions[q].answer = answer
+        let title = events[e].title
+        let host = events[e].host
+        addNotification(AppNotification(symbol: "checkmark.bubble", title: "\(host) answered your question",
+                                        detail: "About “\(title)”", time: "Just now", isNew: true,
+                                        action: .openEventQuestions(eventID)))
+        guard stage == .main else { return }
+        popup = AppPopup(title: "You got an answer", headline: "\(host) replied",
+                         detail: "About “\(title)”",
+                         message: "See the answer on the event page.",
+                         buttonTitle: "View answer", action: .openEventQuestions(eventID))
+    }
+
+    // PROTOTYPE ONLY: there is no server yet, so a host's answer and a family's question are made up here
+    // a few seconds after the real action. Replace these with the real updates when the server exists.
+    private func simulateHostAnswer(eventID: Event.ID, questionID: EventQuestion.ID) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            self?.receiveAnswer(eventID: eventID, questionID: questionID,
+                                answer: "Thanks for asking! Yes, that works. Message us here if you need anything else.")
+        }
+    }
+
+    private func simulateIncomingQuestion(for eventID: Event.ID) {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(15))
+            guard let self else { return }
+            let asker = MockData.parents.randomElement()?.firstName ?? "A parent"
+            self.receiveQuestion(eventID: eventID, from: asker, text: self.incomingQuestionTexts.randomElement() ?? "Is this open to everyone?")
+        }
     }
 
     /// The host answers a family's question. With `publish`, it also joins the event's public FAQs.
@@ -292,6 +417,8 @@ final class AppState {
     func add(_ event: Event) {
         events.append(event)
         events.sort { $0.start < $1.start }
+        // PROTOTYPE ONLY: a family asks the new host a question a little later.
+        if event.isHostedByMe { simulateIncomingQuestion(for: event.id) }
     }
 
     // MARK: Bookmarks

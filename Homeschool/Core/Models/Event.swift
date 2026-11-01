@@ -14,6 +14,8 @@ struct EventQuestion: Identifiable, Hashable {
     var text: String
     var date: Date
     var answer: String? = nil
+    /// True when the signed-in parent asked it (to a host). Otherwise a family asked the signed-in host.
+    var askedByMe = false
 
     var isAnswered: Bool { answer != nil }
 }
