@@ -12,9 +12,7 @@ struct CommunityView: View {
     private var isWide: Bool { sizeClass == .regular }
     @State private var query = ""
     @State private var filter: CommunityFilter = .nearby
-    @State private var isRadiusOpen = false
-
-    private var radius: Int { state.communityRadiusKm }
+    @State private var showLocationPicker = false
 
     /// Ages of my children, from their dates of birth.
     private var myAges: [Int] {
@@ -26,8 +24,9 @@ struct CommunityView: View {
     }
 
     private var parents: [Parent] {
+        // "Near you" is the same 10 km as on the Gatherings page. No distance is ever shown.
         let nearby = MockData.parents
-            .filter { $0.distanceKm <= Double(radius) }
+            .filter { $0.distanceKm <= CommunityOptions.nearKm }
             .sorted { $0.distanceKm < $1.distanceKm }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let searched = text.isEmpty ? nearby : nearby.filter { $0.searchText.localizedCaseInsensitiveContains(text) }
@@ -44,25 +43,30 @@ struct CommunityView: View {
         }
     }
 
+    /// The parent with the most interests in common with my family, if any.
+    private var bestMatchID: Parent.ID? {
+        let scored = parents.map { ($0.id, $0.interests.filter { myInterests.contains($0) }.count) }
+        guard let best = scored.max(by: { $0.1 < $1.1 }), best.1 > 0 else { return nil }
+        return best.0
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 if isWide {
-                    // Distance and search share one row on a wide screen.
-                    HStack(alignment: .top, spacing: 14) {
-                        locationBar
+                    HStack(alignment: .center, spacing: 14) {
+                        locationChip
                         searchField
                     }
                     .padding(.horizontal, 24)
-                    .zIndex(1)
                 } else {
-                    locationBar
+                    locationChip
                     searchField
                 }
                 filterChips
 
-                Text("Parents around you")
+                Text("Parents near you")
                     .sectionTitle()
                     .padding(.horizontal, 24)
                     .padding(.top, 4)
@@ -72,13 +76,13 @@ struct CommunityView: View {
                 } else if isWide {
                     // Two parents in each row.
                     let rows = stride(from: 0, to: parents.count, by: 2).map { start in
-                        Array(parents.enumerated())[start..<min(start + 2, parents.count)]
+                        Array(parents[start..<min(start + 2, parents.count)])
                     }
                     VStack(spacing: 18) {
                         ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                             HStack(alignment: .top, spacing: 18) {
-                                ForEach(Array(row), id: \.element.id) { index, parent in
-                                    ParentCard(parent: parent, highlighted: index == 0)
+                                ForEach(row) { parent in
+                                    ParentCard(parent: parent, highlight: parent.id == bestMatchID)
                                         .frame(maxWidth: .infinity, alignment: .top)
                                 }
                                 if row.count == 1 { Color.clear.frame(maxWidth: .infinity) }
@@ -87,17 +91,13 @@ struct CommunityView: View {
                     }
                     .padding(.horizontal, 24)
                 } else {
-                    ForEach(Array(parents.enumerated()), id: \.element.id) { index, parent in
-                        ParentCard(parent: parent, highlighted: index == 0)
-                            .padding(.horizontal, 24)
+                    VStack(spacing: 16) {
+                        ForEach(parents) { parent in
+                            ParentCard(parent: parent, highlight: parent.id == bestMatchID)
+                        }
                     }
+                    .padding(.horizontal, 24)
                 }
-
-                Label("Only approximate distance is shown.", systemImage: "checkmark.shield")
-                    .scaledFont(12, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
             }
             .padding(.top, 8)
             .padding(.bottom, 24)
@@ -109,6 +109,10 @@ struct CommunityView: View {
         .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Parent.self) { ConnectView(parent: $0) }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationPickerSheet(allowsWorld: false, selection: state.homeLocation,
+                                home: state.homeLocation) { state.homeLocation = $0 }
+        }
     }
 
     // MARK: Top of the page
@@ -128,7 +132,7 @@ struct CommunityView: View {
     }
 
     private var bellIcon: some View {
-        let unread = MockData.notifications.filter(\.isNew).count
+        let unread = state.unreadNotificationCount
         return Image(systemName: "bell")
             .scaledFont(18, weight: .semibold, maxScale: 1.3)
             .foregroundStyle(Theme.ink)
@@ -146,118 +150,24 @@ struct CommunityView: View {
             .accessibilityLabel(unread > 0 ? "Notifications, \(unread) new" : "Notifications")
     }
 
-    private let radiusOptions = [1, 2, 3, 5, 10, 20]
-
-    /// Pink bar with the distance. Tapping it opens the other distances *below* the bar.
-    /// An invisible copy of the bar keeps the row's height, so the page doesn't jump,
-    /// and the real bar and its menu are drawn on top of it, growing downwards.
-    private var locationBar: some View {
-        radiusBarLabel
-            .hidden()
-            .overlay(alignment: .top) {
-                VStack(spacing: 8) {
-                    Button {
-                        withAnimation(.snappy) { isRadiusOpen.toggle() }
-                    } label: {
-                        radiusBarLabel
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Distance: within \(radius) kilometres")
-                    .accessibilityHint("Choose a different distance")
-
-                    if isRadiusOpen {
-                        radiusMenu
-                            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
-                    }
-                }
-            }
-            .frame(maxWidth: isWide ? 400 : .infinity)
-            .padding(.horizontal, isWide ? 0 : 24)
-            .zIndex(1)
-    }
-
-    private var radiusBarLabel: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.title3)
-                .foregroundStyle(Theme.ink)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Within \(radius) km of you")
-                    .scaledFont(17, weight: .semibold, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
-                Text(state.usesLiveLocation
-                     ? "Based on your current location"
-                     : "Based on \(state.homeLocation.name)")
-                    .scaledFont(14, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.down")
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(Theme.ink)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-        .background(Theme.pink, in: .rect(cornerRadius: 22))
-    }
-
-    private var radiusMenu: some View {
-        VStack(spacing: 0) {
-            Button { withAnimation(.snappy) { isRadiusOpen = false } } label: {
-                HStack {
-                    Text("\(radius) km")
-                        .scaledFont(17, weight: .semibold, maxScale: 1.3)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.footnote.weight(.bold))
-                }
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 20)
-                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                .background(Theme.pink)
-            }
-            .buttonStyle(.plain)
-
-            ForEach(radiusOptions.filter { $0 != radius }, id: \.self) { km in
-                Button {
-                    state.communityRadiusKm = km
-                    withAnimation(.snappy) { isRadiusOpen = false }
-                } label: {
-                    HStack {
-                        Text("\(km) km")
-                            .scaledFont(17, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherText)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.gatherText)
-                    }
-                    .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                    .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(km) kilometres")
-            }
-
-            // The home area itself is still changed in Profile.
-            Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
-            NavigationLink { ProfileView() } label: {
-                Label("Change area in Profile", systemImage: "mappin.and.ellipse")
-                    .scaledFont(15, weight: .medium, maxScale: 1.3)
+    /// The same "Near you" chip as on the Gatherings page: everything within 10 km.
+    private var locationChip: some View {
+        Button { showLocationPicker = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.and.ellipse")
                     .foregroundStyle(Theme.gatherAccent)
-                    .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                    .contentShape(.rect)
+                Text("Near you").fontWeight(.semibold).lineLimit(1)
+                Image(systemName: "chevron.down").font(.footnote.weight(.bold))
             }
-            .buttonStyle(.plain)
+            .scaledFont(15, maxScale: 1.3)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 38)
+            .gatherGlass(in: Capsule())
         }
-        .background(Color.white)
-        .clipShape(.rect(cornerRadius: 24))
-        .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
-        .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Near you, based on \(state.homeLocation.name). Change area")
+        .padding(.horizontal, isWide ? 0 : 24)
     }
 
     private var searchField: some View {
@@ -269,7 +179,7 @@ struct CommunityView: View {
                 .submitLabel(.search)
         }
         .padding(.horizontal, 16)
-        .frame(minHeight: isWide ? 60 : 52)
+        .frame(minHeight: 52)
         .background(Theme.chipFill, in: .rect(cornerRadius: 20))
         .frame(maxWidth: .infinity)
         .padding(.horizontal, isWide ? 0 : 24)
@@ -315,7 +225,7 @@ struct CommunityView: View {
     private var emptyMessage: String {
         switch filter {
         case .nearby:
-            return "No parents found within \(radius) km. You can widen the distance in Profile › Settings."
+            return "No parents found near you yet."
         case .similarAges:
             return myAges.isEmpty
                 ? "Add your child’s date of birth in their profile to find families with similar ages."
@@ -330,86 +240,130 @@ struct CommunityView: View {
 
 // MARK: - Parent card
 
+/// One parent: who they are and where, their children, what the children like, and what to do next.
 struct ParentCard: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openTab) private var openTab
     let parent: Parent
-    var highlighted = false
+    /// True for the family with the most in common.
+    var highlight = false
+
+    private var myInterests: Set<String> {
+        state.children.reduce(into: Set<String>()) { $0.formUnion($1.interests) }
+    }
 
     private var requested: Bool { state.requestedParents.contains(parent.id) }
+    private var connected: Bool { state.connectedParents.contains(parent.id) }
+
+    /// Their interests with the shared ones first.
+    private var interests: [String] {
+        let all = parent.interests
+        return all.filter { myInterests.contains($0) } + all.filter { !myInterests.contains($0) }
+    }
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 14) {
-                ParentAvatar(parent: parent, size: 98)
-
+                ParentAvatar(parent: parent, size: 64)
                 VStack(alignment: .leading, spacing: 4) {
-                    // Name on the left, approximate distance on the right.
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(parent.name)
-                            .scaledFont(19, weight: .bold, maxScale: 1.2)
+                            .scaledFont(20, weight: .bold, maxScale: 1.2)
                             .foregroundStyle(Theme.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
-                        Spacer(minLength: 4)
-                        HStack(spacing: 4) {
-                            Image(systemName: "mappin")
-                            Text(parent.approxDistance)
+                        Spacer(minLength: 0)
+                        if highlight {
+                            Label("Most in common", systemImage: "sparkles")
+                                .labelStyle(.titleAndIcon)
+                                .scaledFont(12, weight: .semibold, maxScale: 1.2)
+                                .foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(Theme.lavender))
                         }
-                        .scaledFont(13, maxScale: 1.2)
+                    }
+                    if !parent.place.isEmpty {
+                        Label(parent.place, systemImage: "mappin.and.ellipse")
+                            .scaledFont(14, maxScale: 1.25)
+                            .foregroundStyle(Theme.gatherText)
+                            .lineLimit(1)
+                    }
+                    Text(parent.role)
+                        .scaledFont(14, maxScale: 1.25)
                         .foregroundStyle(Theme.gatherText)
                         .lineLimit(1)
-                    }
+                }
+            }
 
-                    // Role and intro on the left, the sticky note on the right.
-                    HStack(alignment: .top, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(parent.role)
-                                .scaledFont(14, maxScale: 1.25)
-                                .foregroundStyle(Theme.gatherText)
-                            Text(parent.about)
-                                .scaledFont(14.5, maxScale: 1.25)
-                                .foregroundStyle(Theme.gatherText)
-                                .lineLimit(3)
-                        }
-                        Spacer(minLength: 0)
-                        StickyNote(text: parent.note)
+            Text(parent.about)
+                .scaledFont(15, maxScale: 1.25)
+                .foregroundStyle(Theme.ink.opacity(0.8))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !interests.isEmpty {
+                FlowLayout(spacing: 6) {
+                    ForEach(interests.prefix(4), id: \.self) { name in
+                        InfoChip(title: name, isCompact: true,
+                                 symbol: myInterests.contains(name) ? "sparkles" : nil)
+                    }
+                    if interests.count > 4 {
+                        InfoChip(title: "+\(interests.count - 4)", tint: Theme.chipFill, isCompact: true)
                     }
                 }
             }
 
-            Rectangle()
-                .fill(Color.black.opacity(0.06))
-                .frame(height: 1)
+            ProfileDivider()
 
             HStack {
                 NavigationLink(value: parent) {
                     HStack(spacing: 8) {
                         Text("View profile")
-                        Image(systemName: "arrow.right")
-                            .fontWeight(.bold)
+                        Image(systemName: "arrow.right").fontWeight(.bold)
                     }
                     .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Color(hex: 0x5A1FD6))
+                    .foregroundStyle(Theme.tabSelected)
                 }
                 .buttonStyle(.plain)
 
                 Spacer(minLength: 8)
 
-                Button { state.sendRequest(to: parent) } label: {
-                    Text(requested ? "Requested" : "Connect")
-                        .scaledFont(15, weight: .medium, maxScale: 1.25)
-                        .foregroundStyle(requested ? Theme.gatherText : Color.white)
-                        .padding(.horizontal, 20)
-                        .frame(minHeight: 42)
-                        .background(Capsule().fill(requested ? Theme.chipFill : Theme.ink))
-                }
-                .buttonStyle(.plain)
-                .disabled(requested)
+                actionButton
             }
         }
-        .padding(16)
-        .background(highlighted ? Color(hex: 0xFDEFF2) : Color.white, in: .rect(cornerRadius: 20))
-        .roundedStroke(highlighted ? Theme.pink.opacity(0.5) : Theme.lilacBorder, cornerRadius: 20)
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(highlight ? Theme.lilac : Color.white, in: .rect(cornerRadius: 28))
+        .roundedStroke(highlight ? Theme.lavender : Theme.lilacBorder, cornerRadius: 28, lineWidth: highlight ? 1.5 : 1)
+    }
+
+    @ViewBuilder private var actionButton: some View {
+        if connected {
+            Button {
+                state.chats.pendingOpenID = state.chats.startChat(with: parent)
+                openTab(.chats)
+            } label: {
+                Label("Message", systemImage: "bubble.left")
+                    .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 20)
+                    .frame(minHeight: 42)
+                    .background(Capsule().fill(Theme.lavender))
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button { state.sendRequest(to: parent) } label: {
+                Text(requested ? "Requested" : "Connect")
+                    .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(requested ? Theme.gatherText : Color.white)
+                    .padding(.horizontal, 22)
+                    .frame(minHeight: 42)
+                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.ink))
+            }
+            .buttonStyle(.plain)
+            .disabled(requested)
+        }
     }
 }
 
@@ -435,50 +389,15 @@ struct ParentAvatar: View {
     }
 }
 
-/// The little yellow note on a parent card.
-struct StickyNote: View {
-    let text: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            // Handwriting-style font that ships with iOS.
-            Text(text)
-                .font(.custom("Noteworthy-Light", size: 13, relativeTo: .footnote))
-                .foregroundStyle(Theme.ink.opacity(0.9))
-                .multilineTextAlignment(.leading)
-                .lineLimit(3)
-                .minimumScaleFactor(0.8)
-            Spacer(minLength: 0)
-            Image(systemName: "face.smiling")
-                .font(.footnote)
-                .foregroundStyle(Theme.ink.opacity(0.8))
-                .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-        .dynamicTypeSize(...DynamicTypeSize.xLarge)
-        .padding(8)
-        .frame(width: 68, height: 72)
-        .background(Color(hex: 0xFFF3C4), in: .rect(cornerRadius: 2))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Theme.pink)
-                .frame(width: 22, height: 11)
-                .offset(x: -6, y: -5)
-        }
-        .shadow(color: .black.opacity(0.14), radius: 3, y: 2)
-        .rotationEffect(.degrees(-4))
-        .padding(.top, 4)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Note: \(text)")
-    }
-}
-
 // MARK: - Notifications
 
+/// Updates from the community. Tap one to go straight to what it is about.
 struct NotificationsView: View {
     @Environment(AppState.self) private var state
+    @Environment(\.openTab) private var openTab
 
     private var sentRequests: [Parent] {
-        MockData.parents.filter { state.requestedParents.contains($0.id) }
+        MockData.parents.filter { state.requestedParents.contains($0.id) && !state.connectedParents.contains($0.id) }
     }
 
     var body: some View {
@@ -487,7 +406,7 @@ struct NotificationsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Notifications")
                         .pageTitle()
-                    Text("Requests and updates from your community.")
+                    Text("Tap one to see what it is about.")
                         .pageSubtitle()
                 }
 
@@ -496,19 +415,24 @@ struct NotificationsView: View {
                         .sectionTitle()
                         .padding(.top, 4)
                     ForEach(sentRequests) { parent in
-                        NotificationRow(symbol: "paperplane",
-                                        title: "Request sent to \(parent.name)",
-                                        detail: "You can chat once \(parent.firstName) accepts.",
-                                        time: "Just now", isNew: false)
+                        NotificationCard(symbol: "paperplane",
+                                         title: "Request sent to \(parent.name)",
+                                         detail: "You can chat once \(parent.firstName) accepts.",
+                                         time: "Just now", isNew: false)
                     }
                 }
 
                 Text("Recent")
                     .sectionTitle()
                     .padding(.top, 4)
-                ForEach(MockData.notifications) { item in
-                    NotificationRow(symbol: item.symbol, title: item.title,
-                                    detail: item.detail, time: item.time, isNew: item.isNew)
+
+                if state.notifications.isEmpty {
+                    Text("You’re all caught up.")
+                        .rowDetail()
+                }
+
+                ForEach(state.notifications) { item in
+                    row(item)
                 }
             }
             .padding(.horizontal, 24)
@@ -518,15 +442,73 @@ struct NotificationsView: View {
         .scrollNavigationTitle("Notifications")
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
+        .animation(.snappy, value: state.notifications.count)
+    }
+
+    @ViewBuilder private func row(_ item: AppNotification) -> some View {
+        if case .connectionRequest(let parentID) = item.action,
+           let parent = MockData.parents.first(where: { $0.id == parentID }) {
+            // Someone wants to connect: accept or decline right here, or look at their profile first.
+            VStack(spacing: 12) {
+                NavigationLink(value: parent) {
+                    NotificationCard(symbol: item.symbol, title: item.title, detail: item.detail,
+                                     time: item.time, isNew: item.isNew, showsChevron: true, framed: false)
+                }
+                .buttonStyle(.plain)
+                .simultaneousGesture(TapGesture().onEnded { state.markRead(item.id) })
+
+                HStack(spacing: 10) {
+                    Button {
+                        if let chat = state.acceptRequest(from: parentID) {
+                            state.chats.pendingOpenID = chat
+                            openTab(.chats)
+                        }
+                    } label: {
+                        Text("Accept")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(Capsule().fill(Theme.ink))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { state.declineRequest(from: parentID) } label: {
+                        Text("Decline")
+                            .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                            .foregroundStyle(Theme.ink)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(Capsule().fill(Theme.chipFill))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(14)
+            .background(Color.white, in: .rect(cornerRadius: 24))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
+        } else {
+            Button {
+                state.markRead(item.id)
+                state.open(item.action, openTab: openTab)
+            } label: {
+                NotificationCard(symbol: item.symbol, title: item.title, detail: item.detail,
+                                 time: item.time, isNew: item.isNew,
+                                 showsChevron: item.action != .none)
+            }
+            .buttonStyle(.plain)
+            .disabled(item.action == .none)
+        }
     }
 }
 
-private struct NotificationRow: View {
+private struct NotificationCard: View {
     let symbol: String
     let title: String
     let detail: String
     let time: String
     let isNew: Bool
+    var showsChevron = false
+    /// False when the card sits inside a larger card that draws the frame.
+    var framed = true
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -538,7 +520,9 @@ private struct NotificationRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).rowTitle()
+                    .multilineTextAlignment(.leading)
                 Text(detail).rowDetail()
+                    .multilineTextAlignment(.leading)
                 Text(time)
                     .scaledFont(12, maxScale: 1.3)
                     .foregroundStyle(Theme.gatherText)
@@ -553,11 +537,18 @@ private struct NotificationRow: View {
                     .padding(.top, 6)
                     .accessibilityLabel("New")
             }
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.dotInactive)
+                    .padding(.top, 6)
+            }
         }
-        .padding(14)
+        .padding(framed ? 14 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white, in: .rect(cornerRadius: 24))
-        .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
+        .background(framed ? Color.white : Color.clear, in: .rect(cornerRadius: 24))
+        .roundedStroke(framed ? Theme.lilacBorder : Color.clear, cornerRadius: 24)
+        .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 }

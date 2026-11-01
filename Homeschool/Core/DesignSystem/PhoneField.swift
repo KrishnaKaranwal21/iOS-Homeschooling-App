@@ -154,52 +154,55 @@ struct PhoneField: View {
     }
 }
 
+/// A glass pop-up with one scrolling wheel of every country, in alphabetical order. No search.
 struct CountryCodeSheet: View {
     @Binding var selection: PhoneCountry
     @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
+    /// What the wheel shows. The phone field changes as the wheel turns.
+    @State private var draft: PhoneCountry
 
-    private var results: [PhoneCountry] {
-        PhoneCountry.all.filter {
-            query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || $0.dial.hasPrefix(query.replacingOccurrences(of: "+", with: ""))
-        }
+    init(selection: Binding<PhoneCountry>) {
+        _selection = selection
+        _draft = State(initialValue: selection.wrappedValue)
+    }
+
+    private static let sorted: [PhoneCountry] = PhoneCountry.all.sorted {
+        $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                if query.isEmpty {
-                    Section("Popular") {
-                        ForEach(PhoneCountry.popular) { row($0) }
-                    }
-                }
-                Section(query.isEmpty ? "All countries" : "Results") {
-                    ForEach(results) { row($0) }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: "Search country or code")
-            .navigationTitle("Country code")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-        }
-    }
-
-    private func row(_ country: PhoneCountry) -> some View {
-        Button {
-            selection = country
-            dismiss()
-        } label: {
-            HStack(spacing: 12) {
-                Text(country.flag).font(.title3)
-                Text(country.name).foregroundStyle(Color.primary)
+        VStack(spacing: 8) {
+            HStack {
                 Spacer()
-                Text("+\(country.dial)").foregroundStyle(Color.secondary)
-                if country == selection {
-                    Image(systemName: "checkmark").foregroundStyle(Theme.tabSelected)
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close")
+            }
+
+            Picker("Country code", selection: $draft) {
+                ForEach(Self.sorted) { country in
+                    Text("\(country.name) (+\(country.dial))")
+                        .tag(country)
                 }
             }
+            .pickerStyle(.wheel)
+            .labelsHidden()
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 8)
+        .onChange(of: draft) { _, new in selection = new }
+        .presentationDetents([.height(320)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.regularMaterial)
+        .presentationCornerRadius(36)
+        // The pop-up always uses the light look.
+        .preferredColorScheme(.light)
     }
 }

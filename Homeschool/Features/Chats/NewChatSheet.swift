@@ -91,7 +91,7 @@ struct NewChatSheet: View {
                 .background(Circle().fill(Theme.lavender))
             VStack(alignment: .leading, spacing: 2) {
                 Text(parent.name).rowTitle()
-                Text("\(parent.role) · \(parent.distanceKm.formatted(.number.precision(.fractionLength(1)))) km away")
+                Text(parent.place.isEmpty ? parent.role : "\(parent.role) · \(parent.place)")
                     .rowDetail()
                     .lineLimit(1)
             }

@@ -26,6 +26,10 @@ struct ChildSetupSteps: View {
     @State private var step: Int
     @State private var attempted = false
     @State private var continueAlert: String?
+    /// The child as it was when this page opened, to see what the parent changed while editing.
+    @State private var original: Child
+    /// The level the subjects were last cleared for, so going back and forth doesn't clear them twice.
+    @State private var subjectsClearedForLevel: String?
 
     init(child: Binding<Child>, mode: Mode = .onboarding, startStep: Int = 1, singleStep: Bool = false,
          onCancel: (() -> Void)? = nil, onFinish: @escaping () -> Void) {
@@ -35,6 +39,23 @@ struct ChildSetupSteps: View {
         self.onCancel = onCancel
         self.onFinish = onFinish
         _step = State(initialValue: startStep)
+        _original = State(initialValue: child.wrappedValue)
+    }
+
+    /// Editing the basics of an existing child: only continue to the subjects when the date of birth or the
+    /// level changed, because the subjects depend on them. Otherwise "Save changes" saves and closes.
+    private var isEditingBasics: Bool { mode == .editChild && !singleStep }
+
+    private var basicsNeedSubjects: Bool {
+        child.level != original.level || child.birthDate != original.birthDate
+    }
+
+    private var primaryTitle: String {
+        if singleStep || step == 3 { return finishTitle }
+        if isEditingBasics {
+            return (step == 1 && basicsNeedSubjects) ? "Continue to subjects" : finishTitle
+        }
+        return "Continue"
     }
 
     private var finishTitle: String {
@@ -105,6 +126,22 @@ struct ChildSetupSteps: View {
                         .padding(.vertical, 6)
                         .background(Capsule().fill(Theme.pillFill))
                 }
+            } else if isEditingBasics {
+                HStack {
+                    if step > 1 {
+                        Button { step -= 1 } label: { Label("Back", systemImage: "chevron.left") }
+                            .foregroundStyle(Theme.obsidian)
+                    } else if let onCancel {
+                        Button("Cancel", action: onCancel)
+                            .foregroundStyle(Theme.obsidian)
+                    }
+                    Spacer()
+                    Text(step == 2 ? "Subjects" : "Details")
+                        .scaledFont(12, weight: .semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Theme.pillFill))
+                }
             } else {
             HStack {
                 if step > 1 {
@@ -150,7 +187,7 @@ struct ChildSetupSteps: View {
                         .font(.caption)
                         .foregroundStyle(Theme.systemGray)
                 }
-                Button((step == 3 || singleStep) ? finishTitle : "Continue") {
+                Button(primaryTitle) {
                     handleContinue()
                 }
                 .buttonStyle(.primaryHomeschool(isDimmed: !canContinue))
@@ -190,11 +227,18 @@ struct ChildSetupSteps: View {
     }
 
     private var hintLabel: some View {
-        Label(hintText ?? extraNote ?? "All set. Tap Continue.",
-              systemImage: hintText != nil ? "info.circle" : (extraNote != nil ? "plus.circle" : "checkmark.circle.fill"))
+        Label(hintText ?? subjectsNote ?? extraNote ?? "All set. Tap \(primaryTitle).",
+              systemImage: (hintText != nil || subjectsNote != nil) ? "info.circle" : (extraNote != nil ? "plus.circle" : "checkmark.circle.fill"))
             .font(.footnote.weight(.medium))
             .foregroundStyle(hintColor)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Shown while editing when the date of birth or level changed.
+    private var subjectsNote: String? {
+        (isEditingBasics && step == 1 && basicsNeedSubjects)
+            ? "Subjects depend on the level, so you’ll check them next."
+            : nil
     }
 
     private var hintColor: Color {
@@ -215,6 +259,20 @@ struct ChildSetupSteps: View {
         guard canContinue else {
             attempted = true
             continueAlert = problemMessage
+            return
+        }
+        if isEditingBasics {
+            if step == 1, basicsNeedSubjects {
+                // The level decides which subjects exist, so a new level means choosing them again.
+                if child.level != original.level, subjectsClearedForLevel != child.level {
+                    child.selectedSubjects = []
+                    subjectsClearedForLevel = child.level
+                }
+                withAnimation { step = 2 }
+            } else {
+                // Just a name or other detail changed (or the subjects are done): save and close.
+                onFinish()
+            }
             return
         }
         if step < 3 && !singleStep {

@@ -8,7 +8,9 @@ struct ConnectView: View {
     /// True when a parent looks at their own profile from Profile. There is nothing to connect to.
     var isPreview = false
 
+    @Environment(\.openTab) private var openTab
     private var requested: Bool { state.requestedParents.contains(parent.id) }
+    private var connected: Bool { state.connectedParents.contains(parent.id) }
 
     private var myInterests: Set<String> {
         state.children.reduce(into: Set<String>()) { $0.formUnion($1.interests) }
@@ -50,15 +52,6 @@ struct ConnectView: View {
                     }
                 }
 
-                HStack(spacing: 12) {
-                    Image(systemName: "checkmark.shield")
-                        .font(.title3)
-                        .foregroundStyle(Theme.gatherAccent)
-                    Text("Only approximate distance is shared. Your exact location stays private.")
-                        .scaledFont(14, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
-                }
-                .padding(.horizontal, 6)
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
@@ -89,8 +82,9 @@ struct ConnectView: View {
 
     private var heroChips: [ProfileHeroChip] {
         var chips: [ProfileHeroChip] = []
-        if parent.distanceKm > 0 {
-            chips.append(ProfileHeroChip(symbol: "mappin.and.ellipse", text: "\(parent.approxDistance) away"))
+        // Only the area, never a distance.
+        if !parent.place.isEmpty {
+            chips.append(ProfileHeroChip(symbol: "mappin.and.ellipse", text: parent.place))
         }
         if !isPreview, !sharedInterests.isEmpty {
             chips.append(ProfileHeroChip(symbol: "sparkles",
@@ -201,15 +195,22 @@ struct ConnectView: View {
 
     private var connectBar: some View {
         VStack(spacing: 10) {
-            Button(requested ? "Request sent" : "Connect") {
-                state.sendRequest(to: parent)
+            Button(connected ? "Message \(parent.firstName)" : (requested ? "Request sent" : "Connect")) {
+                if connected {
+                    state.chats.pendingOpenID = state.chats.startChat(with: parent)
+                    openTab(.chats)
+                } else {
+                    state.sendRequest(to: parent)
+                }
             }
-            .buttonStyle(.primaryHomeschool(isDimmed: requested))
-            .disabled(requested)
+            .buttonStyle(.primaryHomeschool(isDimmed: requested && !connected))
+            .disabled(requested && !connected)
 
-            Text(requested
-                 ? "Request sent. You can chat once \(parent.firstName) accepts."
-                 : "Send a connection request. Chat once \(parent.firstName) accepts.")
+            Text(connected
+                 ? "You’re connected with \(parent.firstName)."
+                 : (requested
+                    ? "Request sent. You can chat once \(parent.firstName) accepts."
+                    : "Send a connection request. Chat once \(parent.firstName) accepts."))
                 .scaledFont(14, maxScale: 1.3)
                 .foregroundStyle(Theme.gatherText)
                 .multilineTextAlignment(.center)
