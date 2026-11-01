@@ -1,12 +1,11 @@
 import SwiftUI
 
-/// Ask the host a question. It goes to their chat in the Chats tab.
+/// Ask the host a question. The question and the answer are kept on the event page, not in Chats.
 struct ContactHostSheet: View {
     let event: Event
 
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openTab) private var openTab
 
     @State private var message = ""
     @FocusState private var focused: Bool
@@ -60,10 +59,10 @@ struct ContactHostSheet: View {
                         .focused($focused)
                         .gatherField()
 
-                    Text("The host replies in Chats.")
+                    Text("Your question and the host’s answer show on this event’s page. We’ll let you know when they reply.")
                         .caption()
 
-                    Button("Send message") {
+                    Button("Send question") {
                         guard canSend else { return }
                         send()
                     }
@@ -73,7 +72,7 @@ struct ContactHostSheet: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.background)
-            .navigationTitle("Message host")
+            .navigationTitle("Ask the host")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         }
@@ -81,11 +80,8 @@ struct ContactHostSheet: View {
     }
 
     private func send() {
-        let id = state.chats.startChat(withHost: event.host, role: event.hostRole)
-        state.chats.send(text: message, in: id)
-        state.chats.pendingOpenID = id
+        state.askHost(of: event.id, text: message)
         dismiss()
-        openTab(.chats)
     }
 }
 

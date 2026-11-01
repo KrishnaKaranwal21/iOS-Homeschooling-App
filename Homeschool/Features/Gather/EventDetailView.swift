@@ -31,11 +31,19 @@ struct EventDetailView: View {
                     .padding(.horizontal, 6)
                 if current.isHostedByMe { hostQuestionsSection.id("questions") }
                 faqSection
+                if !current.isHostedByMe { myQuestionsSection.id("myQuestions") }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
         }
         .scrollNavigationTitle(current.title)
+        .task {
+            // Opened from a notification or pop-up about a question or an answer.
+            guard state.scrollEventToQuestions else { return }
+            state.scrollEventToQuestions = false
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation { proxy.scrollTo(current.isHostedByMe ? "questions" : "myQuestions", anchor: .top) }
+        }
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -226,15 +234,74 @@ struct EventDetailView: View {
             .background(Color.white, in: .rect(cornerRadius: 24))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
 
-            if !current.isHostedByMe {
-                Button { showContactHost = true } label: {
-                    Label("Still have a question? Message the host", systemImage: "bubble.left.and.text.bubble.right")
-                        .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Theme.tabSelected)
-                        .padding(.horizontal, 6)
+        }
+    }
+
+    /// The questions I asked this host and their answers, so I can check back here.
+    private var myQuestionsSection: some View {
+        let mine = current.questions.filter(\.askedByMe).sorted { $0.date > $1.date }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Your questions")
+                .sectionTitle()
+                .padding(.horizontal, 6)
+
+            if mine.isEmpty {
+                Text("Questions you ask the host, and their answers, show up here.")
+                    .rowDetail()
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white, in: .rect(cornerRadius: 24))
+                    .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(mine.enumerated()), id: \.element.id) { index, question in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: "bubble.left.fill")
+                                    .foregroundStyle(Theme.tabSelected)
+                                    .padding(.top, 3)
+                                Text(question.text)
+                                    .rowTitle()
+                                    .multilineTextAlignment(.leading)
+                            }
+                            if let answer = question.answer {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Answer from \(current.host)")
+                                        .scaledFont(13, weight: .semibold, maxScale: 1.25)
+                                        .foregroundStyle(Theme.tabSelected)
+                                    Text(answer)
+                                        .rowDetail()
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Theme.lilac, in: .rect(cornerRadius: 16))
+                            } else {
+                                Label("Waiting for \(current.host) to reply", systemImage: "clock")
+                                    .scaledFont(13, maxScale: 1.3)
+                                    .foregroundStyle(Theme.gatherText)
+                            }
+                        }
+                        .padding(.vertical, 14)
+                        if index < mine.count - 1 {
+                            Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+                .background(Color.white, in: .rect(cornerRadius: 24))
+                .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
             }
+
+            Button { showContactHost = true } label: {
+                Label("Ask the host", systemImage: "bubble.left.and.text.bubble.right")
+                    .scaledFont(15, weight: .semibold, maxScale: 1.2)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 18)
+                    .frame(height: 44)
+                    .background(Capsule().fill(Theme.lavender))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 6)
         }
     }
 
