@@ -37,7 +37,9 @@ struct EventDetailView: View {
                     if current.isHostedByMe {
                         hostPanel(proxy)
                         hostQuestionsSection.id("questions")
-                    } else if !myQuestions.isEmpty {
+                    }
+                    faqSection
+                    if !current.isHostedByMe && !myQuestions.isEmpty {
                         DisclosureGroup(isExpanded: $expandedQuestions) { myQuestionsSection } label: {
                             Text("Your questions").font(.headline).foregroundStyle(Theme.ink)
                         }
@@ -166,7 +168,7 @@ struct EventDetailView: View {
                         Button { showDetails = true } label: {
                             Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(Theme.secondary)
                                 .frame(width: 28, height: 28)
-                        }.buttonStyle(.plain).accessibilityLabel("Age guidance, parent requirements and event FAQs")
+                        }.buttonStyle(.plain).accessibilityLabel("Age guidance and parent requirements")
                     }
                 }
                 Spacer(minLength: 0)
@@ -254,7 +256,6 @@ struct EventDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     practicalDetails
-                    faqSection
                 }.padding(20)
             }
             .background(Theme.background)
