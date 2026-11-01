@@ -143,7 +143,6 @@ struct EventDetailView: View {
             .foregroundStyle(Theme.ink).buttonStyle(.plain)
         }
         .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 12)
-        .background(Theme.background.opacity(0.97))
     }
 
     private var organizerBanner: some View {
@@ -178,9 +177,11 @@ struct EventDetailView: View {
 
     private var eventSummary: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(current.title).scaledFont(25, weight: .bold, maxScale: 1.3)
-                .tracking(-0.6).foregroundStyle(Theme.ink)
+            Text(current.title).scaledFont(32, weight: .bold, maxScale: 1.3)
+                .tracking(-0.9).foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+                .accessibilityAddTraits(.isHeader)
             HStack(spacing: 14) {
                 Image(systemName: "calendar").font(.system(size: 25, weight: .regular))
                     .foregroundStyle(Color.adaptive(0xB8497B, 0xEE8BB4)).frame(width: 28)
