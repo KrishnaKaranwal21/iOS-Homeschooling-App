@@ -1,7 +1,13 @@
 import SwiftUI
 import UserNotifications
 
-/// The family's profile: a hero card, then three tabs (Parent, Children, Settings) made of cards.
+/// Which page of the profile is shown. `hub` is the main Profile page: a short list of buttons,
+/// each opening its own page, like most apps.
+enum ProfilePage {
+    case hub, parent, children, notifications, privacy, help, about, account
+}
+
+/// The family's profile. The main page is a small menu. Details live one tap away.
 /// What other parents see on the community profile is edited here too.
 struct ProfileView: View {
     @Environment(AppState.self) private var state
@@ -14,52 +20,56 @@ struct ProfileView: View {
         let singleStep: Bool
     }
 
-    private enum ProfileTab: String, CaseIterable, Identifiable {
-        case parent = "Parent", children = "Children", settings = "Settings"
-        var id: String { rawValue }
+    let page: ProfilePage
+
+    init(page: ProfilePage = .hub) {
+        self.page = page
     }
 
     @State private var editTarget: EditTarget?
     @State private var showAdd = false
     @State private var showParentEdit = false
     @State private var showLocationPicker = false
+    @State private var goToChildren = false
     @State private var levelTarget: Child?
     /// Set when a level changed, so the subjects page opens once the level sheet has closed.
     @State private var pendingSubjectsEdit: Child?
-    @State private var tab: ProfileTab = .parent
-    @Namespace private var tabNamespace
 
     var body: some View {
-        ScrollViewReader { proxy in
         ScrollView {
-            VStack(spacing: 18) {
-                Color.clear.frame(height: 0).id("profile-top")
-                examBanner
-                // The profile card belongs to the Parent tab only.
-                if tab == .parent { hero }
-
-                Group {
-                    switch tab {
-                    case .parent:   parentTab
-                    case .children: childrenTab
-                    case .settings: settingsTab
-                    }
+            VStack(alignment: .leading, spacing: 18) {
+                // Room for the floating back button. There is no bar across the top.
+                Color.clear.frame(height: 46)
+                if page != .hub {
+                    Text(pageTitle)
+                        .scaledFont(32, weight: .bold, maxScale: 1.2)
+                        .tracking(-0.8)
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
                 }
-                .transition(.opacity)
+                switch page {
+                case .hub:           hubContent
+                case .parent:        parentTab
+                case .children:      childrenTab
+                case .notifications: SettingsTab(section: .notifications, showLocationPicker: $showLocationPicker)
+                case .privacy:       SettingsTab(section: .privacy, showLocationPicker: $showLocationPicker)
+                case .help:          SettingsTab(section: .help, showLocationPicker: $showLocationPicker)
+                case .about:         SettingsTab(section: .about, showLocationPicker: $showLocationPicker)
+                case .account:       SettingsTab(section: .account, showLocationPicker: $showLocationPicker)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
-        // Switching tabs always starts at the top of the new tab.
-        .onChange(of: tab) { proxy.scrollTo("profile-top", anchor: .top) }
-        }
         .background(Theme.background)
-        .navigationTitle("Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        // The three parts stay in reach while scrolling.
-        .safeAreaInset(edge: .top, spacing: 0) { tabBar }
-        .animation(.snappy, value: tab)
+        .overlay(alignment: .topLeading) { backButton }
+        // No navigation bar at all: the page has its own heading and a floating back button.
+        .navigationBarBackButtonHidden(true)
+        .toolbarVisibility(.hidden, for: .navigationBar)
+        // The tab bar (Home, Progress, Gather ...) is hidden here too, so Profile has the whole screen.
+        .toolbarVisibility(.hidden, for: .tabBar)
+        .navigationDestination(isPresented: $goToChildren) { ProfileView(page: .children) }
         .fullScreenCover(item: $editTarget) { target in
             EditChildFlow(child: target.child, startStep: target.step, singleStep: target.singleStep)
         }
@@ -86,38 +96,36 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: Tabs
+    // MARK: Top bar and main menu
 
-    private var tabBar: some View {
-        HStack(spacing: 4) {
-            ForEach(ProfileTab.allCases) { item in
-                Button { tab = item } label: {
-                    Text(item.rawValue)
-                        .scaledFont(15, weight: tab == item ? .semibold : .regular, maxScale: 1.2)
-                        .foregroundStyle(tab == item ? Theme.ink : Theme.gatherText)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 38)
-                        .background {
-                            if tab == item {
-                                Capsule().fill(Theme.lavender)
-                                    .matchedGeometryEffect(id: "tab", in: tabNamespace)
-                            }
-                        }
-                        .contentShape(.capsule)
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(tab == item ? .isSelected : [])
-            }
+    private var pageTitle: String {
+        switch page {
+        case .hub: "Profile"
+        case .parent: "Your profile"
+        case .children: "Children"
+        case .notifications: "Notifications"
+        case .privacy: "Privacy"
+        case .help: "Help"
+        case .about: "About"
+        case .account: "Account"
         }
-        .padding(4)
-        .background(Capsule().fill(Theme.chipFill))
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.bar)
-        .sensoryFeedback(.selection, trigger: tab)
     }
 
-    // MARK: Top
+    /// Just a round back button floating over the page. It has no bar behind it.
+    private var backButton: some View {
+        Button { dismiss() } label: {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .frame(width: 44, height: 44)
+                .background(.regularMaterial, in: .circle)
+                .roundedStroke(Theme.lilacBorder, cornerRadius: 22)
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 20)
+        .padding(.top, 4)
+        .accessibilityLabel("Back")
+    }
 
     private var parentName: String {
         let name = state.account?.name.trimmingCharacters(in: .whitespaces) ?? ""
@@ -129,19 +137,111 @@ struct ProfileView: View {
         return String((name.isEmpty ? (state.account?.email ?? "P") : name).prefix(1)).uppercased()
     }
 
-    private var hero: some View {
-        let count = state.children.count
-        return ProfileHero(
-            initial: parentInitial,
-            title: parentName,
-            subtitle: state.account?.email ?? "",
-            chips: [
-                ProfileHeroChip(symbol: "person.2.fill", text: count == 1 ? "1 child" : "\(count) children"),
-                ProfileHeroChip(symbol: "mappin.and.ellipse", text: state.homeLocation.name),
-                ProfileHeroChip(symbol: "location", text: "Within \(state.communityRadiusKm) km")
-            ],
-            actionSymbol: "pencil", actionLabel: "Edit details",
-            action: { showParentEdit = true })
+    private var hubContent: some View {
+        VStack(spacing: 18) {
+            examBanner
+
+            // Who is signed in, with a short way to edit.
+            HStack(spacing: 16) {
+                Text(parentInitial)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .frame(width: 68, height: 68)
+                    .background(Circle().fill(Theme.lavender))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(parentName)
+                        .scaledFont(22, weight: .bold, maxScale: 1.2)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    Text(state.account?.email ?? "")
+                        .scaledFont(14, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 8)
+                Button { showParentEdit = true } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Theme.chipFill))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit your name and mobile number")
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white, in: .rect(cornerRadius: 28))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
+
+            completenessCard
+
+            menuGroup {
+                menuRow(.parent, "person.crop.circle", "Your profile", "Details and what other parents see")
+                ProfileDivider()
+                menuRow(.children, "person.2", "Children",
+                        state.children.map(\.displayName).joined(separator: ", "))
+            }
+
+            menuGroup {
+                menuRow(.notifications, "bell", "Notifications", "Chats, requests and reminders")
+                ProfileDivider()
+                menuRow(.privacy, "lock", "Privacy", "Location and who can find you")
+            }
+
+            menuGroup {
+                menuRow(.help, "questionmark.circle", "Help", "Support and sharing")
+                ProfileDivider()
+                menuRow(.about, "info.circle", "About", "Terms and privacy policy")
+            }
+
+            menuGroup {
+                menuRow(.account, "person.crop.circle.badge.checkmark", "Account", "Switch, add or sign out")
+            }
+        }
+    }
+
+    private func menuGroup<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white, in: .rect(cornerRadius: 26))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 26)
+    }
+
+    private func menuRow(_ target: ProfilePage, _ symbol: String, _ title: String, _ subtitle: String) -> some View {
+        NavigationLink {
+            ProfileView(page: target)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.gatherAccent)
+                    .frame(width: 40, height: 40)
+                    .background(Theme.lilac, in: .rect(cornerRadius: 12))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .scaledFont(17, weight: .semibold, maxScale: 1.25)
+                        .foregroundStyle(Theme.ink)
+                    Text(subtitle)
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.gatherText)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.dotInactive)
+            }
+            .padding(.vertical, 12)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Exam reminder
@@ -217,7 +317,7 @@ struct ProfileView: View {
                     }
                     Button {
                         let parentMissing = missing.contains("Your name") || missing.contains("Your mobile number")
-                        if parentMissing { showParentEdit = true } else { tab = .children }
+                        if parentMissing { showParentEdit = true } else { goToChildren = true }
                     } label: {
                         Text("Add missing details")
                             .scaledFont(15, weight: .semibold, maxScale: 1.25)
@@ -236,15 +336,6 @@ struct ProfileView: View {
 
     private var parentTab: some View {
         VStack(spacing: 18) {
-            ProfileStatsCard(items: [
-                .init(value: "\(state.children.count)", label: state.children.count == 1 ? "Child" : "Children"),
-                .init(value: "\(state.registrations.count)", label: "Registered"),
-                .init(value: "\(state.savedEvents.count)", label: "Saved"),
-                .init(value: "\(state.requestedParents.count)", label: "Requests")
-            ])
-
-            completenessCard
-
             ProfileCard(symbol: "person.crop.circle", title: "Your details") {
                 VStack(spacing: 6) {
                     Button { showParentEdit = true } label: {
@@ -301,7 +392,7 @@ struct ProfileView: View {
                         .scaledFont(18, weight: .bold, maxScale: 1.2)
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.leading)
-                    Text("Only an approximate distance is shared.")
+                    Text("Check what other families see.")
                         .scaledFont(14, maxScale: 1.3)
                         .foregroundStyle(Theme.ink.opacity(0.65))
                         .multilineTextAlignment(.leading)
@@ -340,7 +431,7 @@ struct ProfileView: View {
                             level: levels[child.id] ?? "",
                             interests: CommunityOptions.interests.filter { child.interests.contains($0) })
             },
-            interests: interests, lookingFor: lookingFor)
+            interests: interests, lookingFor: lookingFor, place: state.homeLocation.name)
     }
 
     // MARK: Children tab
@@ -486,12 +577,6 @@ struct ProfileView: View {
         dismiss()
     }
 
-    // MARK: Settings tab
-
-    private var settingsTab: some View {
-        SettingsTab(showLocationPicker: $showLocationPicker)
-    }
-
     // MARK: Text helpers
 
     private func levelText(_ child: Child) -> String {
@@ -577,8 +662,11 @@ private enum AppInfo {
     static let shareURL = URL(string: "https://example.com/homeschool")!
 }
 
-/// The settings a person expects in an app: notifications, privacy, help, about and account.
+enum SettingsSection { case notifications, privacy, help, about, account }
+
+/// One page of settings: notifications, privacy, help, about or account.
 private struct SettingsTab: View {
+    let section: SettingsSection
     @Binding var showLocationPicker: Bool
 
     @Environment(AppState.self) private var state
@@ -588,7 +676,6 @@ private struct SettingsTab: View {
     @AppStorage("pref.notifyCommunity") private var notifyCommunity = true
     @AppStorage("pref.notifyGatherings") private var notifyGatherings = true
     @AppStorage("pref.showProfile") private var showProfile = true
-    @AppStorage("pref.showDistance") private var showDistance = true
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmAddAccount = false
@@ -597,11 +684,13 @@ private struct SettingsTab: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            notificationsCard
-            privacyCard
-            helpCard
-            aboutCard
-            accountCard
+            switch section {
+            case .notifications: notificationsCard
+            case .privacy:       privacyCard
+            case .help:          helpCard
+            case .about:         aboutCard
+            case .account:       accountCard
+            }
         }
         .task { notificationStatus = await ExamReminders.authorizationStatus() }
         .confirmationDialog("Add another account?", isPresented: $confirmAddAccount, titleVisibility: .visible) {
@@ -697,9 +786,6 @@ private struct SettingsTab: View {
                 toggleRow("Show my profile to other parents", "Turn off to hide yourself in Community.",
                           symbol: "person.crop.circle", isOn: $showProfile)
                 ProfileDivider()
-                toggleRow("Show distance to other parents", "Only a rounded distance is shared, never where you are.",
-                          symbol: "mappin", isOn: $showDistance)
-                ProfileDivider()
                 NavigationLink {
                     BlockedChatsView()
                 } label: {
@@ -707,6 +793,12 @@ private struct SettingsTab: View {
                                    value: blocked == 0 ? "None" : "\(blocked)")
                 }
                 .buttonStyle(.plain)
+
+                Label("Other parents only see your area, never where you are.", systemImage: "checkmark.shield")
+                    .scaledFont(13, maxScale: 1.3)
+                    .foregroundStyle(Theme.gatherText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
             }
         }
     }
