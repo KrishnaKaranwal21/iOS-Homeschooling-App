@@ -40,7 +40,9 @@ struct MainTabView: View {
                 label("Progress", symbol: "chart.bar.fill", tab: .progress)
             }
             Tab(value: AppTab.gather) {
-                NavigationStack(path: $bindableState.gatherPath) { GatherView() }.id(resetCounts[.gather, default: 0])
+                NavigationStack(path: $bindableState.gatherPath) { GatherView() }
+                    .toolbarVisibility(state.hidesTabBar ? .hidden : .automatic, for: .tabBar)
+                    .id(resetCounts[.gather, default: 0])
             } label: {
                 label("Gather", symbol: "calendar", tab: .gather)
             }

@@ -16,6 +16,7 @@ final class AppState {
         set { withMutation(keyPath: \.usesLiveLocation) { storedUsesLiveLocation = newValue } }
     }
     let locationService = LocationService()
+    let eventLocations = EventLocationStore()
 
     var communityRadiusKm: Int {
         get { access(keyPath: \.communityRadiusKm); return storedCommunityRadiusKm }
@@ -250,7 +251,7 @@ final class AppState {
 
     func register(_ event: Event, as registrant: Registrant, accompanying: Bool = true, places: Int = 1) {
         guard let index = events.firstIndex(where: { $0.id == event.id }) else { return }
-        events[index].isRegistered = true
+        events[index].updateRegistration(true)
         registrations[event.id] = Registration(eventID: event.id, registrant: registrant,
                                                registeredAt: .now,
                                                amountPaid: event.price.map { $0 * places },
@@ -269,8 +270,8 @@ final class AppState {
     @discardableResult
     func cancelRegistration(for event: Event) -> Bool {
         guard canCancel(event),
-              let index = events.firstIndex(where: { $0.id == event.id }) else { return false }
-        events[index].isRegistered = false
+              let index = events.firstIndex(where: { $0.id == event.id }), events[index].isRegistered else { return false }
+        events[index].updateRegistration(false)
         registrations[event.id] = nil
         return true
     }

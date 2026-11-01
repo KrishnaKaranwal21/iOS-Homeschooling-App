@@ -1,7 +1,8 @@
 import Foundation
+import CoreLocation
 
 @main struct FilterChecks {
-    static func main() {
+    @MainActor static func main() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
@@ -49,6 +50,53 @@ import Foundation
         expect(!filter.includes(event, now: sunday, calendar: calendar), "Social excludes workshops")
         filter.category = .science
         expect(filter.includes(event, now: sunday, calendar: calendar), "Subject category uses real category")
+        let ordered = GatherFeedCategory.ordered(interests: ["Art", "Coding", "Music"])
+        expect(ordered.first == .all, "All Events stays first")
+        expect(Array(ordered.dropFirst().prefix(3)) == [.art, .coding, .music], "Chosen interests precede general categories")
+        expect(Set(ordered).count == GatherFeedCategory.allCases.count, "Categories appear once")
+        expect(GatherFeedCategory.ordered(interests: []) == GatherFeedCategory.allCases, "Empty interests preserve a stable order")
+        var art = event
+        art.title = "Clay & create"; art.category = "Art"; art.start = saturday.addingTimeInterval(7200)
+        let personalized = GatherFeedCategory.prioritize([event, art], interests: ["Art"])
+        expect(personalized.first?.title == art.title, "Interest matches appear before other events")
+        expect(GatherFeedCategory.prioritize([event, art], interests: []).first?.title == event.title, "Without interests dates sort chronologically")
+        var birdWatch = event
+        birdWatch.category = "Nature"; birdWatch.title = "Backyard Bird Watch"
+        expect(GatherFeedCategory.animals.includes(birdWatch), "Animal interest includes bird watching")
+        expect(!GatherFeedCategory.space.includes(birdWatch), "Space excludes unrelated nature events")
+        event.start = monday
+        expect(event.feedDateText(now: sunday, calendar: calendar).hasPrefix("TOMORROW • "), "Feed uses relative tomorrow and a bullet")
+        expect(event.feedDateText(now: monday, calendar: calendar).hasPrefix("TODAY • "), "Feed uses relative today")
+        expect(event.timeRangeWithZone.contains(event.timeZoneLabel), "Detail time range includes the time zone")
+        let locations = EventLocationStore()
+        var located = event
+        located.mode = .inPerson
+        let origin = CLLocation(latitude: 13, longitude: 80)
+        expect(locations.distanceText(for: located, from: origin) == nil, "Unknown venue coordinates never produce invented distances")
+        located.venueCoordinate = EventCoordinate(latitude: 13, longitude: 80)
+        expect(locations.place(for: located)?.isVenue == true, "Host coordinates resolve without a network lookup")
+        expect(locations.distanceText(for: located, from: nil) == nil, "Location access is needed for distances")
+        expect(locations.distanceText(for: located, from: origin) == "< 0.1 km", "Nearby venue distance is formatted clearly")
+        located.venueCoordinate = EventCoordinate(latitude: 13.1, longitude: 80)
+        expect(locations.distanceText(for: located, from: origin)?.hasSuffix(" km") == true, "Distances include the unit")
+        located.mode = .online
+        expect(locations.distanceText(for: located, from: origin) == nil, "Online events never display physical distances")
+        var registering = event
+        registering.isRegistered = false; registering.registeredCount = 6
+        registering.updateRegistration(true)
+        expect(registering.registeredCount == 7 && registering.isRegistered, "Attending updates the displayed family count")
+        registering.updateRegistration(true)
+        expect(registering.registeredCount == 7, "Submitting again never double-counts a family")
+        registering.updateRegistration(false)
+        expect(registering.registeredCount == 6 && !registering.isRegistered, "Cancellation restores the count")
+        registering.updateRegistration(false)
+        expect(registering.registeredCount == 6, "Repeated cancellation never decrements twice")
+        registering.isRegistered = true; registering.registeredCount = 0
+        registering.updateRegistration(false)
+        expect(registering.registeredCount == 0, "Legacy registrations never produce negative counts")
+        registering.location = "Community Hall\nSRM Nagar, Potheri"
+        expect(registering.addressDetailText == "SRM Nagar, Potheri, India", "Venue addresses do not repeat the area")
+        expect(Set(GatherFeedCategory.ordered(interests: ["All Events", "Your events"])).count == GatherFeedCategory.allCases.count, "Utility names cannot duplicate categories")
         print("Passed \(checks) Gather filter checks")
     }
 }

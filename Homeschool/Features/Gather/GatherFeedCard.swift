@@ -3,10 +3,20 @@ import SwiftUI
 struct GatherFeedCard: View {
     let event: Event
     @Environment(AppState.self) private var state
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var showTicket = false
 
+    private var locationSummary: String {
+        if event.mode == .online { return "Online" }
+        if state.usesLiveLocation,
+           let distance = state.eventLocations.distanceText(for: event, from: state.locationService.lastLocation) {
+            return distance
+        }
+        return event.locality
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 11) {
+        VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .topTrailing) {
                 NavigationLink(value: event) {
                     EventCover(event: event)
@@ -32,50 +42,39 @@ struct GatherFeedCard: View {
                 .buttonStyle(.plain).padding(12)
             }
             NavigationLink(value: event) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(event.title).scaledFont(18, weight: .semibold, maxScale: 1.35)
-                        .foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 6) {
-                        Text(event.shortDateText.uppercased())
-                            .lineLimit(1).minimumScaleFactor(0.8)
-                        if event.mode == .online {
-                            Label("Online", systemImage: "video.fill")
-                                .scaledFont(11, weight: .semibold, maxScale: 1.35)
-                                .padding(.horizontal, 7).padding(.vertical, 3)
-                                .background(Theme.field, in: Capsule())
-                        }
-                    }
-                    .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
-                    Text("\(event.mode == .online ? "Online" : event.locality) · by \(event.host) · \(event.priceText)")
+                        .foregroundStyle(Theme.ink).lineLimit(2, reservesSpace: sizeClass == .regular)
+                        .multilineTextAlignment(.leading)
+                    Text(event.feedDateText())
                         .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
-                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(1).truncationMode(.tail)
+                    Text("\(locationSummary) • by \(event.host)")
+                        .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
+                        .lineLimit(1).truncationMode(.tail)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
-            HStack(spacing: 9) {
-                Text(String(event.host.prefix(1)).uppercased())
-                    .scaledFont(11, weight: .bold, maxScale: 1.35).foregroundStyle(Theme.ink)
-                    .frame(width: 25, height: 25).background(Theme.lavender, in: Circle())
-                    .accessibilityHidden(true)
+            HStack(spacing: 8) {
+                Image(systemName: event.isRegistered ? "checkmark.circle.fill" : "person.2")
+                    .foregroundStyle(Theme.accent).accessibilityHidden(true)
                 if event.isRegistered {
-                    Button { showTicket = true } label: {
-                        Label("You’re going · View ticket", systemImage: "checkmark.circle.fill")
-                            .scaledFont(12, weight: .semibold, maxScale: 1.35).foregroundStyle(Theme.accent)
-                    }.buttonStyle(.plain)
-                } else if event.registeredCount > 0 {
-                    Text("\(event.registeredCount) going").scaledFont(12, weight: .semibold, maxScale: 1.35)
-                        .foregroundStyle(Theme.ink)
+                    Button("You’re going · View ticket") { showTicket = true }
+                        .foregroundStyle(Theme.accent).buttonStyle(.plain)
                 } else {
-                    Text("\(event.ages) · \(event.kind.rawValue)")
-                        .scaledFont(12, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
+                    Text(event.registeredCount > 0 ? "\(event.registeredCount) going" : "Be the first to go")
+                        .foregroundStyle(Theme.ink)
                 }
                 Spacer(minLength: 0)
-                if event.isHostedByMe {
-                    Text("Hosting").scaledFont(11, weight: .semibold, maxScale: 1.35).foregroundStyle(Theme.accent)
-                }
+                if event.isHostedByMe { Text("Hosting").foregroundStyle(Theme.accent) }
             }
+            .scaledFont(12, weight: .semibold, maxScale: 1.35).frame(minHeight: 24)
         }
         .sheet(isPresented: $showTicket) { GatherConfirmationSheet(event: event) }
+        .task(id: state.locationService.lastLocation?.timestamp) {
+            guard state.usesLiveLocation, state.locationService.lastLocation != nil else { return }
+            _ = await state.eventLocations.resolve(event)
+        }
     }
 }
 

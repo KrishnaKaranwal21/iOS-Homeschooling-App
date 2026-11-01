@@ -84,7 +84,11 @@ struct RegistrationView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: prefill)
+        .onAppear {
+            prefill()
+            state.tabBarHideCount += 1
+        }
+        .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
         .onChange(of: selectedIDs) { applySelection() }
         .animation(.snappy, value: staysWithChild)
     }

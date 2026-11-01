@@ -99,11 +99,14 @@ struct Event: Identifiable, Hashable {
     var registeredCount = 0
     /// Questions families sent to the host.
     var questions: [EventQuestion] = []
+    /// A coordinate verified by the host; nil for older catalog events.
+    var venueCoordinate: EventCoordinate? = nil
+    var photos: [PickedImage] = []
 }
 
 extension Event {
     /// Categories a host can choose from. The Gather page adds "All" in front.
-    static let categories = ["Science", "Habit", "Art", "Coding", "Nature", "Others"]
+    static let categories = ["Science", "Habit", "Art", "Coding", "Nature", "Animals", "Music", "Space", "Sports", "Reading", "Others"]
 
     static func symbol(for category: String) -> String {
         switch category {
@@ -112,6 +115,11 @@ extension Event {
         case "Art":     return "paintpalette"
         case "Coding":  return "chevron.left.forwardslash.chevron.right"
         case "Nature":  return "leaf"
+        case "Animals": return "pawprint"
+        case "Music": return "music.note"
+        case "Space": return "moon.stars"
+        case "Sports": return "figure.run"
+        case "Reading": return "book"
         case "Others":  return "sparkles"
         default:        return "person.2.fill"
         }
@@ -160,6 +168,13 @@ extension Event {
 
     var isFree: Bool { price == nil }
 
+    /// Counts one family once, even if a registration is submitted again.
+    mutating func updateRegistration(_ registered: Bool) {
+        guard isRegistered != registered else { return }
+        registeredCount = max(0, registeredCount + (registered ? 1 : -1))
+        isRegistered = registered
+    }
+
     var unansweredCount: Int { questions.filter { !$0.isAnswered }.count }
 
     /// Unanswered questions first, then the newest answered ones.
@@ -189,4 +204,9 @@ struct PickedImage: Identifiable, Hashable {
 
     static func == (lhs: PickedImage, rhs: PickedImage) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+struct EventCoordinate: Hashable {
+    let latitude: Double
+    let longitude: Double
 }

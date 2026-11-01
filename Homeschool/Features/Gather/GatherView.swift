@@ -12,14 +12,15 @@ struct GatherView: View {
     @State private var showHost = false
     @State private var showProfile = false
     @State private var showProfilePrompt = false
+    @State private var openProfileAfterPrompt = false
     @State private var pageLimit = 3
     @State private var feedGeneration = UUID()
     private let pageSize = 3
 
     private var events: [Event] {
-        state.events.filter {
+        GatherFeedCategory.prioritize(state.events.filter {
             filter.includes($0) && PlaceCatalog.matches($0, selection: place, home: state.homeLocation)
-        }.sorted { $0.start < $1.start }
+        }, interests: state.child.interests)
     }
     private var activeFilterCount: Int {
         (filter.freeOnly ? 1 : 0) + (filter.onlineOnly ? 1 : 0) + (place != .nearYou ? 1 : 0)
@@ -31,12 +32,12 @@ struct GatherView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                discoveryControls.padding(.bottom, 22)
+                discoveryControls.padding(.bottom, 20)
                 Section {
                     if events.isEmpty {
                         emptyState.padding(.top, 44)
                     } else {
-                        LazyVGrid(columns: columns, alignment: .leading, spacing: 28) {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 24) {
                             ForEach(Array(events.prefix(pageLimit))) { event in
                                 GatherFeedCard(event: event)
                             }
@@ -58,6 +59,15 @@ struct GatherView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Text("Gather").scaledFont(26, weight: .bold, maxScale: 1.2)
+                    .foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
+                Spacer()
+            }
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+            .background(Theme.background)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Button { showMap = true } label: {
                 Label("Map", systemImage: "map")
@@ -80,14 +90,21 @@ struct GatherView: View {
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerSheet(selection: place, home: state.homeLocation) { place = $0 }
         }
-        .sheet(isPresented: $showProfilePrompt) {
-            CompleteProfileSheet(missing: state.missingProfileItems) {
-                showProfilePrompt = false
+        .sheet(isPresented: $showProfilePrompt, onDismiss: {
+            if openProfileAfterPrompt {
+                openProfileAfterPrompt = false
                 showProfile = true
+            }
+        }) {
+            CompleteProfileSheet(missing: state.missingProfileItems) {
+                openProfileAfterPrompt = true
+                showProfilePrompt = false
             }
         }
         .onChange(of: filter) { resetPagination() }
         .onChange(of: place) { resetPagination() }
+        .onChange(of: state.child.interests) { resetPagination() }
+        .onChange(of: state.child.id) { resetPagination() }
     }
 
     private var discoveryControls: some View {
@@ -141,25 +158,30 @@ struct GatherView: View {
 
     private var categoryStrip: some View {
         ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: 22) {
-                ForEach(GatherFeedCategory.allCases) { category in
+            HStack(spacing: 12) {
+                ForEach(GatherFeedCategory.ordered(interests: state.child.interests)) { category in
                     Button { filter.category = category } label: {
                         VStack(spacing: 8) {
-                            Text(category.emoji).scaledFont(25, maxScale: 1.35).accessibilityHidden(true)
+                            Image(systemName: category.symbol)
+                                .font(.system(size: 23, weight: .regular))
+                                .foregroundStyle(filter.category == category ? Theme.accent : Theme.secondary)
+                                .frame(height: 28).accessibilityHidden(true)
                             Text(category.rawValue)
-                                .font(.system(size: 12, weight: filter.category == category ? .semibold : .regular))
+                                .scaledFont(12, weight: filter.category == category ? .semibold : .regular, maxScale: 1.2)
                                 .foregroundStyle(filter.category == category ? Theme.ink : Theme.secondary)
-                            Rectangle().fill(filter.category == category ? Theme.ink : .clear)
-                                .frame(height: 2).padding(.top, 6)
+                                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.85)
+                                .frame(height: 30)
+                            Capsule().fill(filter.category == category ? Theme.accent : .clear)
+                                .frame(height: 2)
                         }
-                        .fixedSize(horizontal: true, vertical: false)
+                        .frame(width: 88).padding(.top, 12)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(filter.category == category ? .isSelected : [])
                 }
             }
-            .padding(.horizontal, 28).padding(.top, 7)
+            .padding(.horizontal, 20)
         }
         .scrollIndicators(.hidden)
         .background(Theme.background)

@@ -3,205 +3,307 @@ import SwiftUI
 struct EventDetailView: View {
     let event: Event
     @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showConfirmation = false
     @State private var showContactHost = false
+    @State private var showCalendar = false
+    @State private var showOrganizerBanner = true
+    @State private var expandedAbout = false
+    @State private var showDetails = false
+    @State private var expandedQuestions = false
+    @State private var showHost = false
+    @State private var showProfile = false
+    @State private var showProfilePrompt = false
+    @State private var openProfileAfterPrompt = false
 
-    /// Latest copy from the app state, so the Register button reflects a new registration.
-    private var current: Event {
-        state.events.first { $0.id == event.id } ?? event
-    }
+    private var current: Event { state.events.first { $0.id == event.id } ?? event }
+    private var myQuestions: [EventQuestion] { current.questions.filter(\.askedByMe) }
 
     var body: some View {
         ScrollViewReader { proxy in
-            content(proxy)
-        }
-    }
-
-    private func content(_ proxy: ScrollViewProxy) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                cover
-                titleRow
-                    .padding(.top, -14)
-                infoCard
-                if current.isHostedByMe { hostPanel(proxy) } else { hostCard }
-                Text(current.about)
-                    .bodyText()
-                    .lineSpacing(3)
-                    .padding(.horizontal, 6)
-                if current.isHostedByMe { hostQuestionsSection.id("questions") }
-                faqSection
-                if !current.isHostedByMe { myQuestionsSection.id("myQuestions") }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
-        }
-        .scrollNavigationTitle(current.title)
-        .task {
-            // Opened from a notification or pop-up about a question or an answer.
-            guard state.scrollEventToQuestions else { return }
-            state.scrollEventToQuestions = false
-            try? await Task.sleep(for: .milliseconds(350))
-            withAnimation { proxy.scrollTo(current.isHostedByMe ? "questions" : "myQuestions", anchor: .top) }
-        }
-        .background(Theme.background)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button { state.toggleBookmark(current) } label: {
-                    Image(systemName: state.isBookmarked(current) ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(Theme.ink)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) {
+                    if showOrganizerBanner && !current.isHostedByMe { organizerBanner.padding(.top, 14) }
+                    EventCover(event: current)
+                        .frame(height: sizeClass == .regular ? 300 : 200)
+                        .clipShape(GatherWaveShape())
+                        .accessibilityHidden(true)
+                    eventSummary
+                    organizerCard
+                    descriptionSection
+                    attendanceSection
+                    if current.isHostedByMe {
+                        hostPanel(proxy)
+                        hostQuestionsSection.id("questions")
+                    } else if !myQuestions.isEmpty {
+                        DisclosureGroup(isExpanded: $expandedQuestions) { myQuestionsSection } label: {
+                            Text("Your questions").font(.headline).foregroundStyle(Theme.ink)
+                        }
+                        .tint(Theme.accent).id("myQuestions")
+                    }
+                    EventLocationSection(event: current)
+                    EventPhotosSection(event: current)
                 }
-                // A tinted circle from the system, so there is no second white ring around the button.
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .tint(Theme.lavender)
-                .sensoryFeedback(.selection, trigger: state.isBookmarked(current))
-                .accessibilityLabel(state.isBookmarked(current) ? "Remove from saved events" : "Save event")
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 30)
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity)
             }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if current.isHostedByMe { hostBottomBar(proxy) } else { bottomBar }
-        }
-        .sheet(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
-        .sheet(isPresented: $showContactHost) { ContactHostSheet(event: current) }
-    }
-
-    // MARK: Pieces
-
-    private var cover: some View {
-        EventCover(event: current)
-            .frame(height: 240)
-            .clipShape(GatherWaveShape())
-            .overlay(alignment: .topLeading) {
-                Label(current.kind.rawValue, systemImage: "person.2.fill")
-                    .scaledFont(14, weight: .medium, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Theme.lilac))
-                    .padding(12)
-            }
-    }
-
-    private var titleRow: some View {
-        HStack(alignment: .top, spacing: 14) {
-            dateTile
-            VStack(alignment: .leading, spacing: 4) {
-                Text(current.title)
-                    .detailTitle()
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
-                Text("\(current.mode.rawValue) · \(current.ages)")
-                    .rowDetail()
-            }
-            .padding(.top, 14)
-        }
-    }
-
-    private var dateTile: some View {
-        VStack(spacing: 0) {
-            Text(current.month)
-                .scaledFont(13, weight: .semibold, maxScale: 1.2)
-                .foregroundStyle(Color(hex: 0xE5737A))
-            Text(current.day.formatted(.number.precision(.integerLength(2...))))
-                .scaledFont(30, weight: .heavy, maxScale: 1.2)
-                .foregroundStyle(Theme.ink)
-            Text(current.weekday)
-                .scaledFont(13, maxScale: 1.2)
-                .foregroundStyle(Theme.secondary)
-        }
-        .frame(width: 72, height: 82)
-        .background(Theme.surface, in: .rect(cornerRadius: 22))
-        .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
-    }
-
-    private var infoCard: some View {
-        VStack(spacing: 0) {
-            infoRow(icon: "clock.fill",
-                    title: current.start.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).year()),
-                    detail: "\(current.time) – \(current.end.formatted(date: .omitted, time: .shortened))")
-
-            Rectangle().fill(Theme.lilacBorder).frame(height: 1).padding(.leading, 72)
-
-            if current.mode == .online {
-                infoRow(icon: "video.fill", title: "Online event", detail: "The link is shared after you register")
-            } else {
-                Link(destination: mapsURL) {
-                    infoRow(icon: "mappin", title: current.locationLines.title,
-                            detail: current.locationLines.detail, showsChevron: true)
+            .background(Theme.background.ignoresSafeArea())
+            .safeAreaInset(edge: .top, spacing: 0) { fixedHeader }
+            .safeAreaInset(edge: .bottom, spacing: 0) { attendanceBar(proxy) }
+            .navigationBarBackButtonHidden(true)
+            .toolbarVisibility(.hidden, for: .navigationBar)
+            .toolbarVisibility(.hidden, for: .tabBar)
+            .onAppear { state.tabBarHideCount += 1 }
+            .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
+            .sheet(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
+            .sheet(isPresented: $showContactHost) { ContactHostSheet(event: current) }
+            .sheet(isPresented: $showDetails) { detailsSheet }
+            .sheet(isPresented: $showCalendar) { EventCalendarSheet(event: current).ignoresSafeArea() }
+            .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
+            .navigationDestination(isPresented: $showProfile) { ProfileView() }
+            .sheet(isPresented: $showProfilePrompt, onDismiss: {
+                if openProfileAfterPrompt {
+                    openProfileAfterPrompt = false
+                    showProfile = true
                 }
-                .buttonStyle(.plain)
+            }) {
+                CompleteProfileSheet(missing: state.missingProfileItems) {
+                    openProfileAfterPrompt = true
+                    showProfilePrompt = false
+                }
             }
-
-            Rectangle().fill(Theme.lilacBorder).frame(height: 1).padding(.leading, 72)
-
-            infoRow(icon: current.parentPresence.symbol,
-                    title: current.parentPresence.rawValue,
-                    detail: current.parentPresence.detail)
+            .task {
+                guard state.scrollEventToQuestions else { return }
+                state.scrollEventToQuestions = false
+                expandedQuestions = true
+                try? await Task.sleep(for: .milliseconds(350))
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                    proxy.scrollTo(current.isHostedByMe ? "questions" : "myQuestions", anchor: .top)
+                }
+            }
         }
-        .background(Theme.lilac, in: .rect(cornerRadius: 24))
     }
 
-    private func infoRow(icon: String, title: String, detail: String?, showsChevron: Bool = false) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .scaledFont(16, maxScale: 1.2)
-                .foregroundStyle(Theme.gatherText)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(Theme.surface))
-                .overlay(Circle().stroke(Theme.lilacBorder, lineWidth: 1))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .rowTitle()
-                if let detail {
-                    Text(detail)
-                        .rowDetail()
+    private var fixedHeader: some View {
+        ZStack {
+            Text("Event").scaledFont(17, weight: .bold, maxScale: 1.2)
+                .foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 21, weight: .light))
+                        .frame(width: 44, height: 44)
+                        .gatherGlass(in: Circle())
+                }.accessibilityLabel("Back to Gather")
+                Spacer()
+                HStack(spacing: 0) {
+                    ShareLink(item: "\(current.title)\n\(current.fullDateText)\n\(current.timeRangeWithZone)\n\(current.location)") {
+                        Image(systemName: "square.and.arrow.up").frame(width: 44, height: 44)
+                    }.accessibilityLabel("Share event")
+                    Button { state.toggleBookmark(current) } label: {
+                        Image(systemName: state.isBookmarked(current) ? "heart.fill" : "heart")
+                            .foregroundStyle(state.isBookmarked(current) ? Theme.accent : Theme.ink)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(state.isBookmarked(current) ? "Unsave event" : "Save event")
+                    .sensoryFeedback(.selection, trigger: state.isBookmarked(current))
                 }
+                .font(.system(size: 20, weight: .light))
+                .gatherGlass(in: Capsule())
+            }
+            .foregroundStyle(Theme.ink).buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 12)
+        .background(Theme.background.opacity(0.97))
+    }
+
+    private var organizerBanner: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Become an organizer for free!")
+                    .scaledFont(14, weight: .semibold, maxScale: 1.25).foregroundStyle(Theme.ink)
+                Text("Create an event today!")
+                    .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.secondary)
             }
             Spacer(minLength: 0)
-            if showsChevron {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Theme.gatherText)
-            }
+            Button {
+                if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
+            } label: {
+                Text("Create").scaledFont(12, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Color.adaptive(0xFFFFFF, 0x151517))
+                    .padding(.horizontal, 18).frame(minHeight: 34)
+                    .background(Color.adaptive(0x7561D2, 0xF2F2F5), in: Capsule())
+            }.buttonStyle(.plain)
         }
-        .padding(14)
-        .contentShape(Rectangle())
+        .padding(16).frame(minHeight: 76)
+        .background(LinearGradient(colors: [Theme.lilac, Theme.lavender.opacity(0.5)], startPoint: .leading, endPoint: .trailing), in: .rect(cornerRadius: 24))
+        .overlay(alignment: .topTrailing) {
+            Button { showOrganizerBanner = false } label: {
+                Image(systemName: "xmark").font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.ink).frame(width: 28, height: 28)
+                    .background(Theme.field, in: Circle())
+            }.buttonStyle(.plain).offset(x: 6, y: -6)
+                .accessibilityLabel("Dismiss organizer suggestion")
+        }
     }
 
-    private var hostCard: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "person.fill")
-                .scaledFont(17, maxScale: 1.2)
-                .foregroundStyle(Theme.gatherText)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(Theme.surface.opacity(0.8)))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Hosted by \(current.host)")
-                    .rowTitle()
-                Text(current.hostRole)
-                    .rowDetail()
+    private var eventSummary: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(current.title).scaledFont(25, weight: .bold, maxScale: 1.3)
+                .tracking(-0.6).foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 14) {
+                Image(systemName: "calendar").font(.system(size: 25, weight: .regular))
+                    .foregroundStyle(Color.adaptive(0xB8497B, 0xEE8BB4)).frame(width: 28)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(current.fullDateText).scaledFont(14, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
+                    HStack(spacing: 4) {
+                        Text(current.timeRangeWithZone).scaledFont(13, maxScale: 1.35).foregroundStyle(Theme.secondary)
+                        Button { showDetails = true } label: {
+                            Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(Theme.secondary)
+                                .frame(width: 28, height: 28)
+                        }.buttonStyle(.plain).accessibilityLabel("Age guidance, parent requirements and event FAQs")
+                    }
+                }
+                Spacer(minLength: 0)
+                Button { showCalendar = true } label: {
+                    Image(systemName: "calendar.badge.plus").font(.system(size: 20)).foregroundStyle(Theme.ink)
+                        .frame(width: 44, height: 44)
+                }.buttonStyle(.plain).accessibilityLabel("Add event to calendar")
             }
-            Spacer(minLength: 8)
-            Button { showContactHost = true } label: {
-                Label("Message", systemImage: "bubble.left")
-                    .scaledFont(14, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 14)
-                    .frame(height: 36)
-                    .background(Capsule().fill(Theme.surface))
+            Divider().overlay(Theme.cardBorder)
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: current.mode == .online ? "video.fill" : "mappin.and.ellipse")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundStyle(Color.adaptive(0x27846A, 0x76D4B8)).frame(width: 28)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(current.mode == .online ? "Online event" : current.locationLines.title)
+                        .scaledFont(14, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
+                    Text(current.mode == .online ? "The host shares joining details with attendees" : current.addressDetailText)
+                        .scaledFont(13, maxScale: 1.35).foregroundStyle(Theme.secondary)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Message the host")
         }
-        .padding(14)
-        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
     }
 
+    private var organizerCard: some View {
+        Button { if !current.isHostedByMe { showContactHost = true } } label: {
+            HStack(spacing: 16) {
+                Text(initials(current.host))
+                    .scaledFont(20, weight: .bold, maxScale: 1.2).foregroundStyle(Theme.ink)
+                    .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(current.host).scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
+                    Text(current.isHostedByMe ? "You’re organizing this event" : current.hostRole)
+                        .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
+                }
+                Spacer(minLength: 0)
+                if !current.isHostedByMe {
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
+                }
+            }
+            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.field, in: .rect(cornerRadius: 26))
+        }
+        .buttonStyle(.plain).disabled(current.isHostedByMe)
+        .accessibilityLabel(current.isHostedByMe ? "You are hosting this event" : "Contact organizer, \(current.host)")
+    }
+
+    private var descriptionSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(current.about).scaledFont(16, maxScale: 1.35).foregroundStyle(Theme.secondary)
+                .lineSpacing(5).lineLimit(expandedAbout ? nil : 5)
+                .fixedSize(horizontal: false, vertical: true)
+            if current.about.count > 220 {
+                Button(expandedAbout ? "Read less" : "Read more") {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { expandedAbout.toggle() }
+                }.scaledFont(16, weight: .semibold, maxScale: 1.3).foregroundStyle(Theme.accent).buttonStyle(.plain)
+            }
+            Text(current.category).scaledFont(13, weight: .semibold, maxScale: 1.25)
+                .foregroundStyle(Theme.ink).padding(.horizontal, 14).padding(.vertical, 7)
+                .roundedStroke(Theme.cardBorder, cornerRadius: 18)
+        }
+    }
+
+    private var attendanceSection: some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Hosting 1").scaledFont(15, weight: .semibold, maxScale: 1.3)
+                Text(initials(current.host)).scaledFont(14, weight: .semibold, maxScale: 1.3)
+                    .frame(width: 42, height: 42).background(Theme.lavender, in: Circle())
+                    .accessibilityLabel(current.host)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            Rectangle().fill(Theme.cardBorder).frame(width: 1, height: 78).padding(.horizontal, 24)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Going \(current.registeredCount)").scaledFont(15, weight: .semibold, maxScale: 1.3)
+                Image(systemName: current.isRegistered ? "checkmark" : "person.2")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 42, height: 42).background(Theme.pink, in: Circle())
+                    .accessibilityLabel(current.isRegistered ? "Your family is going" : "\(current.registeredCount) registered")
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .foregroundStyle(Theme.ink).padding(.vertical, 6)
+    }
+
+    private var detailsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    practicalDetails
+                    faqSection
+                }.padding(20)
+            }
+            .background(Theme.background)
+            .navigationTitle("Event details").navigationBarTitleDisplayMode(.inline)
+            .toolbarVisibility(.visible, for: .navigationBar)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showDetails = false } } }
+        }.presentationDragIndicator(.visible)
+    }
+
+    private var practicalDetails: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(current.ages, systemImage: "person.2").foregroundStyle(Theme.ink)
+            Label(current.parentPresence.shortTitle, systemImage: current.parentPresence.symbol).foregroundStyle(Theme.ink)
+            Text(current.parentPresence.detail).foregroundStyle(Theme.secondary)
+        }
+        .scaledFont(13, maxScale: 1.35)
+        .padding(.top, 6)
+    }
+
+    private func attendanceBar(_ proxy: ScrollViewProxy) -> some View {
+        HStack(spacing: 16) {
+            Text(current.isHostedByMe ? "Hosting" : current.priceText)
+                .scaledFont(17, weight: .semibold, maxScale: 1.2).foregroundStyle(Theme.ink)
+                .lineLimit(1).minimumScaleFactor(0.75).padding(.leading, 18)
+            Spacer(minLength: 0)
+            if current.isHostedByMe {
+                Button("Questions") {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { proxy.scrollTo("questions", anchor: .top) }
+                }.buttonStyle(EventAttendButtonStyle())
+            } else if current.isRegistered {
+                Button { showConfirmation = true } label: { Label("Going", systemImage: "checkmark") }
+                    .buttonStyle(EventAttendButtonStyle())
+            } else {
+                NavigationLink {
+                    RegistrationView(event: current).toolbarVisibility(.visible, for: .navigationBar)
+                } label: { Text("Attend") }
+                .buttonStyle(EventAttendButtonStyle())
+            }
+        }
+        .padding(6)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Theme.ink.opacity(0.12), lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 5)
+        .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
+    }
+
+    private func initials(_ name: String) -> String {
+        name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
+    }
     // MARK: FAQs
 
     private var faqSection: some View {
@@ -384,105 +486,7 @@ struct EventDetailView: View {
         }
     }
 
-    private func hostBottomBar(_ proxy: ScrollViewProxy) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Hosting")
-                    .scaledFont(22, weight: .bold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                Text("\(current.registeredCount) registered · \(current.priceText)")
-                    .scaledFont(13, maxScale: 1.25)
-                    .foregroundStyle(Theme.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .layoutPriority(-1)
-            Spacer(minLength: 8)
 
-            Button { withAnimation { proxy.scrollTo("questions", anchor: .top) } } label: {
-                Label(current.unansweredCount > 0 ? "Answer \(current.unansweredCount)" : "Questions",
-                      systemImage: "bubble.left.and.text.bubble.right")
-                    .scaledFont(16, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, 20)
-                    .frame(minHeight: 52)
-                    .gatherGlass(in: Capsule(), tint: Theme.buttonFill)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-        .background {
-            Theme.surface
-                .clipShape(.rect(cornerRadius: 32))
-                .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
-        }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-    }
-
-    private var bottomBar: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(current.priceText)
-                    .scaledFont(22, weight: .bold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                Text(priceCaption)
-                    .scaledFont(13, maxScale: 1.25)
-                    .foregroundStyle(Theme.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .layoutPriority(-1)
-            Spacer(minLength: 8)
-
-            if current.isRegistered {
-                Button { showConfirmation = true } label: {
-                    Label("Registered", systemImage: "checkmark.circle.fill")
-                        .scaledFont(16, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, 20)
-                        .frame(minHeight: 52)
-                        .gatherGlass(in: Capsule(), tint: Theme.lilac)
-                }
-                .buttonStyle(.plain)
-            } else {
-                NavigationLink { RegistrationView(event: current) } label: {
-                    Text("Register")
-                        .scaledFont(16, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Color.white)
-                        .frame(width: 150)
-                        .frame(minHeight: 52)
-                        .gatherGlass(in: Capsule(), tint: Theme.buttonFill)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-        .background {
-            Theme.surface
-                .clipShape(.rect(cornerRadius: 32))
-                .shadow(color: .black.opacity(0.08), radius: 16, y: 4)
-        }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 4)
-    }
-
-    private var priceCaption: String {
-        guard current.isRegistered else { return current.kind.rawValue }
-        return state.canCancel(current) ? "Cancel any time" : "Paid"
-    }
-
-    private var mapsURL: URL {
-        let query = current.location.replacingOccurrences(of: "\n", with: ", ")
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        return URL(string: "https://maps.apple.com/?q=\(query)") ?? URL(string: "https://maps.apple.com")!
-    }
 }
 
 /// One family question in the host's inbox: shows the question, and lets the host answer it.
@@ -534,5 +538,15 @@ private struct HostQuestionRow: View {
             }
         }
         .padding(.vertical, 14)
+    }
+}
+
+private struct EventAttendButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaledFont(17, weight: .semibold, maxScale: 1.25)
+            .foregroundStyle(Color.adaptive(0xFFFFFF, 0x121214))
+            .frame(minWidth: 100, minHeight: 46).padding(.horizontal, 16)
+            .background(LinearGradient(colors: [Color.adaptive(0x2A2A2D, 0xFFFFFF), Color.adaptive(0x1B1D1C, 0xDCDCE1)], startPoint: .top, endPoint: .bottom), in: Capsule())
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }
