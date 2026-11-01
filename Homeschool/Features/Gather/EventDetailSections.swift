@@ -170,9 +170,15 @@ struct EventPhotosSection: View {
 /// EventKit's system editor lets the family choose a calendar and confirm the save.
 struct EventCalendarSheet: UIViewControllerRepresentable {
     let event: Event
+    var onSaved: () -> Void = {}
     @Environment(\.dismiss) private var dismiss
 
-    func makeCoordinator() -> Coordinator { Coordinator { dismiss() } }
+    func makeCoordinator() -> Coordinator {
+        Coordinator { saved in
+            if saved { onSaved() }
+            dismiss()
+        }
+    }
 
     func makeUIViewController(context: Context) -> EKEventEditViewController {
         let controller = EKEventEditViewController()
@@ -183,6 +189,7 @@ struct EventCalendarSheet: UIViewControllerRepresentable {
         calendarEvent.startDate = event.start
         calendarEvent.endDate = event.end
         calendarEvent.location = event.location.replacingOccurrences(of: "\n", with: ", ")
+        calendarEvent.url = event.onlineURL
         calendarEvent.notes = "\(event.about)\nHosted by \(event.host)."
         controller.event = calendarEvent
         controller.editViewDelegate = context.coordinator
@@ -192,8 +199,10 @@ struct EventCalendarSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: EKEventEditViewController, context: Context) {}
 
     final class Coordinator: NSObject, EKEventEditViewDelegate {
-        let onFinish: () -> Void
-        init(onFinish: @escaping () -> Void) { self.onFinish = onFinish }
-        func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) { onFinish() }
+        let onFinish: (Bool) -> Void
+        init(onFinish: @escaping (Bool) -> Void) { self.onFinish = onFinish }
+        func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) {
+            onFinish(action == .saved)
+        }
     }
 }

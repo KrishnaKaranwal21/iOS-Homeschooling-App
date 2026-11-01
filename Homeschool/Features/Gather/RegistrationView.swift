@@ -11,6 +11,7 @@ struct RegistrationView: View {
     @State private var acceptsNoRefund = false
     @State private var isPrefilled = false
     @State private var didLoad = false
+    @State private var showConfirmation = false
     /// The children who will join. Each one needs a place, so the price follows this count.
     @State private var selectedIDs: Set<Child.ID> = []
 
@@ -91,6 +92,9 @@ struct RegistrationView: View {
         .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
         .onChange(of: selectedIDs) { applySelection() }
         .animation(.snappy, value: staysWithChild)
+        .fullScreenCover(isPresented: $showConfirmation, onDismiss: { dismiss() }) {
+            GatherConfirmationSheet(event: event)
+        }
     }
 
     // MARK: Sections
@@ -327,7 +331,7 @@ struct RegistrationView: View {
             Button(event.isFree ? "Confirm registration" : "Pay \(totalText) & confirm") {
                 guard isValid else { return }
                 state.register(event, as: registrant, accompanying: isAccompanying, places: placeCount)
-                dismiss()
+                showConfirmation = true
             }
             .buttonStyle(.primaryHomeschool(isDimmed: !isValid))
 

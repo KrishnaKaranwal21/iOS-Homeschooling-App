@@ -9,6 +9,7 @@ struct EventDetailView: View {
     @State private var showConfirmation = false
     @State private var showContactHost = false
     @State private var showCalendar = false
+    @State private var calendarSaved = false
     @State private var showOrganizerBanner = true
     @State private var expandedAbout = false
     @State private var expandedFAQs = false
@@ -68,7 +69,7 @@ struct EventDetailView: View {
             .toolbarVisibility(.hidden, for: .tabBar)
             .onAppear { state.tabBarHideCount += 1 }
             .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
-            .sheet(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
+            .fullScreenCover(isPresented: $showConfirmation) { GatherConfirmationSheet(event: current) }
             .sheet(isPresented: $showContactHost) { ContactHostSheet(event: current) }
             .sheet(isPresented: $showReport, onDismiss: {
                 if reportNoticePending {
@@ -87,7 +88,7 @@ struct EventDetailView: View {
                 Text("Your report has been saved on this device.")
             }
             .sheet(isPresented: $showDetails) { detailsSheet }
-            .sheet(isPresented: $showCalendar) { EventCalendarSheet(event: current).ignoresSafeArea() }
+            .sheet(isPresented: $showCalendar) { EventCalendarSheet(event: current, onSaved: { calendarSaved = true }).ignoresSafeArea() }
             .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
             .navigationDestination(isPresented: $showProfile) { ProfileView() }
             .sheet(isPresented: $showProfilePrompt, onDismiss: {
@@ -195,9 +196,9 @@ struct EventDetailView: View {
                 }
                 Spacer(minLength: 0)
                 Button { showCalendar = true } label: {
-                    Image(systemName: "calendar.badge.plus").font(.system(size: 20)).foregroundStyle(Theme.ink)
+                    Image(systemName: calendarSaved ? "calendar.badge.checkmark" : "calendar.badge.plus").font(.system(size: 20)).foregroundStyle(Theme.ink)
                         .frame(width: 44, height: 44)
-                }.buttonStyle(.plain).accessibilityLabel("Add event to calendar")
+                }.buttonStyle(.plain).accessibilityLabel(calendarSaved ? "Event added to calendar. Add another copy" : "Add event to calendar")
             }
             Divider().overlay(Theme.cardBorder)
             HStack(alignment: .top, spacing: 14) {

@@ -25,6 +25,11 @@ struct GatherFeedCard: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("View \(event.title)")
+                .overlay(alignment: .topLeading) {
+                    if event.isRegistered {
+                        EventAttendingBadge(title: "Attending").padding(12).allowsHitTesting(false)
+                    }
+                }
                 HStack(spacing: 0) {
                     ShareLink(item: "\(event.title)\n\(event.shortDateText)\n\(event.location)\nHosted by \(event.host)") {
                         Image(systemName: "square.and.arrow.up").frame(width: 42, height: 42)
@@ -46,10 +51,13 @@ struct GatherFeedCard: View {
                     Text(event.title).scaledFont(18, weight: .semibold, maxScale: 1.35)
                         .foregroundStyle(Theme.ink).lineLimit(2, reservesSpace: sizeClass == .regular)
                         .multilineTextAlignment(.leading)
-                    Text(event.feedDateText())
-                        .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
-                        .lineLimit(1).truncationMode(.tail)
-                    Text("\(locationSummary) • by \(event.host)")
+                    HStack(spacing: 7) {
+                        Text(event.feedDateText())
+                            .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
+                            .lineLimit(1).minimumScaleFactor(0.85)
+                        EventModeBadge(mode: event.mode)
+                    }
+                    Text(event.mode == .online ? "by \(event.host)" : "\(locationSummary) • by \(event.host)")
                         .scaledFont(12, maxScale: 1.35).foregroundStyle(Theme.secondary)
                         .lineLimit(1).truncationMode(.tail)
                 }
@@ -70,7 +78,7 @@ struct GatherFeedCard: View {
             }
             .scaledFont(12, weight: .semibold, maxScale: 1.35).frame(minHeight: 24)
         }
-        .sheet(isPresented: $showTicket) { GatherConfirmationSheet(event: event) }
+        .fullScreenCover(isPresented: $showTicket) { GatherConfirmationSheet(event: event) }
         .task(id: state.locationService.lastLocation?.timestamp) {
             guard state.usesLiveLocation, state.locationService.lastLocation != nil else { return }
             _ = await state.eventLocations.resolve(event)

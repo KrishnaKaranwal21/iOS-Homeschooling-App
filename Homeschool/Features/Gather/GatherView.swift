@@ -8,7 +8,6 @@ struct GatherView: View {
     @State private var place: Place = .nearYou
     @State private var showFilters = false
     @State private var showLocationPicker = false
-    @State private var showMap = false
     @State private var showHost = false
     @State private var showProfile = false
     @State private var showProfilePrompt = false
@@ -61,32 +60,25 @@ struct GatherView: View {
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             HStack {
-                Text("Gather").scaledFont(26, weight: .bold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
                 Spacer()
+                Button(action: hostEvent) {
+                    Label("Host an event", systemImage: "plus")
+                        .scaledFont(14, weight: .semibold, maxScale: 1.3)
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 15).frame(minHeight: 44)
+                        .background(Theme.lilac, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("gather.hostEvent")
             }
             .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
             .background(Theme.background)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button { showMap = true } label: {
-                Label("Map", systemImage: "map")
-                    .scaledFont(16, weight: .semibold, maxScale: 1.35)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 22).frame(minHeight: 48)
-                    .background(Theme.accentFill, in: Capsule())
-                    .shadow(color: .black.opacity(0.18), radius: 14, y: 5)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Show event areas on a map")
-            .padding(.top, 8).padding(.bottom, 8)
         }
         .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
         .navigationDestination(isPresented: $showHost) { HostEventView() }
         .navigationDestination(isPresented: $showProfile) { ProfileView() }
         .sheet(isPresented: $showFilters) { filtersSheet }
-        .sheet(isPresented: $showMap) { GatherMapView(events: events) }
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerSheet(selection: place, home: state.homeLocation) { place = $0 }
         }
@@ -139,19 +131,7 @@ struct GatherView: View {
                 .accessibilityIdentifier("gather.filters")
             }
             .padding(.horizontal, 20)
-            ScrollView(.horizontal) {
-                HStack(spacing: 4) {
-                    ForEach(GatherTimeFilter.allCases) { time in
-                        Button { filter.time = time } label: {
-                            Text(time.rawValue).scaledFont(14, weight: .semibold, maxScale: 1.35)
-                                .foregroundStyle(filter.time == time ? Color.white : Theme.ink)
-                                .padding(.horizontal, 14).frame(minHeight: 40)
-                                .background(filter.time == time ? Theme.accentFill : .clear, in: Capsule())
-                        }
-                        .accessibilityAddTraits(filter.time == time ? .isSelected : [])
-                    }
-                }.padding(.horizontal, 20)
-            }.scrollIndicators(.hidden)
+
         }
         .buttonStyle(.plain)
     }
@@ -161,11 +141,12 @@ struct GatherView: View {
             HStack(spacing: 12) {
                 ForEach(GatherFeedCategory.ordered(interests: state.child.interests)) { category in
                     Button { filter.category = category } label: {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             Image(systemName: category.symbol)
-                                .font(.system(size: 23, weight: .regular))
-                                .foregroundStyle(filter.category == category ? Theme.accent : Theme.secondary)
-                                .frame(height: 28).accessibilityHidden(true)
+                                .font(.system(size: 19, weight: .medium))
+                                .foregroundStyle(category.iconColor)
+                                .frame(width: 34, height: 34)
+                                .background(category.iconColor.opacity(0.10), in: .rect(cornerRadius: 11)).accessibilityHidden(true)
                             Text(category.rawValue)
                                 .scaledFont(12, weight: filter.category == category ? .semibold : .regular, maxScale: 1.2)
                                 .foregroundStyle(filter.category == category ? Theme.ink : Theme.secondary)
@@ -214,7 +195,7 @@ struct GatherView: View {
                     }
                     Button {
                         showFilters = false
-                        if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
+                        hostEvent()
                     } label: { Label("Host an event", systemImage: "plus.circle") }
                 }
                 if !state.hostedEventsWithQuestions.isEmpty {
@@ -247,11 +228,15 @@ struct GatherView: View {
         ContentUnavailableView {
             Label("A little quiet here", systemImage: "sparkles")
         } description: {
-            Text("Try another day, location or category to find your next gathering.")
+            Text("Try another location or category to find your next gathering.")
         } actions: {
             Button("Explore all upcoming events") { filter = GatherFeedFilter(); place = .world }
                 .buttonStyle(.bordered).tint(Theme.accent)
         }
+    }
+
+    private func hostEvent() {
+        if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
     }
 
     private func resetPagination() {

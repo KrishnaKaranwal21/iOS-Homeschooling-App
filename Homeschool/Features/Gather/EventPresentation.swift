@@ -1,6 +1,12 @@
 import Foundation
 
 extension Event {
+    var onlineURL: URL? {
+        guard mode == .online, let url = URL(string: location.trimmingCharacters(in: .whitespacesAndNewlines)),
+              ["https", "http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
+        return url
+    }
+
     func feedDateText(now: Date = .now, calendar: Calendar = .current) -> String {
         let day: String
         if calendar.isDate(start, inSameDayAs: now) {

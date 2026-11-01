@@ -28,6 +28,6 @@ struct GatherTicketsView: View {
         .navigationTitle("Your tickets")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
-        .sheet(item: $confirmation) { GatherConfirmationSheet(event: $0) }
+        .fullScreenCover(item: $confirmation) { GatherConfirmationSheet(event: $0) }
     }
 }

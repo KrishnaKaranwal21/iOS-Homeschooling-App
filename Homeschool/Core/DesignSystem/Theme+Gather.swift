@@ -83,3 +83,21 @@ struct GatherGlassContainer<Content: View>: View {
         }
     }
 }
+
+// Soft category colours remain legible against both Gather backgrounds.
+extension GatherFeedCategory {
+    var iconColor: Color {
+        switch self {
+        case .all, .habit: Color.adaptive(0x8262CF, 0xBDA5F0)
+        case .art: Color.adaptive(0xB66D88, 0xE4A4BE)
+        case .coding, .science: Color.adaptive(0x577FA7, 0x9EBFE8)
+        case .music, .social: Color.adaptive(0xB57A49, 0xECC29A)
+        case .nature, .animals: Color.adaptive(0x51856D, 0x9FCDB4)
+        case .space: Color.adaptive(0x7971AC, 0xBEB4EB)
+        case .sports: Color.adaptive(0xAF765D, 0xE5B19B)
+        case .reading: Color.adaptive(0x588C92, 0x9ACCD0)
+        case .workshops: Color.adaptive(0xAB8A4D, 0xDBC28C)
+        case .yours: Color.adaptive(0xAD7390, 0xE3ADC9)
+        }
+    }
+}
