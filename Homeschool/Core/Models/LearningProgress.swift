@@ -73,3 +73,67 @@ struct SubjectLearningProgress: Identifiable {
     var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
     var fraction: Double { LearningProgress.fraction(loggedMinutes, of: plannedMinutes) }
 }
+
+enum ProgressRange: String, Identifiable, CaseIterable {
+    case day = "Day", week = "Week", month = "Month"
+    var id: String { rawValue }
+}
+
+/// Every range uses saved activity dates; days outside the saved plan stay empty.
+struct ProgressTimeline {
+    let interval: DateInterval
+    let buckets: [ProgressChartBucket]
+    let activities: [WeekActivity]
+
+    init(plan: WeeklyPlan, range: ProgressRange, selectedDate: Date, calendar: Calendar = .current) {
+        let start: Date
+        let end: Date
+        switch range {
+        case .day:
+            start = calendar.startOfDay(for: selectedDate)
+            end = calendar.date(byAdding: .day, value: 1, to: start)!
+        case .week:
+            start = calendar.startOfDay(for: plan.weekStart)
+            end = calendar.date(byAdding: .day, value: 7, to: start)!
+        case .month:
+            let month = calendar.dateInterval(of: .month, for: selectedDate)!
+            start = month.start
+            end = month.end
+        }
+        interval = DateInterval(start: start, end: end)
+        let included = plan.activities.filter { $0.date >= start && $0.date < end }
+        activities = included
+        if range == .day {
+            buckets = included.enumerated().map { index, activity in
+                ProgressChartBucket(id: activity.id.uuidString, date: start,
+                                    label: "\(index + 1)", title: activity.title, activities: [activity])
+            }
+        } else {
+            let count = calendar.dateComponents([.day], from: start, to: end).day ?? 0
+            buckets = (0..<count).map { offset in
+                let date = calendar.date(byAdding: .day, value: offset, to: start)!
+                let weekday = (calendar.component(.weekday, from: date) + 5) % 7
+                let label = range == .week ? WeeklyPlan.dayNames[weekday] : "\(calendar.component(.day, from: date))"
+                return ProgressChartBucket(id: "day-\(date.timeIntervalSince1970)", date: date,
+                                           label: label, title: date.formatted(.dateTime.weekday(.wide).day().month()),
+                                           activities: included.filter { calendar.isDate($0.date, inSameDayAs: date) })
+            }
+        }
+    }
+
+    var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
+    var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
+    var completedCount: Int { activities.filter(\.isDone).count }
+    var fraction: Double { LearningProgress.fraction(loggedMinutes, of: plannedMinutes) }
+}
+
+struct ProgressChartBucket: Identifiable {
+    let id: String
+    let date: Date
+    let label: String
+    let title: String
+    let activities: [WeekActivity]
+    var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
+    var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
+    var isComplete: Bool { !activities.isEmpty && activities.allSatisfy(\.isDone) }
+}
