@@ -48,7 +48,7 @@ private struct ProgressLearningPage: View {
                                 .foregroundStyle(ProgressPalette.purple)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, -4)
-                            weeklyTotals
+                            selectedDayTotals
                         }
                         .padding(.horizontal, 22)
                         .padding(.top, 12)
@@ -165,7 +165,7 @@ private struct ProgressLearningPage: View {
                     .scaledFont(9, weight: .semibold, maxScale: 1.15).tracking(1.2)
                     .lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
-                legend("Logged", color: ProgressPalette.inactive)
+                legend("Logged", color: ProgressPalette.purple)
                 legend("Planned", color: Theme.surface.opacity(0.65))
             }
             .foregroundStyle(ProgressPalette.purple)
@@ -226,7 +226,7 @@ private struct ProgressLearningPage: View {
                             .overlay(alignment: .bottom) {
                                 if logged > 0 {
                                     Rectangle()
-                                        .fill(isSelected ? ProgressPalette.purple : ProgressPalette.inactive)
+                                        .fill(ProgressPalette.purple)
                                         .frame(height: min(max(4, plannedHeight), max(1, loggedHeight)))
                                         .overlay(alignment: .top) {
                                             if value.isComplete && loggedHeight >= 24 {
@@ -239,7 +239,7 @@ private struct ProgressLearningPage: View {
                             }
                             .clipShape(Capsule())
                     } else {
-                        Capsule().fill(ProgressPalette.inactive.opacity(0.65)).frame(height: 3)
+                        Capsule().fill(ProgressPalette.purple.opacity(0.35)).frame(height: 3)
                     }
                 }
                 .frame(maxWidth: 31)
@@ -248,12 +248,6 @@ private struct ProgressLearningPage: View {
                 Text(name)
                     .scaledFont(11, weight: isSelected ? .semibold : .regular, maxScale: 1.2)
                     .frame(maxWidth: .infinity).frame(height: 29)
-                    .background {
-                        if isSelected {
-                            Capsule().fill(ProgressPalette.coral)
-                                .matchedGeometryEffect(id: "selectedDay", in: selectionAnimation)
-                        }
-                    }
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -270,16 +264,19 @@ private struct ProgressLearningPage: View {
         }
     }
 
-    private var weeklyTotals: some View {
-        HStack(alignment: .top, spacing: 0) {
-            statistic(metric == .time ? LearningProgress.duration(progress.loggedMinutes) : "\(progress.completedCount)",
-                      caption: metric == .time ? "Logged this week" : "Completed this week")
+    private var selectedDayTotals: some View {
+        let logged = metric == .time ? day.loggedMinutes : day.completed.count
+        let planned = metric == .time ? day.plannedMinutes : day.activities.count
+        let percentage = Int((LearningProgress.fraction(logged, of: planned) * 100).rounded())
+        return HStack(alignment: .top, spacing: 0) {
+            statistic(metric == .time ? LearningProgress.duration(day.loggedMinutes) : "\(day.completed.count)",
+                      caption: metric == .time ? "Logged on \(selectedDay)" : "Completed on \(selectedDay)")
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
-            statistic(metric == .time ? LearningProgress.duration(progress.plannedMinutes) : "\(progress.activityCount)",
-                      caption: "Planned this week")
+            statistic(metric == .time ? LearningProgress.duration(day.plannedMinutes) : "\(day.activities.count)",
+                      caption: "Daily goal")
                 .padding(.leading, 13)
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
-            statistic("\(Int(((metric == .time ? progress.timeFraction : progress.activityFraction) * 100).rounded()))%", caption: "Completed")
+            statistic("\(percentage)%", caption: "Completed")
                 .padding(.leading, 13)
         }
     }
@@ -396,6 +393,4 @@ private enum ProgressMetric: String, Identifiable, CaseIterable {
 enum ProgressPalette {
     static let background = Color.adaptive(0xE6DEFF, 0x19151F)
     static let purple = Color.adaptive(0x4430A5, 0xBBA4FF)
-    static let inactive = Color.adaptive(0x9B90B9, 0x9687B2)
-    static let coral = Color.adaptive(0xFFC9C5, 0x573642)
 }
