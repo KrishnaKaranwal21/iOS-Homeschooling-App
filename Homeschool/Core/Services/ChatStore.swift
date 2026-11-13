@@ -56,11 +56,7 @@ struct ChatThread: Identifiable {
         return String(letters).uppercased()
     }
 
-    var avatarColor: Color {
-        let palette: [Color] = [Color.adaptive(0xE6E1FF, 0x30283F), Theme.pink, Theme.lime, Theme.yellow, Color.adaptive(0xFAD9C9, 0x4B332D)]
-        let seed = title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-        return palette[seed % palette.count]
-    }
+    var avatarColor: Color { Theme.pink }
 
     var mediaMessages: [ChatMessage] { hidesMedia ? [] : messages.filter { $0.image != nil } }
     var starredMessages: [ChatMessage] { messages.filter(\.isStarred) }
