@@ -337,7 +337,7 @@ struct ParentCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
-        .background(Theme.lilac, in: .rect(cornerRadius: 24))
+        .background(Theme.pink, in: .rect(cornerRadius: 24))
     }
 
     private var profileLink: some View {
