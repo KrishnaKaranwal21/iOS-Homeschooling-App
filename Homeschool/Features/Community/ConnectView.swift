@@ -7,6 +7,8 @@ struct ConnectView: View {
     let parent: Parent
     /// True when a parent looks at their own profile from Profile. There is nothing to connect to.
     var isPreview = false
+    /// True when opened from a chat with this parent. The Message button would only lead back to the chat.
+    var hidesConnectBar = false
 
     @Environment(\.openTab) private var openTab
     private var requested: Bool { state.requestedParents.contains(parent.id) }
@@ -61,7 +63,7 @@ struct ConnectView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !isPreview { connectBar }
+            if !isPreview && !hidesConnectBar { connectBar }
         }
     }
 
