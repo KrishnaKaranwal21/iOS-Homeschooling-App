@@ -5,11 +5,11 @@ import SwiftUI
 extension Event {
     /// Colour used when an event has no photo yet.
     var tint: Color {
-        switch category {
+        switch normalizedCategory {
         case "Nature":  return Color(hex: 0x7FA777)
         case "Art":     return Color(hex: 0xE8A07F)
-        case "Science": return Color(hex: 0x8FA8E8)
-        case "Habit":   return Color(hex: 0xE59AA0)
+        case "Sports":  return Color(hex: 0x8FA8E8)
+        case "Music":   return Color(hex: 0xE59AA0)
         default:        return Color(hex: 0x9C8CF0)
         }
     }
@@ -420,7 +420,7 @@ struct OutingCard: View {
                     }
                 }
                 .overlay(alignment: .topLeading) {
-                    Label(event.category, systemImage: event.symbol)
+                    Label(event.normalizedCategory, systemImage: event.symbol)
                         .scaledFont(13, weight: .medium, maxScale: 1.2)
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 10)

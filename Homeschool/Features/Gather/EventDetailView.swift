@@ -57,7 +57,7 @@ struct EventDetailView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
-                .padding(.bottom, 30)
+                .padding(.bottom, 12)
                 .frame(maxWidth: 680)
                 .frame(maxWidth: .infinity)
             }
@@ -217,26 +217,20 @@ struct EventDetailView: View {
     }
 
     private var organizerCard: some View {
-        Button { if !current.isHostedByMe { showContactHost = true } } label: {
-            HStack(spacing: 16) {
-                Text(initials(current.host))
-                    .scaledFont(20, weight: .bold, maxScale: 1.2).foregroundStyle(Theme.ink)
-                    .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(current.host).scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
-                    Text(current.isHostedByMe ? "You’re organizing this event" : current.hostRole)
-                        .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
-                }
-                Spacer(minLength: 0)
-                if !current.isHostedByMe {
-                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
-                }
+        HStack(spacing: 16) {
+            Text(initials(current.host))
+                .scaledFont(20, weight: .bold, maxScale: 1.2).foregroundStyle(Theme.ink)
+                .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(current.host).scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
+                Text(current.isHostedByMe ? "You’re organizing this event" : current.hostRole)
+                    .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
             }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.field, in: .rect(cornerRadius: 26))
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain).disabled(current.isHostedByMe)
-        .accessibilityLabel(current.isHostedByMe ? "You are hosting this event" : "Contact organizer, \(current.host)")
+        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.field, in: .rect(cornerRadius: 26))
+        .accessibilityElement(children: .combine)
     }
 
     private var descriptionText: some View {
@@ -267,7 +261,7 @@ struct EventDetailView: View {
                 .foregroundStyle(Theme.accent).buttonStyle(.plain)
                 .accessibilityIdentifier("event.readMore")
             }
-            Text(current.category).scaledFont(13, weight: .semibold, maxScale: 1.25)
+            Text(current.normalizedCategory).scaledFont(13, weight: .semibold, maxScale: 1.25)
                 .foregroundStyle(Theme.ink).padding(.horizontal, 14).padding(.vertical, 7)
                 .roundedStroke(Theme.cardBorder, cornerRadius: 18)
         }
@@ -275,13 +269,23 @@ struct EventDetailView: View {
 
     private var reportButton: some View {
         Button { showReport = true } label: {
-            Label("Report this event", systemImage: "flag")
-                .scaledFont(17, weight: .semibold, maxScale: 1.35)
-                .foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-                .contentShape(Rectangle())
+            HStack(spacing: 16) {
+                Image(systemName: "flag")
+                    .scaledFont(20, weight: .semibold, maxScale: 1.2).foregroundStyle(Theme.ink)
+                    .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Report this event").scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
+                    Text("Tell us if something isn’t right")
+                        .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
+            }
+            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.field, in: .rect(cornerRadius: 26))
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain).padding(.top, 12).padding(.bottom, 90)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("event.report")
     }
 
@@ -376,6 +380,22 @@ struct EventDetailView: View {
                         if index < faqs.count - 1 {
                             Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
                         }
+                    }
+                    if !current.isHostedByMe {
+                        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
+                        Button { showContactHost = true } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "bubble.left.and.text.bubble.right")
+                                    .foregroundStyle(Theme.accent)
+                                Text("Ask the host a question").rowTitle()
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
+                            }
+                            .padding(.vertical, 14).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("event.askHost")
                     }
                 }
                 .padding(.horizontal, 16)

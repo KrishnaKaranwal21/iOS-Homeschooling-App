@@ -40,13 +40,22 @@ private struct SavedEventRow: View {
     let event: Event
     @Environment(AppState.self) private var state
 
+    /// A host's own photo stays; otherwise only the category icon, not the full artwork.
+    @ViewBuilder private var thumbnail: some View {
+        if event.coverImage != nil {
+            EventCover(event: event)
+        } else {
+            EventIconTile(event: event)
+        }
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             NavigationLink {
                 EventDetailView(event: event)
             } label: {
                 HStack(spacing: 12) {
-                    EventCover(event: event)
+                    thumbnail
                         .frame(width: 76, height: 76)
                         .clipShape(.rect(cornerRadius: 16))
 

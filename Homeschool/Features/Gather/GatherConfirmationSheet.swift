@@ -1,17 +1,28 @@
 import SwiftUI
 
+/// "Attending" / "Hosting" pill shown on an event cover.
+/// Fixed white pill with fixed dark text, drawn in light mode whatever the app appearance,
+/// so the words are always readable over any cover.
 struct EventAttendingBadge: View {
     var title = "Going"
+    var symbol = "checkmark.circle.fill"
+    var tint = Color(hex: 0x3F9E7E)
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(hex: 0x83CDB3))
-            Text(title).foregroundStyle(.white)
+            Image(systemName: symbol)
+                .foregroundColor(tint)
+            Text(title)
+                .foregroundColor(Color(hex: 0x2B2840))
+                .lineLimit(1)
         }
         .scaledFont(13, weight: .semibold, maxScale: 1.3)
+        .fixedSize()
         .padding(.horizontal, 11).padding(.vertical, 8)
-        .background(Color(hex: 0x202123), in: Capsule())
+        .background(Capsule().fill(Color.white))
+        .overlay(Capsule().stroke(Color(hex: 0xDDD7F5), lineWidth: 1))
+        .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+        .environment(\.colorScheme, .light)
         .accessibilityElement(children: .combine)
     }
 }

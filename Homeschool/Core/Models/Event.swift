@@ -67,7 +67,7 @@ struct Event: Identifiable, Hashable {
 
     let id = UUID()
     var title: String
-    /// Science, Habit, Art, Coding, Nature, or Community for events parents host.
+    /// Art, Nature, Music, Sports or Study. Older values are mapped by `normalizedCategory`.
     var category: String
     var kind: Kind = .gathering
     var start: Date
@@ -105,25 +105,29 @@ struct Event: Identifiable, Hashable {
 }
 
 extension Event {
-    /// Categories a host can choose from. The Gather page adds "All" in front.
-    static let categories = ["Science", "Habit", "Art", "Coding", "Nature", "Animals", "Music", "Space", "Sports", "Reading", "Others"]
+    /// Categories a host can choose from. The Gather page adds "Explore" and "Your events" in front.
+    static let categories = ["Art", "Nature", "Music", "Sports", "Study"]
 
     static func symbol(for category: String) -> String {
-        switch category {
-        case "Science": return "flask"
-        case "Habit":   return "repeat"
-        case "Art":     return "paintpalette"
-        case "Coding":  return "chevron.left.forwardslash.chevron.right"
-        case "Nature":  return "leaf"
-        case "Animals": return "pawprint"
-        case "Music": return "music.note"
-        case "Space": return "moon.stars"
+        switch normalized(category) {
+        case "Art":    return "paintpalette"
+        case "Nature": return "leaf"
+        case "Music":  return "music.note"
         case "Sports": return "figure.run"
-        case "Reading": return "book"
-        case "Others":  return "sparkles"
-        default:        return "person.2.fill"
+        default:       return "book"
         }
     }
+
+    /// Maps any earlier category (Science, Habit, Coding, Animals, Space, Reading, Others...) onto the five current ones.
+    static func normalized(_ category: String) -> String {
+        switch category {
+        case "Art", "Nature", "Music", "Sports", "Study": return category
+        case "Animals": return "Nature"
+        default: return "Study"
+        }
+    }
+
+    var normalizedCategory: String { Self.normalized(category) }
 
     /// The host's own answers first, then the basics every family asks about.
     var allFAQs: [EventFAQ] {

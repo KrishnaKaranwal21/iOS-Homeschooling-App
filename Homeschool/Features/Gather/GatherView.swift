@@ -25,18 +25,22 @@ struct GatherView: View {
         (filter.freeOnly ? 1 : 0) + (filter.onlineOnly ? 1 : 0) + (place != .nearYou ? 1 : 0)
     }
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 24, alignment: .top), count: sizeClass == .regular ? 2 : 1)
+        Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: sizeClass == .regular ? 2 : 1)
     }
 
+    private static let topID = "gather.top"
+
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Color.clear.frame(height: 0).id(Self.topID)
                 discoveryControls.padding(.bottom, 20)
                 Section {
                     if events.isEmpty {
                         emptyState.padding(.top, 44)
                     } else {
-                        LazyVGrid(columns: columns, alignment: .leading, spacing: 24) {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                             ForEach(Array(events.prefix(pageLimit))) { event in
                                 GatherFeedCard(event: event)
                             }
@@ -47,7 +51,7 @@ struct GatherView: View {
                             }
                         }
                         .padding(.horizontal, 20)
-                        .padding(.top, 30)
+                        .padding(.top, 12)
                     }
                 } header: {
                     categoryStrip
@@ -101,6 +105,9 @@ struct GatherView: View {
         .onChange(of: place) { resetPagination() }
         .onChange(of: state.child.interests) { resetPagination() }
         .onChange(of: state.child.id) { resetPagination() }
+        // A new label always opens from the top, not where the previous one was scrolled to.
+        .onChange(of: filter.category) { proxy.scrollTo(Self.topID, anchor: .top) }
+        }
     }
 
     private var likedEventsButton: some View {
@@ -168,37 +175,31 @@ struct GatherView: View {
         .buttonStyle(.plain)
     }
 
+    /// Same look as the filter chips in Chats: rounded pills, lavender when selected.
     private var categoryStrip: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 ForEach(GatherFeedCategory.ordered(interests: state.child.interests)) { category in
+                    let selected = filter.category == category
                     Button { filter.category = category } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: category.symbol)
-                                .font(.system(size: 19, weight: .medium))
-                                .foregroundStyle(category.iconColor)
-                                .frame(width: 34, height: 34)
-                                .background(category.iconColor.opacity(0.10), in: .rect(cornerRadius: 11)).accessibilityHidden(true)
-                            Text(category.rawValue)
-                                .scaledFont(12, weight: filter.category == category ? .semibold : .regular, maxScale: 1.2)
-                                .foregroundStyle(filter.category == category ? Theme.ink : Theme.secondary)
-                                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.85)
-                                .frame(height: 30)
-                            Capsule().fill(filter.category == category ? Theme.accent : .clear)
-                                .frame(height: 2)
-                        }
-                        .frame(width: 88).padding(.top, 12)
-                        .contentShape(Rectangle())
+                        Text(category.rawValue)
+                            .scaledFont(15, weight: selected ? .semibold : .regular, maxScale: 1.2)
+                            .lineLimit(1)
+                            .foregroundStyle(selected ? Theme.ink : Theme.secondary)
+                            .padding(.horizontal, 16)
+                            .frame(height: 36)
+                            .background(Capsule().fill(selected ? Color.adaptive(0xD9D2FF, 0x3B3059) : Theme.field))
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityAddTraits(filter.category == category ? .isSelected : [])
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 20)
         }
         .scrollIndicators(.hidden)
+        .padding(.vertical, 8)
         .background(Theme.background)
-        .overlay(alignment: .bottom) { Rectangle().fill(Theme.cardBorder).frame(height: 1) }
     }
 
     private var filtersSheet: some View {
@@ -211,8 +212,8 @@ struct GatherView: View {
                     } label: {
                         HStack { Label("Location", systemImage: "mappin.and.ellipse"); Spacer(); Text(place.name).foregroundStyle(Theme.secondary) }
                     }
-                    Toggle("Free events only", isOn: $filter.freeOnly)
-                    Toggle("Online events only", isOn: $filter.onlineOnly)
+                    Toggle("Free events only", isOn: $filter.freeOnly).tint(Theme.accent)
+                    Toggle("Online events only", isOn: $filter.onlineOnly).tint(Theme.accent)
                 }
                 Section("Your gatherings") {
                     NavigationLink { SavedEventsView() } label: {
@@ -248,7 +249,8 @@ struct GatherView: View {
                     Button("Reset filters") { filter = GatherFeedFilter(); place = .nearYou }
                 }
             }
-            .tint(Theme.accent)
+            // Text buttons and "Done" are black, not purple. Toggles keep the app's purple.
+            .tint(Theme.ink)
             .navigationTitle("Make it your kind of day")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showFilters = false } } }

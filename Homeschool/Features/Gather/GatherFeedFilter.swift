@@ -24,36 +24,37 @@ enum GatherTimeFilter: String, CaseIterable, Identifiable {
 }
 
 enum GatherFeedCategory: String, CaseIterable, Identifiable {
-    case all = "All Events", workshops = "Workshops", yours = "Your events"
-    case social = "Social Activities", science = "Science", art = "Art", coding = "Coding", nature = "Nature", habit = "Habit"
-    case animals = "Animals", music = "Music", space = "Space", sports = "Sports", reading = "Reading"
+    case explore = "Explore", yours = "Your events"
+    case art = "Art", nature = "Nature", music = "Music", sports = "Sports", study = "Study"
     var id: String { rawValue }
     var symbol: String {
         switch self {
-        case .all: "sparkles"
-        case .workshops: "hammer"
+        case .explore: "sparkles"
         case .yours: "calendar.badge.checkmark"
-        case .social: "person.2"
-        case .science: "flask"
         case .art: "paintpalette"
-        case .coding: "chevron.left.forwardslash.chevron.right"
         case .nature: "leaf"
-        case .habit: "arrow.triangle.2.circlepath"
-        case .animals: "pawprint"
         case .music: "music.note"
-        case .space: "moon.stars"
         case .sports: "figure.run"
-        case .reading: "book"
+        case .study: "book"
         }
     }
 
+    private static let utility: [Self] = [.explore, .yours]
+
+    /// The subject categories a child's interests point to. Coding, Space, Reading and similar interests fall under Study.
+    private static func selected(interests: Set<String>) -> [Self] {
+        let mapped = Set(interests.map { Self(rawValue: Event.normalized($0)) }.compactMap { $0 })
+        return allCases.filter { !utility.contains($0) && mapped.contains($0) }
+    }
+
+    /// "Explore" and "Your events" always come first, then the child's interests, then the rest.
     static func ordered(interests: Set<String>) -> [Self] {
-        let selected = allCases.filter { ![Self.all, .workshops, .yours, .social].contains($0) && interests.contains($0.rawValue) }
-        return [.all] + selected + allCases.filter { $0 != .all && !selected.contains($0) }
+        let selected = selected(interests: interests)
+        return utility + selected + allCases.filter { !utility.contains($0) && !selected.contains($0) }
     }
 
     static func prioritize(_ events: [Event], interests: Set<String>) -> [Event] {
-        let selected = allCases.filter { ![Self.all, .workshops, .yours, .social].contains($0) && interests.contains($0.rawValue) }
+        let selected = selected(interests: interests)
         return events.sorted { lhs, rhs in
             let left = selected.contains { $0.includes(lhs) }
             let right = selected.contains { $0.includes(rhs) }
@@ -65,28 +66,18 @@ enum GatherFeedCategory: String, CaseIterable, Identifiable {
 
     func includes(_ event: Event) -> Bool {
         switch self {
-        case .all: return true
-        case .workshops: return event.kind == .workshop
+        // Explore is for finding new events: ones you already host or attend live under "Your events".
+        case .explore: return !(event.isRegistered || event.isHostedByMe)
         case .yours: return event.isRegistered || event.isHostedByMe
-        case .social: return event.kind == .gathering
-        case .animals:
-            return event.category == rawValue || matches(event, words: ["animal", "bird", "wildlife", "pet "])
-        case .space:
-            return event.category == rawValue || matches(event, words: ["astronomy", "space", "stargaz", "planet"])
-        default: return event.category == rawValue
+        default: return event.normalizedCategory == rawValue
         }
-    }
-
-    private func matches(_ event: Event, words: [String]) -> Bool {
-        let text = "\(event.title) \(event.about)"
-        return words.contains { text.localizedCaseInsensitiveContains($0) }
     }
 }
 
 struct GatherFeedFilter: Equatable {
     var query = ""
     var time = GatherTimeFilter.upcoming
-    var category = GatherFeedCategory.all
+    var category = GatherFeedCategory.explore
     var freeOnly = false
     var onlineOnly = false
 
