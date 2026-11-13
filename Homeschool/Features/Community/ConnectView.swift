@@ -115,7 +115,7 @@ struct ConnectView: View {
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 48, height: 48)
-                                .background(Circle().fill(Theme.lavender))
+                                .background(Circle().fill(Theme.pink))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(child.name)
                                     .scaledFont(17, weight: .semibold, maxScale: 1.25)
@@ -134,7 +134,7 @@ struct ConnectView: View {
                                     .foregroundStyle(Theme.gatherText)
                                 FlowLayout(spacing: 6) {
                                     ForEach(child.interests, id: \.self) { name in
-                                        InfoChip(title: name, isCompact: true,
+                                        InfoChip(title: name,tint: Theme.chipFill, isCompact: true,
                                                  symbol: !isPreview && myInterests.contains(name) ? "sparkles" : nil)
                                     }
                                 }
@@ -143,7 +143,7 @@ struct ConnectView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.lilac, in: .rect(cornerRadius: 18))
+                    .background(Theme.pink_light, in: .rect(cornerRadius: 18))
                     .accessibilityElement(children: .combine)
                 }
 
