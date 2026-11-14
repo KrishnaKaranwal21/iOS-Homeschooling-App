@@ -212,7 +212,7 @@ struct CommunityView: View {
                             .foregroundStyle(isSelected ? Theme.ink : Theme.gatherText)
                             .padding(.horizontal, 18)
                             .padding(.vertical, 9)
-                            .background(Capsule().fill(isSelected ? Theme.lavender : Theme.chipFill))
+                            .background(Capsule().fill(isSelected ? Theme.lavender : Theme.field))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -289,7 +289,7 @@ struct ParentCard: View {
                 if !interests.isEmpty {
                     FlowLayout(spacing: 6) {
                         ForEach(interests.prefix(4), id: \.self) { name in
-                            InfoChip(title: name, isCompact: true,
+                            InfoChip(title: name,tint: Theme.chipFill, isCompact: true,
                                      symbol: myInterests.contains(name) ? "sparkles" : nil)
                         }
                         if interests.count > 4 {
@@ -343,7 +343,7 @@ struct ParentCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
-        .background(Theme.lilac, in: .rect(cornerRadius: 24))
+        .background(Theme.pink_light, in: .rect(cornerRadius: 24))
     }
 
     private var profileLink: some View {
@@ -411,7 +411,7 @@ struct ParentAvatar: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.lavender)
+            Circle().fill(Theme.pink)
             Text(String(parent.name.prefix(1)))
                 .font(.system(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(Theme.ink)

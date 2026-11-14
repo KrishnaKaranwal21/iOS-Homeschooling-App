@@ -217,7 +217,7 @@ struct ProfileHero: View {
 
     private var avatar: some View {
         ZStack {
-            Circle().fill(Theme.lavender)
+            Circle().fill(Theme.pink)
             Text(initial)
                 .font(.system(size: 36, weight: .bold))
                 .foregroundStyle(Theme.ink)

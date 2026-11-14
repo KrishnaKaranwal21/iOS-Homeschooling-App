@@ -82,6 +82,9 @@ struct ChatInfoView: View {
 
     private func actions(_ thread: ChatThread) -> some View {
         HStack(spacing: 10) {
+            if let parent = communityParent(for: thread) {
+                profileTile(parent)
+            }
             actionTile(icon: "magnifyingglass", title: "Search") {
                 dismiss()
                 onSearch()
@@ -99,20 +102,43 @@ struct ChatInfoView: View {
     }
 
     private func actionTile(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(Theme.tabSelected)
-                Text(title)
-                    .scaledFont(13, weight: .medium, maxScale: 1.15)
-                    .foregroundStyle(Theme.ink)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 66)
-            .background(Theme.surface, in: .rect(cornerRadius: 18))
+        Button(action: action) { tileLabel(icon: icon, title: title) }
+            .buttonStyle(.plain)
+    }
+
+    private func tileLabel(icon: String, title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(Theme.tabSelected)
+            Text(title)
+                .scaledFont(13, weight: .medium, maxScale: 1.15)
+                .foregroundStyle(Theme.ink)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 66)
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
+    }
+
+    /// The person's community profile, the page seen when connecting from Community.
+    /// It opens inside this stack, so Back returns to this page.
+    private func profileTile(_ parent: Parent) -> some View {
+        NavigationLink {
+            ConnectView(parent: parent, hidesConnectBar: true)
+                .toolbar(.hidden, for: .tabBar)
+                .onAppear { state.tabBarHideCount += 1 }
+                .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
+        } label: {
+            tileLabel(icon: "person.crop.circle", title: "Profile")
         }
         .buttonStyle(.plain)
+    }
+
+    /// One-to-one chats are started from a community profile, so the title is the parent's name.
+    /// Groups and chats with someone who has no community profile get no Profile button.
+    private func communityParent(for thread: ChatThread) -> Parent? {
+        guard !thread.isGroup else { return nil }
+        return MockData.parents.first { $0.name == thread.title }
     }
 
     // MARK: Cards
@@ -148,18 +174,9 @@ struct ChatInfoView: View {
         }
     }
 
-    /// Storage, media visibility, starred messages, disappearing messages and chat lock.
+    /// Media visibility, starred messages, disappearing messages and chat lock.
     private func chatToolsCard(_ thread: ChatThread) -> some View {
-        let stored = state.chats.storage(for: threadID)
-        let items = (stored?.photos ?? 0) + (stored?.voiceNotes ?? 0)
-        return card {
-            NavigationLink { ManageStorageView(threadID: threadID) } label: {
-                row(icon: "externaldrive", title: "Manage storage",
-                    trailing: items == 0 ? nil : "\(items) \(items == 1 ? "item" : "items")", showsChevron: true)
-            }
-            .buttonStyle(.plain)
-            separator
-
+        card {
             Menu {
                 Picker("Media visibility", selection: Binding(
                     get: { thread.hidesMedia },
@@ -210,12 +227,6 @@ struct ChatInfoView: View {
 
     private func settingsCard(_ thread: ChatThread) -> some View {
         card {
-            toggleRow(icon: "bell.slash", title: "Mute notifications", isOn: Binding(
-                get: { thread.isMuted }, set: { _ in state.chats.toggleMute(threadID) }))
-            separator
-            toggleRow(icon: "pin", title: "Pin chat", isOn: Binding(
-                get: { thread.isPinned }, set: { _ in state.chats.togglePin(threadID) }))
-            separator
             toggleRow(icon: "heart", title: "Add to Favourites", isOn: Binding(
                 get: { thread.isFavourite }, set: { _ in state.chats.toggleFavourite(threadID) }))
             separator
@@ -480,52 +491,6 @@ private struct AddMembersSheet: View {
     }
 }
 
-
-// MARK: - Manage storage
-
-private struct ManageStorageView: View {
-    let threadID: ChatThread.ID
-    @Environment(AppState.self) private var state
-
-    @State private var confirmPhotos = false
-    @State private var confirmVoice = false
-
-    var body: some View {
-        let stored = state.chats.storage(for: threadID) ?? (photos: 0, voiceNotes: 0, voiceBytes: 0)
-        List {
-            Section {
-                LabeledContent("Photos", value: "\(stored.photos)")
-                LabeledContent("Voice messages") {
-                    Text("\(stored.voiceNotes) · " + ByteCountFormatter.string(fromByteCount: Int64(stored.voiceBytes), countStyle: .file))
-                }
-            } footer: {
-                Text("What this chat keeps on this device.")
-            }
-
-            Section {
-                Button("Clear photos", role: .destructive) { confirmPhotos = true }
-                    .disabled(stored.photos == 0)
-                Button("Clear voice messages", role: .destructive) { confirmVoice = true }
-                    .disabled(stored.voiceNotes == 0)
-            } footer: {
-                Text("Text messages are kept.")
-            }
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle("Manage storage")
-        .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Clear all photos in this chat?", isPresented: $confirmPhotos, titleVisibility: .visible) {
-            Button("Clear photos", role: .destructive) { state.chats.clearPhotos(in: threadID) }
-            Button("Cancel", role: .cancel) {}
-        }
-        .confirmationDialog("Clear all voice messages in this chat?", isPresented: $confirmVoice, titleVisibility: .visible) {
-            Button("Clear voice messages", role: .destructive) { state.chats.clearVoiceNotes(in: threadID) }
-            Button("Cancel", role: .cancel) {}
-        }
-    }
-}
 
 // MARK: - Starred messages
 

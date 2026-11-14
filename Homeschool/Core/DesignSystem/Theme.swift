@@ -41,6 +41,7 @@ enum Theme {
 
     // Used by the other screens
     static let pink      = Color.adaptive(0xF7C9C9, 0x482D38)
+    static let pink_light = Color.adaptive(0xFFF0F0, 0x3A292B)
     static let yellow    = Color.adaptive(0xFFF7B0, 0x403A25)
     static let field     = Color.adaptive(0xF0F0F3, 0x232325)
     static let secondary = Color.adaptive(0x6E6E78, 0xA4A3AA)

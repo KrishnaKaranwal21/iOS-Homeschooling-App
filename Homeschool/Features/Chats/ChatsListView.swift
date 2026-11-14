@@ -200,7 +200,7 @@ struct ChatsListView: View {
             .foregroundStyle(selected ? Theme.ink : Theme.secondary)
             .padding(.horizontal, 16)
             .frame(height: 36)
-            .background(Capsule().fill(selected ? accent : Theme.field))
+            .background(Capsule().fill(selected ? Theme.lavender : Theme.field))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])

@@ -21,12 +21,15 @@ struct GatherFeedCard: View {
                 NavigationLink(value: event) {
                     EventCover(event: event)
                         .aspectRatio(1.87, contentMode: .fit)
-                        .clipShape(.rect(cornerRadius: 25))
+                        .clipShape(.rect(cornerRadius: 18))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("View \(event.title)")
                 .overlay(alignment: .topLeading) {
-                    if event.isRegistered {
+                    if event.isHostedByMe {
+                        EventAttendingBadge(title: "Hosting", symbol: "star.circle.fill", tint: Color(hex: 0x7457C8))
+                            .padding(12).allowsHitTesting(false)
+                    } else if event.isRegistered {
                         EventAttendingBadge(title: "Attending").padding(12).allowsHitTesting(false)
                     }
                 }
@@ -63,21 +66,26 @@ struct GatherFeedCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
-            HStack(spacing: 8) {
-                Image(systemName: event.isRegistered ? "checkmark.circle.fill" : "person.2")
-                    .foregroundStyle(Theme.accent).accessibilityHidden(true)
-                if event.isRegistered {
-                    Button("You’re going · View ticket") { showTicket = true }
-                        .foregroundStyle(Theme.accent).buttonStyle(.plain)
-                } else {
-                    Text(event.registeredCount > 0 ? "\(event.registeredCount) going" : "Be the first to go")
-                        .foregroundStyle(Theme.ink)
+            // Only shown once someone is going (or you are). No "be the first" prompt, no "Hosting" label here.
+            if event.isRegistered || event.registeredCount > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: event.isRegistered ? "checkmark.circle.fill" : "person.2")
+                        .foregroundStyle(Theme.accent).accessibilityHidden(true)
+                    if event.isRegistered {
+                        Button("You’re going · View ticket") { showTicket = true }
+                            .foregroundStyle(Theme.accent).buttonStyle(.plain)
+                    } else {
+                        Text("\(event.registeredCount) going")
+                            .foregroundStyle(Theme.ink)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
-                if event.isHostedByMe { Text("Hosting").foregroundStyle(Theme.accent) }
+                .scaledFont(12, weight: .semibold, maxScale: 1.35).frame(minHeight: 24)
             }
-            .scaledFont(12, weight: .semibold, maxScale: 1.35).frame(minHeight: 24)
         }
+        .padding(12)
+        .background(Theme.surface, in: .rect(cornerRadius: 28))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
         .fullScreenCover(isPresented: $showTicket) { BookingTicketView(event: event) }
         .task(id: state.locationService.lastLocation?.timestamp) {
             guard state.usesLiveLocation, state.locationService.lastLocation != nil else { return }
@@ -93,7 +101,7 @@ struct GatherLoadingCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            RoundedRectangle(cornerRadius: 25).aspectRatio(1.87, contentMode: .fit)
+            RoundedRectangle(cornerRadius: 18).aspectRatio(1.87, contentMode: .fit)
                 .padding(.bottom, 6)
             Capsule().frame(height: 16).frame(maxWidth: .infinity).padding(.trailing, 65)
             Capsule().frame(width: 185, height: 13)
@@ -114,7 +122,7 @@ struct GatherLoadingCard: View {
                 }
                 .mask {
                     VStack(alignment: .leading, spacing: 9) {
-                        RoundedRectangle(cornerRadius: 25).aspectRatio(1.87, contentMode: .fit).padding(.bottom, 6)
+                        RoundedRectangle(cornerRadius: 18).aspectRatio(1.87, contentMode: .fit).padding(.bottom, 6)
                         Capsule().frame(height: 16).padding(.trailing, 65)
                         Capsule().frame(width: 185, height: 13)
                         Capsule().frame(width: 164, height: 10)
@@ -127,6 +135,9 @@ struct GatherLoadingCard: View {
                 }
             }
         }
+        .padding(12)
+        .background(Theme.surface, in: .rect(cornerRadius: 28))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.2).repeatForever(autoreverses: false)) { shimmering = true }
@@ -139,74 +150,99 @@ struct GatherLoadingCard: View {
 
 /// Native event artwork remains sharp at every device size and in either appearance.
 /// Hosts' photos take precedence over this editorial cover.
+/// Uses the app's own font and soft, light colours in both appearances.
 struct GatherEventPoster: View {
     let event: Event
-    private var accent: Color {
-        switch event.category {
-        case "Nature": Color(hex: 0x67D6A2)
-        case "Art": Color(hex: 0xF5A187)
-        case "Science": Color(hex: 0x9EBBFF)
-        case "Habit": Color(hex: 0xC4AEFF)
-        default: Color(hex: 0x00D88A)
-        }
-    }
+
+    private var palette: (background: Color, accent: Color) { event.artPalette }
+    private let ink = Event.artInk
     private var headline: String {
-        switch event.category {
+        switch event.normalizedCategory {
         case "Nature": "A little wonder.\nA world outside."
         case "Art": "Make a mess.\nMake something\nmarvellous."
-        case "Science": "Little questions.\nBig discoveries."
-        case "Habit": "Small habits.\nBig possibilities."
-        default: "Dream it.\nBuild it.\nTogether."
+        case "Music": "Find the rhythm.\nPlay together."
+        case "Sports": "Run, jump,\nplay and grow."
+        default: "Little questions.\nBig discoveries."
         }
     }
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
+            let colors = palette
             ZStack(alignment: .topLeading) {
-                Color(hex: 0x182029)
-                Canvas { context, canvas in
-                    var grid = Path()
-                    let step = max(20, canvas.width / 15)
-                    for x in stride(from: CGFloat.zero, through: canvas.width, by: step) {
-                        grid.move(to: CGPoint(x: x, y: 0)); grid.addLine(to: CGPoint(x: x, y: canvas.height))
-                    }
-                    for y in stride(from: CGFloat.zero, through: canvas.height, by: step) {
-                        grid.move(to: CGPoint(x: 0, y: y)); grid.addLine(to: CGPoint(x: canvas.width, y: y))
-                    }
-                    context.stroke(grid, with: .color(.white.opacity(0.13)), lineWidth: 0.6)
-                }
+                colors.background
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("HOMESCHOOL / \(event.category.uppercased())")
-                        .font(.system(size: max(7, size.width * 0.021), weight: .semibold, design: .monospaced))
-                        .tracking(1).foregroundStyle(accent)
+                    // The top line is no longer shown, but it still holds its space so the artwork keeps its layout.
+                    Text("Homeschool")
+                        .font(.system(size: max(8, size.width * 0.028), weight: .semibold))
+                        .hidden()
                     Spacer(minLength: 8)
                     Text(headline)
-                        .font(.system(size: max(16, size.width * 0.055), weight: .medium, design: .monospaced))
-                        .tracking(-0.6).foregroundStyle(.white)
+                        .font(.system(size: max(16, size.width * 0.06), weight: .heavy))
+                        .tracking(-0.5).foregroundStyle(ink)
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(width: size.width * 0.67, alignment: .leading)
+                        .frame(width: size.width * 0.62, alignment: .leading)
                     Spacer(minLength: 8)
-                    Text("COME CURIOUS. LEAVE INSPIRED.")
-                        .font(.system(size: max(6, size.width * 0.019), weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.65)).tracking(0.6)
+                    Text("Come curious. Leave inspired.")
+                        .font(.system(size: max(7, size.width * 0.026), weight: .medium))
+                        .foregroundStyle(ink.opacity(0.65))
                 }
                 .padding(size.width * 0.055)
                 .frame(maxHeight: .infinity)
-                Rectangle().fill(accent)
+                RoundedRectangle(cornerRadius: size.width * 0.03)
+                    .fill(colors.accent.opacity(0.7))
                     .frame(width: size.width * 0.25, height: size.height * 0.28)
                     .position(x: size.width * 0.88, y: size.height * 0.86)
-                Circle().fill(accent)
+                Circle().fill(colors.accent)
                     .frame(width: size.width * 0.29, height: size.width * 0.29)
                     .overlay {
-                        Image(systemName: event.symbol).font(.system(size: size.width * 0.105, weight: .light))
-                            .foregroundStyle(Color(hex: 0x182029))
+                        Image(systemName: event.symbol).font(.system(size: size.width * 0.105, weight: .regular))
+                            .foregroundStyle(ink)
                     }
                     .position(x: size.width * 0.86, y: size.height * 0.48)
-                Rectangle().fill(accent.opacity(0.8))
+                Circle().fill(colors.accent.opacity(0.8))
                     .frame(width: size.width / 15, height: size.width / 15)
                     .position(x: size.width * 0.62, y: size.height * 0.84)
             }
         }
         .clipped().accessibilityHidden(true)
+    }
+}
+
+extension Event {
+    /// Soft pastel colours for each category, shared by the poster and the small icon tile.
+    var artPalette: (background: Color, accent: Color) {
+        switch normalizedCategory {
+        case "Nature": (Color(hex: 0xDDF3E8), Color(hex: 0x9ADBBB))
+        case "Art":    (Color(hex: 0xFCE4DB), Color(hex: 0xF5B09B))
+        case "Music":  (Color(hex: 0xFDE3EE), Color(hex: 0xF4A9C8))
+        case "Sports": (Color(hex: 0xE1EAFF), Color(hex: 0xA9C3FF))
+        default:       (Color(hex: 0xEBE5FF), Color(hex: 0xC9B6FF))
+        }
+    }
+    /// Soft purple-grey ink, readable on every pastel above without being near-black.
+    static let artInk = Color(hex: 0x4B4570)
+}
+
+/// A small square showing only the event's category icon (the book for Study, the leaf for Nature...).
+struct EventIconTile: View {
+    let event: Event
+
+    var body: some View {
+        GeometryReader { geometry in
+            let side = min(geometry.size.width, geometry.size.height)
+            ZStack {
+                event.artPalette.background
+                Circle().fill(event.artPalette.accent)
+                    .frame(width: side * 0.62, height: side * 0.62)
+                    .overlay {
+                        Image(systemName: event.symbol)
+                            .font(.system(size: side * 0.28, weight: .regular))
+                            .foregroundStyle(Event.artInk)
+                    }
+            }
+            .frame(width: geometry.size.width, height: geometry.size.height)
+        }
+        .accessibilityHidden(true)
     }
 }

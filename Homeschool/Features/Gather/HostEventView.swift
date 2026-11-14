@@ -110,7 +110,7 @@ struct HostEventView: View {
                 .scaledFont(18, maxScale: 1.2)
                 .foregroundStyle(Theme.ink)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(Color(hex: 0xC98A72)))
+                .background(Circle().fill(Theme.pink))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Hosting as")
@@ -126,7 +126,7 @@ struct HostEventView: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .padding(14)
-        .background(Theme.pink, in: .rect(cornerRadius: 20))
+        .background(Theme.pink_light, in: .rect(cornerRadius: 20))
     }
 
     private var makeItYours: some View {
@@ -162,10 +162,11 @@ struct HostEventView: View {
                 Button { category = name } label: {
                     Label(name, systemImage: Event.symbol(for: name))
                         .scaledFont(15, weight: name == category ? .semibold : .regular, maxScale: 1.3)
-                        .foregroundStyle(name == category ? Theme.ink : Theme.gatherText)
+                        .foregroundStyle(name == category ? Theme.ink : Theme.secondary)
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(Capsule().fill(name == category ? Theme.lavender : Theme.chipFill))
+                        .frame(height: 36)
+                        .background(Capsule().fill(name == category ? Color.adaptive(0xD9D2FF, 0x3B3059) : Theme.field))
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(name == category ? .isSelected : [])
@@ -417,7 +418,7 @@ struct HostEventView: View {
 
         let event = Event(
             title: title.trimmingCharacters(in: .whitespaces),
-            category: category ?? "Community",
+            category: category ?? "Study",
             kind: kind,
             start: begin,
             end: finish,
