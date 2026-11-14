@@ -3,6 +3,7 @@ set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 check_dir="$(mktemp -d "${TMPDIR:-/tmp}/homeschool-ticket-checks.XXXXXX")"
 trap 'rm -rf "$check_dir"' EXIT
+# Vision barcode inference runs on macOS; simulator runtimes may lack its inference context.
 xcrun swiftc -module-cache-path "$check_dir/modules" \
   "$repo_dir/Homeschool/Core/Models/Event.swift" \
   "$repo_dir/Homeschool/Core/Models/Registration.swift" \

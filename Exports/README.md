@@ -25,10 +25,11 @@ These ZIPs are snapshots, not live links to the repository:
 - `Progress-Section.zip`: Progress source and integration references, not a standalone app.
 - `Gather-Section.zip`: Gather source and integration references, not a standalone app.
 
-The archives were refreshed to include the Day / Week / Month Progress screen.
+The archives include the current Home, Progress, Gather, Community and Chats source.
 Each archive includes `EXPORT-SOURCE.txt` identifying its source commit and a
 SHA256SUMS.txt manifest. Use a new extraction folder rather than an older extracted copy.
-The homepage to-do images discussed in chat are design mockups and have not been coded.
+The returning-user Home to-do screen is implemented, including day selection, task details,
+automatic saving and animated completion. Monthly Progress includes saved historical weeks.
 
 Before distributing archives after changing source, verify they are current:
 

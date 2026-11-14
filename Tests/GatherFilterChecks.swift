@@ -44,15 +44,14 @@ import CoreLocation
         expect(filter.includes(event, now: sunday, calendar: calendar), "Your tickets remain discoverable")
         event.isRegistered = false; event.isHostedByMe = true
         expect(filter.includes(event, now: sunday, calendar: calendar), "Your hosted events remain discoverable")
-        filter.category = .workshops
-        expect(filter.includes(event, now: sunday, calendar: calendar), "Workshop category uses event kind")
-        filter.category = .social
-        expect(!filter.includes(event, now: sunday, calendar: calendar), "Social excludes workshops")
-        filter.category = .science
-        expect(filter.includes(event, now: sunday, calendar: calendar), "Subject category uses real category")
+        filter.category = .study
+        expect(filter.includes(event, now: sunday, calendar: calendar), "Study includes the legacy Science category")
+        filter.category = .art
+        expect(!filter.includes(event, now: sunday, calendar: calendar), "Art excludes an unrelated science workshop")
+        expect(!GatherFeedCategory.explore.includes(event), "Explore excludes events already hosted by this parent")
         let ordered = GatherFeedCategory.ordered(interests: ["Art", "Coding", "Music"])
-        expect(ordered.first == .all, "All Events stays first")
-        expect(Array(ordered.dropFirst().prefix(3)) == [.art, .coding, .music], "Chosen interests precede general categories")
+        expect(Array(ordered.prefix(2)) == [.explore, .yours], "Explore and Your events stay first")
+        expect(Array(ordered.dropFirst(2).prefix(3)) == [.art, .music, .study], "Interests map to the five current subject categories")
         expect(Set(ordered).count == GatherFeedCategory.allCases.count, "Categories appear once")
         expect(GatherFeedCategory.ordered(interests: []) == GatherFeedCategory.allCases, "Empty interests preserve a stable order")
         var art = event
@@ -62,8 +61,8 @@ import CoreLocation
         expect(GatherFeedCategory.prioritize([event, art], interests: []).first?.title == event.title, "Without interests dates sort chronologically")
         var birdWatch = event
         birdWatch.category = "Nature"; birdWatch.title = "Backyard Bird Watch"
-        expect(GatherFeedCategory.animals.includes(birdWatch), "Animal interest includes bird watching")
-        expect(!GatherFeedCategory.space.includes(birdWatch), "Space excludes unrelated nature events")
+        expect(GatherFeedCategory.nature.includes(birdWatch), "Nature includes bird watching")
+        expect(!GatherFeedCategory.study.includes(birdWatch), "Study excludes unrelated nature events")
         event.start = monday
         expect(event.feedDateText(now: sunday, calendar: calendar).hasPrefix("TOMORROW • "), "Feed uses relative tomorrow and a bullet")
         expect(event.feedDateText(now: monday, calendar: calendar).hasPrefix("TODAY • "), "Feed uses relative today")

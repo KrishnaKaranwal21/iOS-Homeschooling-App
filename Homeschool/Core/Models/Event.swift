@@ -1,5 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#else
+import AppKit
+#endif
 
 /// A question and answer the host adds to their event.
 struct EventFAQ: Identifiable, Hashable, Codable {
@@ -207,11 +211,22 @@ struct PickedImage: Identifiable, Hashable, Codable {
     let data: Data
 
     init?(data: Data) {
+        #if canImport(UIKit)
         guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.8) else { return nil }
         self.data = jpeg
+        #else
+        guard NSImage(data: data) != nil else { return nil }
+        self.data = data
+        #endif
     }
 
-    var image: Image { Image(uiImage: UIImage(data: data) ?? UIImage()) }
+    var image: Image {
+        #if canImport(UIKit)
+        Image(uiImage: UIImage(data: data) ?? UIImage())
+        #else
+        Image(nsImage: NSImage(data: data) ?? NSImage(size: .zero))
+        #endif
+    }
 }
 
 struct EventCoordinate: Hashable, Codable {
