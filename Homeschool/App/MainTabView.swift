@@ -21,6 +21,7 @@ extension EnvironmentValues {
 struct MainTabView: View {
     @Environment(AppState.self) private var state
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selection: AppTab = .home
     /// Changing a tab's number rebuilds it, which returns it to its first page.
     @State private var resetCounts: [AppTab: Int] = [:]
@@ -39,7 +40,9 @@ struct MainTabView: View {
                 label("Progress", symbol: "chart.bar.fill", tab: .progress)
             }
             Tab(value: AppTab.gather) {
-                NavigationStack(path: $bindableState.gatherPath) { GatherView() }.id(resetCounts[.gather, default: 0])
+                NavigationStack(path: $bindableState.gatherPath) { GatherView() }
+                    .toolbarVisibility(state.hidesTabBar ? .hidden : .automatic, for: .tabBar)
+                    .id(resetCounts[.gather, default: 0])
             } label: {
                 label("Gather", symbol: "calendar", tab: .gather)
             }
@@ -54,6 +57,17 @@ struct MainTabView: View {
                 label("Chats", symbol: "bubble.left", tab: .chats)
             }
             .badge(state.chats.unreadChatCount)
+        }
+        .allowsHitTesting(state.dailyWrapUp == nil)
+        .accessibilityHidden(state.dailyWrapUp != nil)
+        .overlay {
+            if let summary = state.dailyWrapUp {
+                DailyWrapUpView(summary: summary) {
+                    withAnimation(.easeOut(duration: 0.2)) { state.dailyWrapUp = nil }
+                }
+                .transition(.opacity)
+                .zIndex(1)
+            }
         }
         .tint(Theme.tabSelected)
         .task { state.refreshLiveLocation() }
@@ -73,7 +87,7 @@ struct MainTabView: View {
         .onChange(of: selection) { old, new in
             // An event opened from a notification shouldn't stay open once you leave Gatherings.
             if old == .gather { state.gatherPath = NavigationPath() }
-            // Leaving Home for the first time ends the first-time Home.
+            // Records the first Home visit; returning-session routing is decided separately when logging in or restoring the app.
             if old == .home && new != .home { state.markFirstHomeSeen() }
             // Coming back to a tab shows its first page, not the last page you had open.
             resetCounts[old, default: 0] += 1
@@ -99,6 +113,7 @@ struct MainTabView: View {
             Image(systemName: symbol)
                 .font(.system(size: 21, weight: .semibold))
                 .foregroundStyle(color)
+                .environment(\.colorScheme, colorScheme)
                 .padding(2))
         renderer.scale = displayScale
         guard let bitmap = renderer.cgImage else { return Image(systemName: symbol) }
@@ -127,9 +142,7 @@ struct AppPopupView: View {
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.center)
 
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(height: 120)
                     .accessibilityHidden(true)
 
@@ -162,7 +175,7 @@ struct AppPopupView: View {
             }
             .padding(24)
             .frame(maxWidth: 420)
-            .background(Color.white, in: .rect(cornerRadius: 40))
+            .background(Theme.surface, in: .rect(cornerRadius: 40))
             .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
             .padding(.horizontal, 28)
             .accessibilityElement(children: .contain)

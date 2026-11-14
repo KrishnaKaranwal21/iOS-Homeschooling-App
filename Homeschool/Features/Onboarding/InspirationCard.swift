@@ -9,7 +9,7 @@ struct InspirationCard: View {
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
-                .background(Color(hex: 0xFFC8C9), in: .rect(cornerRadius: 8))
+                .background(Color.adaptive(0xFFC8C9, 0x482D38), in: .rect(cornerRadius: 8))
 
             Text("Saturday,\noutside.")
                 .scaledFont(40, weight: .bold, maxScale: 1.15)

@@ -24,8 +24,8 @@ struct ChatLabel: Identifiable, Codable, Equatable {
     var isBuiltIn: Bool { Self.builtIns.contains { $0.id == id } }
 
     static let palette: [Color] = [
-        Color(hex: 0xD0C8FA), Color(hex: 0xF7C9C9), Color(hex: 0xD8EBA0),
-        Color(hex: 0xFBE7A1), Color(hex: 0xFAD0B8), Color(hex: 0xBFE3F5)
+        Color.adaptive(0xD0C8FA, 0x3B3059), Color.adaptive(0xF7C9C9, 0x482D38), Color.adaptive(0xD8EBA0, 0x36402A),
+        Color.adaptive(0xFBE7A1, 0x443B23), Color.adaptive(0xFAD0B8, 0x4B332D), Color.adaptive(0xBFE3F5, 0x263D49)
     ]
 
     var color: Color { Self.palette[colorIndex % Self.palette.count] }

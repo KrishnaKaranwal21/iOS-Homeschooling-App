@@ -11,6 +11,7 @@ struct RegistrationView: View {
     @State private var acceptsNoRefund = false
     @State private var isPrefilled = false
     @State private var didLoad = false
+    @State private var showConfirmation = false
     /// The children who will join. Each one needs a place, so the price follows this count.
     @State private var selectedIDs: Set<Child.ID> = []
 
@@ -84,9 +85,16 @@ struct RegistrationView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear(perform: prefill)
+        .onAppear {
+            prefill()
+            state.tabBarHideCount += 1
+        }
+        .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
         .onChange(of: selectedIDs) { applySelection() }
         .animation(.snappy, value: staysWithChild)
+        .fullScreenCover(isPresented: $showConfirmation, onDismiss: { dismiss() }) {
+            GatherConfirmationSheet(event: event)
+        }
     }
 
     // MARK: Sections
@@ -230,7 +238,7 @@ struct RegistrationView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-            .background(isSelected ? Theme.lilac : Color.white, in: .rect(cornerRadius: 16))
+            .background(isSelected ? Theme.lilac : Theme.surface, in: .rect(cornerRadius: 16))
             .roundedStroke(isSelected ? Theme.gatherAccent : Theme.cardBorder,
                            cornerRadius: 16, lineWidth: isSelected ? 1.5 : 1)
             .contentShape(.rect)
@@ -297,12 +305,12 @@ struct RegistrationView: View {
             if isMultiple {
                 summaryRow("Price per child", event.priceText)
                 summaryRow("Children", "× \(placeCount)")
-                Rectangle().fill(Color.black.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(Theme.ink.opacity(0.08)).frame(height: 1)
             }
             summaryRow("Total", totalText, isTotal: true)
         }
         .padding(16)
-        .background(Color.white, in: .rect(cornerRadius: 18))
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
         .roundedStroke(Theme.cardBorder, cornerRadius: 18)
         .animation(.snappy, value: placeCount)
         .accessibilityElement(children: .combine)
@@ -323,7 +331,7 @@ struct RegistrationView: View {
             Button(event.isFree ? "Confirm registration" : "Pay \(totalText) & confirm") {
                 guard isValid else { return }
                 state.register(event, as: registrant, accompanying: isAccompanying, places: placeCount)
-                dismiss()
+                showConfirmation = true
             }
             .buttonStyle(.primaryHomeschool(isDimmed: !isValid))
 
@@ -369,7 +377,7 @@ struct RegistrationView: View {
                     .foregroundStyle(Theme.ink)
                     .opacity(isOn.wrappedValue ? 1 : 0)
                     .frame(width: 30, height: 30)
-                    .background(isOn.wrappedValue ? Theme.lavender : Color.white, in: .rect(cornerRadius: 9))
+                    .background(isOn.wrappedValue ? Theme.lavender : Theme.surface, in: .rect(cornerRadius: 9))
                     .roundedStroke(isOn.wrappedValue ? Color.clear : Theme.lilacBorder, cornerRadius: 9, lineWidth: 1.5)
                 Text(text)
                     .scaledFont(15, maxScale: 1.3)

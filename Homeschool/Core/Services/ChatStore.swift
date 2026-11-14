@@ -2,10 +2,10 @@ import SwiftUI
 
 // MARK: - Models
 
-enum MessageStatus { case sent, delivered, read }
+enum MessageStatus: Codable { case sent, delivered, read }
 
-struct ChatMessage: Identifiable, Equatable {
-    let id = UUID()
+struct ChatMessage: Identifiable, Equatable, Codable {
+    var id = UUID()
     var text: String
     var date: Date
     var isMine: Bool
@@ -20,8 +20,8 @@ struct ChatMessage: Identifiable, Equatable {
     var isStarred = false
 }
 
-struct ChatThread: Identifiable {
-    let id = UUID()
+struct ChatThread: Identifiable, Codable {
+    var id = UUID()
     var title: String
     /// Shown under the name, like "Mum to Arya, 13".
     var about: String = ""
@@ -56,11 +56,7 @@ struct ChatThread: Identifiable {
         return String(letters).uppercased()
     }
 
-    var avatarColor: Color {
-        let palette: [Color] = [Color(hex: 0xE6E1FF), Theme.pink, Theme.lime, Theme.yellow, Color(hex: 0xFAD9C9)]
-        let seed = title.unicodeScalars.reduce(0) { $0 + Int($1.value) }
-        return palette[seed % palette.count]
-    }
+    var avatarColor: Color { Theme.pink }
 
     var mediaMessages: [ChatMessage] { hidesMedia ? [] : messages.filter { $0.image != nil } }
     var starredMessages: [ChatMessage] { messages.filter(\.isStarred) }
@@ -115,7 +111,7 @@ enum ChatFormat {
 
 /// The short dark message at the bottom of the chat list, like "List was created".
 struct ChatToast: Identifiable, Equatable {
-    let id = UUID()
+    var id = UUID()
     var message: String
     var actionTitle: String? = nil
 }
@@ -125,7 +121,15 @@ struct ChatToast: Identifiable, Equatable {
 @MainActor
 @Observable
 final class ChatStore {
-    var threads: [ChatThread]
+    var threads: [ChatThread] {
+        didSet {
+            guard !isRestoring else { return }
+            LocalArchive.save(threads, category: "chats", account: archiveAccount)
+        }
+    }
+    @ObservationIgnored private var isRestoring = true
+    @ObservationIgnored private var archiveAccount = "local-family"
+    @ObservationIgnored var onIncomingMessage: ((ChatThread) -> Void)?
 
     /// The chips above the chat list, in order. `All` is always first.
     var labels: [ChatLabel] {
@@ -145,7 +149,7 @@ final class ChatStore {
     @ObservationIgnored @AppStorage("chat.favourites") private var storedFavourites = Data()
     @ObservationIgnored @AppStorage("chat.seedSamples") private var storedSeedSamples = false
 
-    init() {
+    init(account: String? = nil) {
         // Every stored property needs a value before `self` (and so `@AppStorage`) can be read.
         threads = []
         labels = ChatLabel.defaultBar
@@ -163,13 +167,30 @@ final class ChatStore {
         selectedLabelID = loaded.contains { $0.id == savedSelection } ? savedSelection : ChatLabel.allID
 
         // A new account has no conversations. Sample chats only exist for a returning login.
-        if storedSeedSamples { threads = savedSample() }
+        archiveAccount = account ?? AccountStore.current.map { AccountStore.normalized($0.email) } ?? "local-family"
+        threads = LocalArchive.load([ChatThread].self, category: "chats", account: archiveAccount)
+            ?? (storedSeedSamples ? savedSample() : [])
+        isRestoring = false
+        LocalArchive.save(threads, category: "chats", account: archiveAccount)
     }
 
     /// Starts from an empty inbox, or from the sample conversations.
-    func reload(withSamples: Bool) {
+    func reload(withSamples: Bool, account: String? = nil) {
+        isRestoring = true
+        archiveAccount = account ?? AccountStore.current.map { AccountStore.normalized($0.email) } ?? "local-family"
         storedSeedSamples = withSamples
-        threads = withSamples ? savedSample() : []
+        threads = LocalArchive.load([ChatThread].self, category: "chats", account: archiveAccount)
+            ?? (withSamples ? savedSample() : [])
+        isRestoring = false
+        LocalArchive.save(threads, category: "chats", account: archiveAccount)
+        purgeExpired()
+    }
+
+    func deleteSavedChats() {
+        isRestoring = true
+        threads = []
+        LocalArchive.remove("chats", account: archiveAccount)
+        isRestoring = false
     }
 
     /// Sample chats with the labels and favourites the family saved earlier (matched by name).
@@ -521,11 +542,13 @@ final class ChatStore {
             "Of course. Let me check and get back to you shortly.",
             "Yes, that works for us too."
         ]
+        guard let current = thread(id), !current.isBlocked else { return }
         update(id) { thread in
             let sender = thread.isGroup ? thread.members.randomElement() : nil
             thread.messages.append(ChatMessage(text: samples.randomElement() ?? samples[0], date: .now,
                                                isMine: false, sender: sender))
         }
+        if let updated = thread(id), !updated.isMuted { onIncomingMessage?(updated) }
     }
 
     func createGroup(title: String, members: [String]) -> ChatThread.ID {

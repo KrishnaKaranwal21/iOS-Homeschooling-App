@@ -1,15 +1,20 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 /// A question and answer the host adds to their event.
-struct EventFAQ: Identifiable, Hashable {
-    let id = UUID()
+struct EventFAQ: Identifiable, Hashable, Codable {
+    var id = UUID()
     var question: String
     var answer: String
 }
 
 /// A question a family asked the host. The host answers it, and can add it to the event's public FAQs.
-struct EventQuestion: Identifiable, Hashable {
-    let id = UUID()
+struct EventQuestion: Identifiable, Hashable, Codable {
+    var id = UUID()
     var asker: String
     var text: String
     var date: Date
@@ -20,21 +25,21 @@ struct EventQuestion: Identifiable, Hashable {
     var isAnswered: Bool { answer != nil }
 }
 
-struct Event: Identifiable, Hashable {
-    enum Kind: String, CaseIterable, Identifiable {
+struct Event: Identifiable, Hashable, Codable {
+    enum Kind: String, CaseIterable, Identifiable, Codable {
         case gathering = "Gathering"
         case workshop = "Workshop"
         var id: String { rawValue }
     }
 
-    enum Mode: String, CaseIterable, Identifiable {
+    enum Mode: String, CaseIterable, Identifiable, Codable {
         case inPerson = "In person"
         case online = "Online"
         var id: String { rawValue }
     }
 
     /// What the host expects of parents and guardians at the event.
-    enum ParentPresence: String, CaseIterable, Identifiable {
+    enum ParentPresence: String, CaseIterable, Identifiable, Codable {
         case required   = "Parent/guardian required to stay"
         case optional   = "Parent/guardian optional"
         case dropOffOnly = "Drop-off only (No parent/guardian)"
@@ -65,9 +70,9 @@ struct Event: Identifiable, Hashable {
         }
     }
 
-    let id = UUID()
+    var id = UUID()
     var title: String
-    /// Science, Habit, Art, Coding, Nature, or Community for events parents host.
+    /// Art, Nature, Music, Sports or Study. Older values are mapped by `normalizedCategory`.
     var category: String
     var kind: Kind = .gathering
     var start: Date
@@ -99,23 +104,35 @@ struct Event: Identifiable, Hashable {
     var registeredCount = 0
     /// Questions families sent to the host.
     var questions: [EventQuestion] = []
+    /// A coordinate verified by the host; nil for older catalog events.
+    var venueCoordinate: EventCoordinate? = nil
+    var photos: [PickedImage] = []
 }
 
 extension Event {
-    /// Categories a host can choose from. The Gather page adds "All" in front.
-    static let categories = ["Science", "Habit", "Art", "Coding", "Nature", "Others"]
+    /// Categories a host can choose from. The Gather page adds "Explore" and "Your events" in front.
+    static let categories = ["Art", "Nature", "Music", "Sports", "Study"]
 
     static func symbol(for category: String) -> String {
-        switch category {
-        case "Science": return "flask"
-        case "Habit":   return "repeat"
-        case "Art":     return "paintpalette"
-        case "Coding":  return "chevron.left.forwardslash.chevron.right"
-        case "Nature":  return "leaf"
-        case "Others":  return "sparkles"
-        default:        return "person.2.fill"
+        switch normalized(category) {
+        case "Art":    return "paintpalette"
+        case "Nature": return "leaf"
+        case "Music":  return "music.note"
+        case "Sports": return "figure.run"
+        default:       return "book"
         }
     }
+
+    /// Maps any earlier category (Science, Habit, Coding, Animals, Space, Reading, Others...) onto the five current ones.
+    static func normalized(_ category: String) -> String {
+        switch category {
+        case "Art", "Nature", "Music", "Sports", "Study": return category
+        case "Animals": return "Nature"
+        default: return "Study"
+        }
+    }
+
+    var normalizedCategory: String { Self.normalized(category) }
 
     /// The host's own answers first, then the basics every family asks about.
     var allFAQs: [EventFAQ] {
@@ -160,6 +177,13 @@ extension Event {
 
     var isFree: Bool { price == nil }
 
+    /// Counts one family once, even if a registration is submitted again.
+    mutating func updateRegistration(_ registered: Bool) {
+        guard isRegistered != registered else { return }
+        registeredCount = max(0, registeredCount + (registered ? 1 : -1))
+        isRegistered = registered
+    }
+
     var unansweredCount: Int { questions.filter { !$0.isAnswered }.count }
 
     /// Unanswered questions first, then the newest answered ones.
@@ -181,12 +205,31 @@ extension Event {
     }
 }
 
-/// A photo the person picked, kept as a SwiftUI `Image` (loaded with `PhotosPickerItem.loadTransferable(type: Image.self)`).
-/// `Image` is not `Hashable`/`Equatable`, so identity is the wrapper's own id.
-struct PickedImage: Identifiable, Hashable {
-    let id = UUID()
-    let image: Image
+/// Original photo bytes persist alongside a stable identity; SwiftUI images are rebuilt on demand.
+struct PickedImage: Identifiable, Hashable, Codable {
+    var id = UUID()
+    let data: Data
 
-    static func == (lhs: PickedImage, rhs: PickedImage) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    init?(data: Data) {
+        #if canImport(UIKit)
+        guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.8) else { return nil }
+        self.data = jpeg
+        #else
+        guard NSImage(data: data) != nil else { return nil }
+        self.data = data
+        #endif
+    }
+
+    var image: Image {
+        #if canImport(UIKit)
+        Image(uiImage: UIImage(data: data) ?? UIImage())
+        #else
+        Image(nsImage: NSImage(data: data) ?? NSImage(size: .zero))
+        #endif
+    }
+}
+
+struct EventCoordinate: Hashable, Codable {
+    let latitude: Double
+    let longitude: Double
 }

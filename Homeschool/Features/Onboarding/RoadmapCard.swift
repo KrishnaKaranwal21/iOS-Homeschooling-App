@@ -50,7 +50,7 @@ struct RoadmapCard: View {
                 .offset(y: 78)
 
             Circle()
-                .fill(Color(hex: 0xFFC8C9))
+                .fill(Color.adaptive(0xFFC8C9, 0x482D38))
                 .frame(width: 32, height: 32)
                 .overlay(Image(systemName: "arrow.right")
                     .scaledFont(13, weight: .semibold, maxScale: 1.15)
@@ -76,7 +76,7 @@ struct RoadmapCard: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Theme.ink, in: .rect(cornerRadius: 12))
+        .background(Theme.buttonFill, in: .rect(cornerRadius: 12))
     }
 
     private var startChip: some View {
@@ -90,6 +90,6 @@ struct RoadmapCard: View {
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(.white, in: .rect(cornerRadius: 12))
+        .background(Theme.surface, in: .rect(cornerRadius: 12))
     }
 }

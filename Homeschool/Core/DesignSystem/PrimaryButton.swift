@@ -29,7 +29,7 @@ struct PrimaryButtonStyle: ButtonStyle {
 
     private var background: Color {
         if isDimmed { return Color(hex: 0xAEAEB2) }
-        return tone == .dark ? Theme.ink : Color.white
+        return tone == .dark ? Theme.buttonFill : Theme.surface
     }
 }
 

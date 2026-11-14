@@ -499,7 +499,7 @@ struct RhythmStep: View {
     private func dayCell(index: Int, day: String) -> some View {
         let isOn = child.learningDays.contains(day)
         let isWeekend = index >= 5
-        let fill: Color = isOn ? Theme.pink : (isWeekend ? Theme.pillFill : Color.white)
+        let fill: Color = isOn ? Theme.pink : (isWeekend ? Theme.pillFill : Theme.surface)
         return Button {
             if isOn { child.learningDays.remove(day) } else { child.learningDays.insert(day) }
         } label: {
@@ -559,7 +559,7 @@ struct RhythmStep: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(selected ? Theme.obsidian : Theme.systemGray)
                 .frame(maxWidth: .infinity, minHeight: 40)
-                .background(selected ? Color.white : Color.clear, in: .rect(cornerRadius: 10))
+                .background(selected ? Theme.surface : Color.clear, in: .rect(cornerRadius: 10))
                 .roundedStroke(selected ? Theme.cardBorder : Color.clear, cornerRadius: 10, lineWidth: 1)
         }
         .buttonStyle(.plain)
@@ -570,7 +570,7 @@ struct RhythmStep: View {
             .scaledFont(12, weight: .bold)
             .foregroundStyle(Color.white)
             .frame(width: 26, height: 26)
-            .background(Theme.obsidian, in: .rect(cornerRadius: 6))
+            .background(Theme.buttonFill, in: .rect(cornerRadius: 6))
     }
 }
 
@@ -600,7 +600,7 @@ struct StepperCard: View {
             stepButton("plus", enabled: value < range.upperBound) { value += 1 }
         }
         .frame(minHeight: 52)
-        .background(Capsule().fill(Color.white))
+        .background(Capsule().fill(Theme.surface))
     }
 
     private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct Card<Content: View>: View {
-    var color: Color = .white
+    var color: Color = Theme.surface
     @ViewBuilder var content: Content
     var body: some View {
         content.padding(Theme.Spacing.m).frame(maxWidth: .infinity, alignment: .leading)
@@ -44,10 +44,7 @@ struct ScreenHeader: View {
 struct Mascot: View {
     var size: CGFloat = 80
     var body: some View {
-        ZStack {
-            Circle().fill(Theme.coral.opacity(0.85))
-            Image(systemName: "face.smiling.inverse").font(.system(size: size * 0.5)).foregroundStyle(.white)
-        }.frame(width: size, height: size)
+        HomeMascotView().frame(width: size, height: size)
     }
 }
 
@@ -197,7 +194,7 @@ struct ProfileHero: View {
                             .foregroundStyle(Color.white)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 7)
-                            .background(Capsule().fill(Theme.ink))
+                            .background(Capsule().fill(Theme.buttonFill))
                         }
                         .buttonStyle(.plain)
                     }
@@ -207,11 +204,9 @@ struct ProfileHero: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
-        .background(Color.white, in: .rect(cornerRadius: 28))
+        .background(Theme.surface, in: .rect(cornerRadius: 28))
         .overlay(alignment: .bottomTrailing) {
-            Image("HomeMascot")
-                .resizable()
-                .scaledToFit()
+            HomeMascotView()
                 .frame(width: 76)
                 .padding(.trailing, 14)
                 .accessibilityHidden(true)
@@ -222,7 +217,7 @@ struct ProfileHero: View {
 
     private var avatar: some View {
         ZStack {
-            Circle().fill(Theme.lavender)
+            Circle().fill(Theme.pink)
             Text(initial)
                 .font(.system(size: 36, weight: .bold))
                 .foregroundStyle(Theme.ink)
@@ -241,7 +236,7 @@ struct ProfileCard<Content: View>: View {
     var symbol: String? = nil
     var title: String? = nil
     var subtitle: String? = nil
-    var background: Color = .white
+    var background: Color = Theme.surface
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -390,12 +385,12 @@ struct ProfileStatsCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 if index < items.count - 1 {
-                    Rectangle().fill(Color.black.opacity(0.06)).frame(width: 1, height: 36)
+                    Rectangle().fill(Theme.ink.opacity(0.06)).frame(width: 1, height: 36)
                 }
             }
         }
         .padding(.vertical, 16)
-        .background(Color.white, in: .rect(cornerRadius: 26))
+        .background(Theme.surface, in: .rect(cornerRadius: 26))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 26)
         .accessibilityElement(children: .combine)
     }
@@ -403,7 +398,7 @@ struct ProfileStatsCard: View {
 
 struct ProfileDivider: View {
     var body: some View {
-        Rectangle().fill(Color.black.opacity(0.06)).frame(height: 1)
+        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
     }
 }
 

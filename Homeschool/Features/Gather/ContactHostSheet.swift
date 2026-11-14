@@ -113,7 +113,7 @@ struct CompleteProfileSheet: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: 20))
+            .background(Theme.surface, in: .rect(cornerRadius: 20))
 
             Spacer(minLength: 0)
 

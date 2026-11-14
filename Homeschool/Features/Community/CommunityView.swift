@@ -10,6 +10,7 @@ struct CommunityView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var isWide: Bool { sizeClass == .regular }
+    private var pageInset: CGFloat { isWide ? 24 : 20 }
     @State private var query = ""
     @State private var filter: CommunityFilter = .nearby
     @State private var showLocationPicker = false
@@ -26,7 +27,7 @@ struct CommunityView: View {
     private var parents: [Parent] {
         // "Near you" is the same 10 km as on the Gatherings page. No distance is ever shown.
         let nearby = MockData.parents
-            .filter { $0.distanceKm <= CommunityOptions.nearKm }
+            .filter { PlaceCatalog.matchesCommunity($0, home: state.homeLocation) && !state.connectedParents.contains($0.id) }
             .sorted { $0.distanceKm < $1.distanceKm }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let searched = text.isEmpty ? nearby : nearby.filter { $0.searchText.localizedCaseInsensitiveContains(text) }
@@ -59,16 +60,22 @@ struct CommunityView: View {
                         locationChip
                         searchField
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, pageInset)
                 } else {
                     locationChip
                     searchField
                 }
                 filterChips
+                if !state.preferences.showProfile {
+                    Label("Your profile is hidden. You can still browse and message your connections.", systemImage: "eye.slash")
+                        .caption().foregroundStyle(Theme.secondary)
+                        .padding(.horizontal, pageInset)
+                        .accessibilityIdentifier("community.profileHidden")
+                }
 
                 Text("Parents near you")
                     .sectionTitle()
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, pageInset)
                     .padding(.top, 4)
 
                 if parents.isEmpty {
@@ -89,14 +96,14 @@ struct CommunityView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, pageInset)
                 } else {
                     VStack(spacing: 16) {
                         ForEach(parents) { parent in
                             ParentCard(parent: parent, highlight: parent.id == bestMatchID)
                         }
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, pageInset)
                 }
             }
             .padding(.top, 8)
@@ -128,7 +135,7 @@ struct CommunityView: View {
             NavigationLink { NotificationsView() } label: { bellIcon }
                 .buttonStyle(.plain)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, pageInset)
     }
 
     private var bellIcon: some View {
@@ -144,7 +151,7 @@ struct CommunityView: View {
                         .scaledFont(11, weight: .bold, maxScale: 1.2)
                         .foregroundStyle(Color.white)
                         .frame(minWidth: 18, minHeight: 18)
-                        .background(Circle().fill(Theme.ink))
+                        .background(Circle().fill(Theme.buttonFill))
                 }
             }
             .accessibilityLabel(unread > 0 ? "Notifications, \(unread) new" : "Notifications")
@@ -167,7 +174,7 @@ struct CommunityView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Near you, based on \(state.homeLocation.name). Change area")
-        .padding(.horizontal, isWide ? 0 : 24)
+        .padding(.horizontal, isWide ? 0 : pageInset)
     }
 
     private var searchField: some View {
@@ -177,12 +184,20 @@ struct CommunityView: View {
             TextField("Search parents or interests", text: $query)
                 .scaledFont(16, maxScale: 1.3)
                 .submitLabel(.search)
+                .accessibilityLabel("Search parents or interests")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.secondary)
+                        .frame(width: 28, height: 44)
+                }
+                .buttonStyle(.plain).accessibilityLabel("Clear parent search")
+            }
         }
         .padding(.horizontal, 16)
-        .frame(minHeight: 52)
-        .background(Theme.chipFill, in: .rect(cornerRadius: 20))
+        .frame(minHeight: 50)
+        .background(Theme.field, in: Capsule())
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, isWide ? 0 : 24)
+        .padding(.horizontal, isWide ? 0 : pageInset)
     }
 
     /// Same look as the category labels on the Gatherings page.
@@ -197,7 +212,7 @@ struct CommunityView: View {
                             .foregroundStyle(isSelected ? Theme.ink : Theme.gatherText)
                             .padding(.horizontal, 18)
                             .padding(.vertical, 9)
-                            .background(Capsule().fill(isSelected ? Theme.lavender : Theme.chipFill))
+                            .background(Capsule().fill(isSelected ? Theme.lavender : Theme.field))
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
@@ -205,7 +220,7 @@ struct CommunityView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .contentMargins(.horizontal, 24, for: .scrollContent)
+        .contentMargins(.horizontal, pageInset, for: .scrollContent)
         .animation(.snappy, value: filter)
     }
 
@@ -262,80 +277,101 @@ struct ParentCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
-                ParentAvatar(parent: parent, size: 64)
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(parent.name)
-                            .scaledFont(20, weight: .bold, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                        Spacer(minLength: 0)
-                        if highlight {
-                            Label("Most in common", systemImage: "sparkles")
-                                .labelStyle(.titleAndIcon)
-                                .scaledFont(12, weight: .semibold, maxScale: 1.2)
-                                .foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(Theme.lavender))
+        VStack(alignment: .leading, spacing: 0) {
+            identityHeader.padding(6)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text(parent.about)
+                    .scaledFont(15, maxScale: 1.3)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+
+                if !interests.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(interests.prefix(4), id: \.self) { name in
+                            InfoChip(title: name,tint: Theme.chipFill, isCompact: true,
+                                     symbol: myInterests.contains(name) ? "sparkles" : nil)
+                        }
+                        if interests.count > 4 {
+                            InfoChip(title: "+\(interests.count - 4)", tint: Theme.chipFill, isCompact: true)
                         }
                     }
-                    if !parent.place.isEmpty {
-                        Label(parent.place, systemImage: "mappin.and.ellipse")
-                            .scaledFont(14, maxScale: 1.25)
-                            .foregroundStyle(Theme.gatherText)
-                            .lineLimit(1)
+                }
+
+                if highlight {
+                    Label {
+                        Text("Most in common").foregroundStyle(Theme.ink)
+                    } icon: {
+                        Image(systemName: "sparkles").foregroundStyle(Theme.gatherAccent)
                     }
-                    Text(parent.role)
-                        .scaledFont(14, maxScale: 1.25)
-                        .foregroundStyle(Theme.gatherText)
-                        .lineLimit(1)
+                    .scaledFont(12, weight: .semibold, maxScale: 1.3)
+                    .padding(.top, 1)
+                }
+
+                ProfileDivider().padding(.horizontal, -10).padding(.top, 2)
+                footer
+            }
+            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: .rect(cornerRadius: 30))
+        .roundedStroke(highlight ? Theme.lavender : Theme.lilacBorder,
+                       cornerRadius: 30, lineWidth: highlight ? 1.5 : 1)
+    }
+
+    private var identityHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            ParentAvatar(parent: parent, size: 72)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(parent.name)
+                    .scaledFont(21, weight: .bold, maxScale: 1.3)
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text(parent.role)
+                    .scaledFont(14, maxScale: 1.3)
+                    .foregroundStyle(Theme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !parent.place.isEmpty {
+                    Label(parent.place, systemImage: "mappin.and.ellipse")
+                        .scaledFont(13, maxScale: 1.3)
+                        .foregroundStyle(Theme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+        .background(Theme.pink_light, in: .rect(cornerRadius: 24))
+    }
 
-            Text(parent.about)
-                .scaledFont(15, maxScale: 1.25)
-                .foregroundStyle(Theme.ink.opacity(0.8))
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if !interests.isEmpty {
-                FlowLayout(spacing: 6) {
-                    ForEach(interests.prefix(4), id: \.self) { name in
-                        InfoChip(title: name, isCompact: true,
-                                 symbol: myInterests.contains(name) ? "sparkles" : nil)
-                    }
-                    if interests.count > 4 {
-                        InfoChip(title: "+\(interests.count - 4)", tint: Theme.chipFill, isCompact: true)
-                    }
-                }
+    private var profileLink: some View {
+        NavigationLink(value: parent) {
+            HStack(spacing: 8) {
+                Text("View profile")
+                Image(systemName: "arrow.right").fontWeight(.medium)
             }
+            .scaledFont(15, weight: .semibold, maxScale: 1.3)
+            .foregroundStyle(Theme.tabSelected)
+            .frame(minHeight: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("View \(parent.name)’s profile")
+    }
 
-            ProfileDivider()
-
-            HStack {
-                NavigationLink(value: parent) {
-                    HStack(spacing: 8) {
-                        Text("View profile")
-                        Image(systemName: "arrow.right").fontWeight(.bold)
-                    }
-                    .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Theme.tabSelected)
-                }
-                .buttonStyle(.plain)
-
-                Spacer(minLength: 8)
-
-                actionButton
+    private var footer: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                profileLink.fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
+                actionButton.fixedSize(horizontal: true, vertical: false)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                profileLink
+                actionButton.frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(highlight ? Theme.lilac : Color.white, in: .rect(cornerRadius: 28))
-        .roundedStroke(highlight ? Theme.lavender : Theme.lilacBorder, cornerRadius: 28, lineWidth: highlight ? 1.5 : 1)
     }
 
     @ViewBuilder private var actionButton: some View {
@@ -348,7 +384,7 @@ struct ParentCard: View {
                     .scaledFont(15, weight: .semibold, maxScale: 1.25)
                     .foregroundStyle(Theme.ink)
                     .padding(.horizontal, 20)
-                    .frame(minHeight: 42)
+                    .frame(minWidth: 104, minHeight: 44)
                     .background(Capsule().fill(Theme.lavender))
             }
             .buttonStyle(.plain)
@@ -356,10 +392,10 @@ struct ParentCard: View {
             Button { state.sendRequest(to: parent) } label: {
                 Text(requested ? "Requested" : "Connect")
                     .scaledFont(15, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(requested ? Theme.gatherText : Color.white)
+                    .foregroundStyle(requested ? Theme.gatherText : Theme.buttonText)
                     .padding(.horizontal, 22)
-                    .frame(minHeight: 42)
-                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.ink))
+                    .frame(minWidth: 104, minHeight: 44)
+                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.buttonFill))
             }
             .buttonStyle(.plain)
             .disabled(requested)
@@ -375,13 +411,13 @@ struct ParentAvatar: View {
 
     var body: some View {
         ZStack {
-            Circle().fill(Theme.lavender)
+            Circle().fill(Theme.pink)
             Text(String(parent.name.prefix(1)))
                 .font(.system(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(Theme.ink)
-            Image(parent.photoName)
-                .resizable()
-                .scaledToFill()
+            if let photo = UIImage(named: parent.photoName) {
+                Image(uiImage: photo).resizable().scaledToFill()
+            }
         }
         .frame(width: size, height: size)
         .clipShape(.circle)
@@ -426,12 +462,12 @@ struct NotificationsView: View {
                     .sectionTitle()
                     .padding(.top, 4)
 
-                if state.notifications.isEmpty {
+                if state.visibleNotifications.isEmpty {
                     Text("You’re all caught up.")
                         .rowDetail()
                 }
 
-                ForEach(state.notifications) { item in
+                ForEach(state.visibleNotifications) { item in
                     row(item)
                 }
             }
@@ -442,7 +478,7 @@ struct NotificationsView: View {
         .scrollNavigationTitle("Notifications")
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .animation(.snappy, value: state.notifications.count)
+        .animation(.snappy, value: state.visibleNotifications.count)
     }
 
     @ViewBuilder private func row(_ item: AppNotification) -> some View {
@@ -468,7 +504,7 @@ struct NotificationsView: View {
                             .scaledFont(15, weight: .semibold, maxScale: 1.25)
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity, minHeight: 42)
-                            .background(Capsule().fill(Theme.ink))
+                            .background(Capsule().fill(Theme.buttonFill))
                     }
                     .buttonStyle(.plain)
 
@@ -483,7 +519,7 @@ struct NotificationsView: View {
                 }
             }
             .padding(14)
-            .background(Color.white, in: .rect(cornerRadius: 24))
+            .background(Theme.surface, in: .rect(cornerRadius: 24))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
         } else {
             Button {
@@ -546,7 +582,7 @@ private struct NotificationCard: View {
         }
         .padding(framed ? 14 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(framed ? Color.white : Color.clear, in: .rect(cornerRadius: 24))
+        .background(framed ? Theme.surface : Color.clear, in: .rect(cornerRadius: 24))
         .roundedStroke(framed ? Theme.lilacBorder : Color.clear, cornerRadius: 24)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)

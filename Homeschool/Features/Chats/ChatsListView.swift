@@ -19,8 +19,8 @@ struct ChatsListView: View {
     @State private var showReorder = false
     @State private var showLocked = false
 
-    private let accent = Color(hex: 0xD9D2FF)
-    private let unreadTime = Color(hex: 0x5B6B2F)
+    private let accent = Color.adaptive(0xD9D2FF, 0x3B3059)
+    private let unreadTime = Color.adaptive(0x5B6B2F, 0xC0D788)
 
     private var selectedLabel: ChatLabel { state.chats.selectedLabel }
 
@@ -188,7 +188,7 @@ struct ChatsListView: View {
             HStack(spacing: 6) {
                 if !label.isBuiltIn {
                     Circle().fill(label.color).frame(width: 10, height: 10)
-                        .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                        .overlay(Circle().stroke(Theme.ink.opacity(0.12), lineWidth: 0.5))
                 }
                 if label.id == ChatLabel.favourites.id {
                     Image(systemName: "star.fill").font(.system(size: 11))
@@ -200,7 +200,7 @@ struct ChatsListView: View {
             .foregroundStyle(selected ? Theme.ink : Theme.secondary)
             .padding(.horizontal, 16)
             .frame(height: 36)
-            .background(Capsule().fill(selected ? accent : Theme.field))
+            .background(Capsule().fill(selected ? Theme.lavender : Theme.field))
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -309,7 +309,7 @@ struct ChatsListView: View {
                 row(thread)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 18, bottom: 0, trailing: 18))
-                    .listRowSeparatorTint(Color.black.opacity(0.07))
+                    .listRowSeparatorTint(Theme.ink.opacity(0.07))
                     .alignmentGuide(.listRowSeparatorLeading) { _ in 74 }
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if thread.hasUnread {
@@ -326,7 +326,7 @@ struct ChatsListView: View {
                         Button { state.chats.togglePin(thread.id) } label: {
                             Label(thread.isPinned ? "Unpin" : "Pin", systemImage: thread.isPinned ? "pin.slash" : "pin")
                         }
-                        .tint(Color(hex: 0xB5AED0))
+                        .tint(Color.adaptive(0xB5AED0, 0x81798F))
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) { deleteTarget = thread.id; isConfirmingDelete = true } label: {
@@ -336,7 +336,7 @@ struct ChatsListView: View {
                             Label(thread.isMuted ? "Unmute" : "Mute",
                                   systemImage: thread.isMuted ? "bell" : "bell.slash")
                         }
-                        .tint(Color(hex: 0x8E8E93))
+                        .tint(Color.adaptive(0x8E8E93, 0xA4A3AA))
                     }
                     .contextMenu {
                         Button { labelsThread = ThreadRef(id: thread.id) } label: {
@@ -387,7 +387,7 @@ struct ChatsListView: View {
                         }
                         ForEach(labelColors(for: thread), id: \.self) { color in
                             Circle().fill(color).frame(width: 9, height: 9)
-                                .overlay(Circle().stroke(Color.black.opacity(0.12), lineWidth: 0.5))
+                                .overlay(Circle().stroke(Theme.ink.opacity(0.12), lineWidth: 0.5))
                         }
                     }
                     HStack(spacing: 5) {
@@ -485,9 +485,7 @@ struct ChatsListView: View {
     private var welcomeCallout: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Image("HomeMascot")
-                    .resizable()
-                    .scaledToFit()
+                HomeMascotView()
                     .frame(width: 120)
                     .accessibilityHidden(true)
 
@@ -506,7 +504,7 @@ struct ChatsListView: View {
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
-                            .background(Capsule().fill(Theme.ink))
+                            .background(Capsule().fill(Theme.buttonFill))
                     }
                     .buttonStyle(.plain)
 
@@ -518,7 +516,7 @@ struct ChatsListView: View {
                             .minimumScaleFactor(0.8)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
-                            .background(Capsule().fill(Color.white))
+                            .background(Capsule().fill(Theme.surface))
                     }
                     .buttonStyle(.plain)
                 }
@@ -526,7 +524,7 @@ struct ChatsListView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: 0xE6E1FF), in: .rect(cornerRadius: 28))
+            .background(Color.adaptive(0xE6E1FF, 0x30283F), in: .rect(cornerRadius: 28))
             .padding(.horizontal, 18)
             .padding(.top, 12)
         }

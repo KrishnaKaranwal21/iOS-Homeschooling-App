@@ -153,7 +153,7 @@ struct LoginView: View {
         }
         .padding(32)
         .frame(maxWidth: 500)
-        .background(Color.white, in: .rect(cornerRadius: 36))
+        .background(Theme.surface, in: .rect(cornerRadius: 36))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 36)
     }
 

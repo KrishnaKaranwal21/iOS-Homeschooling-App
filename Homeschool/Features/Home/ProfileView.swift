@@ -4,7 +4,7 @@ import UserNotifications
 /// Which page of the profile is shown. `hub` is the main Profile page: a short list of buttons,
 /// each opening its own page, like most apps.
 enum ProfilePage {
-    case hub, parent, children, notifications, privacy, help, about, account
+    case hub, parent, children, appearance, notifications, privacy, help, about, account
 }
 
 /// The family's profile. The main page is a small menu. Details live one tap away.
@@ -51,6 +51,7 @@ struct ProfileView: View {
                 case .hub:           hubContent
                 case .parent:        parentTab
                 case .children:      childrenTab
+                case .appearance:    AppearanceSettingsView()
                 case .notifications: SettingsTab(section: .notifications, showLocationPicker: $showLocationPicker)
                 case .privacy:       SettingsTab(section: .privacy, showLocationPicker: $showLocationPicker)
                 case .help:          SettingsTab(section: .help, showLocationPicker: $showLocationPicker)
@@ -103,6 +104,7 @@ struct ProfileView: View {
         case .hub: "Profile"
         case .parent: "Your profile"
         case .children: "Children"
+        case .appearance: "Appearance"
         case .notifications: "Notifications"
         case .privacy: "Privacy"
         case .help: "Help"
@@ -118,8 +120,7 @@ struct ProfileView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 44, height: 44)
-                .background(.regularMaterial, in: .circle)
-                .roundedStroke(Theme.lilacBorder, cornerRadius: 22)
+                .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.25))
         }
         .buttonStyle(.plain)
         .padding(.leading, 20)
@@ -174,7 +175,7 @@ struct ProfileView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: 28))
+            .background(Theme.surface, in: .rect(cornerRadius: 28))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
 
             completenessCard
@@ -187,6 +188,8 @@ struct ProfileView: View {
             }
 
             menuGroup {
+                menuRow(.appearance, "circle.lefthalf.filled", "Appearance", "System, light or dark")
+                ProfileDivider()
                 menuRow(.notifications, "bell", "Notifications", "Chats, requests and reminders")
                 ProfileDivider()
                 menuRow(.privacy, "lock", "Privacy", "Location and who can find you")
@@ -209,7 +212,7 @@ struct ProfileView: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: 26))
+            .background(Theme.surface, in: .rect(cornerRadius: 26))
             .roundedStroke(Theme.lilacBorder, cornerRadius: 26)
     }
 
@@ -267,7 +270,7 @@ struct ProfileView: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(hex: 0xFFEBD9), in: .rect(cornerRadius: 22))
+                    .background(Color.adaptive(0xFFEBD9, 0x3B2C23), in: .rect(cornerRadius: 22))
                     .accessibilityElement(children: .combine)
                 }
             }
@@ -401,7 +404,7 @@ struct ProfileView: View {
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 16)
                         .frame(height: 38)
-                        .background(Capsule().fill(Theme.ink))
+                        .background(Capsule().fill(Theme.buttonFill))
                         .padding(.top, 4)
                 }
                 Spacer(minLength: 0)
@@ -672,10 +675,6 @@ private struct SettingsTab: View {
     @Environment(AppState.self) private var state
     @Environment(\.openURL) private var openURL
 
-    @AppStorage("pref.notifyChats") private var notifyChats = true
-    @AppStorage("pref.notifyCommunity") private var notifyCommunity = true
-    @AppStorage("pref.notifyGatherings") private var notifyGatherings = true
-    @AppStorage("pref.showProfile") private var showProfile = true
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmAddAccount = false
@@ -692,7 +691,10 @@ private struct SettingsTab: View {
             case .account:       accountCard
             }
         }
-        .task { notificationStatus = await ExamReminders.authorizationStatus() }
+        .task {
+            notificationStatus = await ExamReminders.authorizationStatus()
+            state.syncGatheringReminders()
+        }
         .confirmationDialog("Add another account?", isPresented: $confirmAddAccount, titleVisibility: .visible) {
             Button("Continue") { state.signOut() }
             Button("Cancel", role: .cancel) {}
@@ -732,6 +734,7 @@ private struct SettingsTab: View {
                         Task {
                             _ = await ExamReminders.requestAuthorization()
                             notificationStatus = await ExamReminders.authorizationStatus()
+                            state.syncGatheringReminders()
                         }
                     } label: {
                         ProfileInfoRow(symbol: "bell.badge", title: "Allow notifications", value: "Turn on")
@@ -742,12 +745,12 @@ private struct SettingsTab: View {
                     EmptyView()
                 }
 
-                toggleRow("Chat messages", symbol: "bubble.left", isOn: $notifyChats)
+                toggleRow("Chat messages", symbol: "bubble.left", isOn: Binding(get: { state.preferences.notifyChats }, set: { state.preferences.notifyChats = $0 }))
                 ProfileDivider()
-                toggleRow("Connection requests", symbol: "person.badge.plus", isOn: $notifyCommunity)
+                toggleRow("Connection requests", symbol: "person.badge.plus", isOn: Binding(get: { state.preferences.notifyCommunity }, set: { state.preferences.notifyCommunity = $0 }))
                 ProfileDivider()
-                toggleRow("Gathering reminders", "Events you registered for or saved.",
-                          symbol: "calendar", isOn: $notifyGatherings)
+                toggleRow("Gathering reminders", "One hour before registered or saved events.",
+                          symbol: "calendar", isOn: Binding(get: { state.preferences.notifyGatherings }, set: { state.preferences.notifyGatherings = $0 }))
             }
         }
     }
@@ -783,8 +786,8 @@ private struct SettingsTab: View {
                     .buttonStyle(.plain)
                 }
                 ProfileDivider()
-                toggleRow("Show my profile to other parents", "Turn off to hide yourself in Community.",
-                          symbol: "person.crop.circle", isOn: $showProfile)
+                toggleRow("Show my profile to other parents", "Turn off to hide your profile and stop new connection requests.",
+                          symbol: "person.crop.circle", isOn: Binding(get: { state.preferences.showProfile }, set: { state.preferences.showProfile = $0 }))
                 ProfileDivider()
                 NavigationLink {
                     BlockedChatsView()

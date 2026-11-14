@@ -136,7 +136,7 @@ struct VoiceBubble: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Theme.ink)
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(Color.white.opacity(0.85)))
+                    .background(Circle().fill(Theme.surface.opacity(0.85)))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(isPlaying ? "Pause voice message" : "Play voice message")
@@ -173,7 +173,7 @@ struct CallView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: 0xE6E1FF).ignoresSafeArea()
+            Color.adaptive(0xE6E1FF, 0x30283F).ignoresSafeArea()
 
             VStack(spacing: 12) {
                 Spacer()
@@ -223,7 +223,7 @@ struct CallView: View {
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                     .frame(width: 64, height: 64)
-                    .background(Circle().fill(on ? Theme.lavender : Color.white))
+                    .background(Circle().fill(on ? Theme.lavender : Theme.surface))
                 Text(title).caption()
             }
         }

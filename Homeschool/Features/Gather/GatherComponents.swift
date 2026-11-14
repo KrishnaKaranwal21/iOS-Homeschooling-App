@@ -5,11 +5,11 @@ import SwiftUI
 extension Event {
     /// Colour used when an event has no photo yet.
     var tint: Color {
-        switch category {
+        switch normalizedCategory {
         case "Nature":  return Color(hex: 0x7FA777)
         case "Art":     return Color(hex: 0xE8A07F)
-        case "Science": return Color(hex: 0x8FA8E8)
-        case "Habit":   return Color(hex: 0xE59AA0)
+        case "Sports":  return Color(hex: 0x8FA8E8)
+        case "Music":   return Color(hex: 0xE59AA0)
         default:        return Color(hex: 0x9C8CF0)
         }
     }
@@ -27,19 +27,12 @@ struct EventCover: View {
     }
 
     @ViewBuilder private var content: some View {
-        ZStack {
-            // Fallback shown whenever there is no picked photo or the named asset is missing.
-            LinearGradient(colors: [event.tint.opacity(0.6), event.tint],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            Image(systemName: event.symbol)
-                .font(.system(size: 56))
-                .foregroundStyle(Color.white.opacity(0.9))
-
-            if let cover = event.coverImage {
-                cover.image.resizable().scaledToFill()
-            } else if let name = event.coverName {
-                Image(name).resizable().scaledToFill()
-            }
+        if let cover = event.coverImage {
+            cover.image.resizable().scaledToFill()
+        } else if let name = event.coverName, let image = UIImage(named: name) {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            GatherEventPoster(event: event)
         }
     }
 }
@@ -86,35 +79,17 @@ struct GatherSegmented<Value: Hashable>: View {
     let options: [Value]
     @Binding var selection: Value
     let title: (Value) -> String
-    @Namespace private var highlight
-
     var body: some View {
-        HStack(spacing: 0) {
+        Picker("Selection", selection: $selection) {
             ForEach(options, id: \.self) { option in
-                Button {
-                    withAnimation(.snappy) { selection = option }
-                } label: {
-                    Text(title(option))
-                        .scaledFont(15, weight: selection == option ? .semibold : .regular, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background {
-                            if selection == option {
-                                Capsule()
-                                    .fill(Theme.lilac)
-                                    .matchedGeometryEffect(id: "highlight", in: highlight)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == option ? .isSelected : [])
+                Text(title(option)).tag(option)
             }
         }
-        .padding(4)
-        .background(Capsule().fill(Color.white))
-        .overlay(Capsule().stroke(Theme.cardBorder, lineWidth: 1))
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(minHeight: 44)
+        .gatherGlass(in: Capsule(), tint: Theme.lilac.opacity(0.25))
+        .sensoryFeedback(.selection, trigger: selection)
     }
 }
 
@@ -205,7 +180,7 @@ struct GatherWaveShape: Shape {
     }
 }
 
-private struct DashedLine: Shape {
+struct DashedLine: Shape {
     let vertical: Bool
 
     func path(in rect: CGRect) -> Path {
@@ -228,8 +203,8 @@ struct TicketCard: View {
     let onViewConfirmation: () -> Void
 
     private let tileColumn: CGFloat = 114
-    private let dashColor = Color.black.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
+    private let dashColor = Theme.ink.opacity(0.22)
+    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
     fileprivate static let topHeight: CGFloat = 128
     fileprivate static let cardHeight: CGFloat = 176
 
@@ -260,10 +235,10 @@ struct TicketCard: View {
             HStack {
                 Text("Your place is saved")
                     .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(Theme.secondary)
                 Spacer(minLength: 8)
                 Button(action: onViewConfirmation) {
-                    Text("View Confirmation")
+                    Text("View ticket")
                         .scaledFont(15, weight: .semibold, maxScale: 1.3)
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 16)
@@ -294,7 +269,7 @@ struct TicketCard: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .frame(width: 72, height: 86)
-        .background(Color.white, in: .rect(cornerRadius: 18))
+        .background(Theme.surface, in: .rect(cornerRadius: 18))
         .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
         .rotationEffect(.degrees(-6))
     }
@@ -311,7 +286,7 @@ struct TicketCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "clock.fill")
                 Text(event.time)
-                Rectangle().fill(Color.black.opacity(0.35)).frame(width: 1, height: 14).padding(.horizontal, 2)
+                Rectangle().fill(Theme.ink.opacity(0.35)).frame(width: 1, height: 14).padding(.horizontal, 2)
                 Image(systemName: "mappin.circle.fill")
                 Text(event.locality).lineLimit(1)
             }
@@ -320,7 +295,7 @@ struct TicketCard: View {
 
             Text("By \(event.host)")
                 .scaledFont(14, maxScale: 1.2)
-                .foregroundStyle(Color.black.opacity(0.45))
+                .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
         }
     }
@@ -330,8 +305,8 @@ struct TicketCard: View {
 
 struct EmptyTicketCard: View {
     private let tileColumn: CGFloat = 114
-    private let dashColor = Color.black.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
+    private let dashColor = Theme.ink.opacity(0.22)
+    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
 
     var body: some View {
         VStack(spacing: 0) {
@@ -347,7 +322,7 @@ struct EmptyTicketCard: View {
                         .minimumScaleFactor(0.75)
                     Text("Reserve a spot and your ticket will show up here.")
                         .scaledFont(14, maxScale: 1.2)
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(Theme.secondary)
                         .lineLimit(3)
                 }
                 .padding(.leading, 20)
@@ -370,7 +345,7 @@ struct EmptyTicketCard: View {
             HStack(spacing: 8) {
                 Text("Free spots can be cancelled anytime")
                     .scaledFont(13, maxScale: 1.3)
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(Theme.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 0)
             }
@@ -388,7 +363,7 @@ struct EmptyTicketCard: View {
             .font(.system(size: 34, weight: .semibold))
             .foregroundStyle(warmText)
             .frame(width: 72, height: 86)
-            .background(Color.white, in: .rect(cornerRadius: 18))
+            .background(Theme.surface, in: .rect(cornerRadius: 18))
             .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             .rotationEffect(.degrees(-6))
             .accessibilityHidden(true)
@@ -427,12 +402,12 @@ struct OutingCard: View {
                     }
                 }
                 .overlay(alignment: .topLeading) {
-                    Label(event.category, systemImage: event.symbol)
+                    Label(event.normalizedCategory, systemImage: event.symbol)
                         .scaledFont(13, weight: .medium, maxScale: 1.2)
                         .foregroundStyle(Theme.ink)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white))
+                        .background(Capsule().fill(Theme.surface))
                         .padding(8)
                 }
 
@@ -452,185 +427,7 @@ struct OutingCard: View {
             .padding(.vertical, 12)
         }
         .padding(6)
-        .background(Color.white, in: .rect(cornerRadius: 26))
+        .background(Theme.surface, in: .rect(cornerRadius: 26))
         .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
-    }
-}
-
-// MARK: - Confirmation sheet
-
-/// Summary of a saved place, with a button to see everything that was submitted.
-struct GatherConfirmationSheet: View {
-    let event: Event
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @State private var confirmCancel = false
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(Color.green)
-                    .padding(.top, 12)
-
-                VStack(spacing: 6) {
-                    Text("Your place is saved")
-                        .scaledFont(26, weight: .heavy, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
-                    Text(event.title)
-                        .scaledFont(17, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
-                    if let registration = state.registrations[event.id] {
-                        Text("Reference \(registration.code)")
-                            .scaledFont(14, weight: .medium, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherText)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    GatherInfoRow(icon: "calendar",
-                                  text: event.start.formatted(.dateTime.weekday(.wide).day().month(.wide).year()))
-                    GatherInfoRow(icon: "clock",
-                                  text: "\(event.time) – \(event.end.formatted(date: .omitted, time: .shortened))")
-                    GatherInfoRow(icon: "mappin.and.ellipse", text: event.locationLines.title)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.lilac, in: .rect(cornerRadius: 20))
-
-                NavigationLink {
-                    RegistrationDetailView(event: event, registration: state.registrations[event.id])
-                } label: {
-                    Label("View registration details", systemImage: "doc.text")
-                        .scaledFont(16, weight: .semibold, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherAccent)
-                        .frame(maxWidth: .infinity)
-                        .frame(minHeight: 52)
-                        .gatherGlass(in: Capsule())
-                }
-                .buttonStyle(.plain)
-
-                if state.canCancel(event) {
-                    Button(role: .destructive) { confirmCancel = true } label: {
-                        Text("Cancel my place")
-                            .scaledFont(16, weight: .semibold, maxScale: 1.3)
-                            .frame(maxWidth: .infinity)
-                            .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.red)
-                } else if state.registrations[event.id]?.isPaid == true {
-                    Label("Paid ₹\(state.registrations[event.id]?.amountPaid ?? event.price ?? 0). No refunds, even if you don't attend, so this place can't be cancelled.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .scaledFont(14, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                Spacer(minLength: 0)
-
-                Button("Done") { dismiss() }
-                    .buttonStyle(.primaryHomeschool)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
-            .background(Theme.background)
-            .toolbarVisibility(.hidden, for: .navigationBar)
-        }
-        .confirmationDialog("Cancel your place?", isPresented: $confirmCancel, titleVisibility: .visible) {
-            Button("Cancel my place", role: .destructive) {
-                state.cancelRegistration(for: event)
-                dismiss()
-            }
-            Button("Keep my place", role: .cancel) {}
-        } message: {
-            Text("Your spot at \(event.title) will be released. You can register again later if there's room.")
-        }
-        .presentationDetents([.medium, .large])
-    }
-}
-
-/// Everything about the event and what was submitted for it.
-struct RegistrationDetailView: View {
-    let event: Event
-    let registration: Registration?
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let registration {
-                    group("Registration", rows: [
-                        ("Reference", registration.code),
-                        ("Registered on", registration.registeredAt.formatted(date: .abbreviated, time: .shortened)),
-                        ("Payment", registration.amountPaid.map {
-                            registration.places > 1
-                                ? "Paid ₹\($0) for \(registration.places) children · non-refundable"
-                                : "Paid ₹\($0) · non-refundable"
-                        } ?? "Free · cancel any time"),
-                        ("Parent or guardian", registration.accompanying ? "Staying with child" : "Drop-off")
-                    ])
-                }
-
-                group("Event", rows: [
-                    ("Event", event.title),
-                    ("Date", event.start.formatted(.dateTime.weekday(.wide).day().month(.wide).year())),
-                    ("Time", "\(event.time) – \(event.end.formatted(date: .omitted, time: .shortened))"),
-                    ("Where", event.mode == .online ? "Online" : event.location.replacingOccurrences(of: "\n", with: ", ")),
-                    ("Hosted by", event.host),
-                    ("Ages", event.ages),
-                    ("Price", event.priceText)
-                ])
-
-                if let registration {
-                    let details = registration.registrant
-                    group("Parent or guardian", rows: [
-                        ("Name", details.parentName),
-                        ("Email", details.email),
-                        ("Mobile", details.mobile)
-                    ])
-                    group("Little explorer", rows: [
-                        ("Name", details.childName),
-                        ("Age", details.childAge),
-                        ("Notes", details.notes.isEmpty ? "None" : details.notes)
-                    ])
-                }
-            }
-            .padding(20)
-        }
-        .background(Theme.background)
-        .navigationTitle("Registration details")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private func group(_ title: String, rows: [(String, String)]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .scaledFont(18, weight: .bold, maxScale: 1.3)
-                .foregroundStyle(Theme.ink)
-
-            VStack(spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(row.0)
-                            .scaledFont(15, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherText)
-                            .frame(width: 104, alignment: .leading)
-                        Text(row.1.isEmpty ? "—" : row.1)
-                            .scaledFont(16, weight: .medium, maxScale: 1.3)
-                            .foregroundStyle(Theme.ink)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .padding(.vertical, 12)
-
-                    if index < rows.count - 1 {
-                        Rectangle().fill(Theme.cardBorder).frame(height: 1)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .background(Color.white, in: .rect(cornerRadius: 20))
-            .roundedStroke(Theme.lilacBorder, cornerRadius: 20, lineWidth: 1)
-        }
     }
 }

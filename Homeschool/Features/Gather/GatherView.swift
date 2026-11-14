@@ -3,410 +3,288 @@ import SwiftUI
 struct GatherView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var sizeClass
-    private var isWide: Bool { sizeClass == .regular }
-    @State private var query = ""
-    @State private var category = "All"
-    /// True for a moment after a label or the place changes. The event cards ignore touches then,
-    /// so the tap that changed the list can't also open a card that appears under the finger.
-    @State private var isListSettling = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var filter = GatherFeedFilter()
     @State private var place: Place = .nearYou
+    @State private var showFilters = false
     @State private var showLocationPicker = false
-    @State private var ticketID: Event.ID?
-    @State private var confirmation: Event?
     @State private var showHost = false
     @State private var showProfile = false
     @State private var showProfilePrompt = false
+    @State private var openProfileAfterPrompt = false
+    @State private var pageLimit = 3
+    @State private var feedGeneration = UUID()
+    private let pageSize = 3
 
-    private let categories = ["All"] + Event.categories
-
-    private var visibleEvents: [Event] {
-        state.events.filter { event in
-            (category == "All" || event.category == category)
-                && PlaceCatalog.matches(event, selection: place, home: state.homeLocation)
-                && (query.isEmpty || event.title.localizedCaseInsensitiveContains(query))
-        }
+    private var events: [Event] {
+        GatherFeedCategory.prioritize(state.events.filter {
+            filter.includes($0) && PlaceCatalog.matches($0, selection: place, home: state.homeLocation)
+        }, interests: state.child.interests)
+    }
+    private var activeFilterCount: Int {
+        (filter.freeOnly ? 1 : 0) + (filter.onlineOnly ? 1 : 0) + (place != .nearYou ? 1 : 0)
+    }
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: sizeClass == .regular ? 2 : 1)
     }
 
-    /// Everything the family has registered for. It ignores the category, search and area, so it never changes when you filter.
-    private var registered: [Event] {
-        state.events.filter(\.isRegistered).sorted { $0.start < $1.start }
-    }
-    private var hasNoRegistrations: Bool { !state.events.contains(where: \.isRegistered) }
-    /// Everything that matches the filters. Outside "Near you", registered events stay in the list with a badge.
-    /// In "Near you" the registered events already sit in the tickets above, so they are left out here.
-    private var outings: [Event] {
-        isNearYou ? visibleEvents.filter { !$0.isRegistered } : visibleEvents
-    }
-
-    /// Tickets are only shown in the default "Near you" view.
-    private var isNearYou: Bool { place.kind == .nearby }
-    private var ticketPage: Int { registered.firstIndex { $0.id == ticketID } ?? 0 }
-
-    private var outingsTitle: String {
-        switch place.kind {
-        case .nearby: return "Find your next outing"
-        case .world:  return "All gatherings"
-        default:      return "Gatherings in \(place.name)"
-        }
-    }
+    private static let topID = "gather.top"
 
     var body: some View {
         ScrollViewReader { proxy in
-            page(proxy)
-        }
-    }
-
-    private func page(_ proxy: ScrollViewProxy) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                header
-
-                if isNearYou {
-                    if hasNoRegistrations {
-                        noRegistrations
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                Color.clear.frame(height: 0).id(Self.topID)
+                discoveryControls.padding(.bottom, 20)
+                Section {
+                    if events.isEmpty {
+                        emptyState.padding(.top, 44)
                     } else {
-                        nextGatherings
-                    }
-                }
-
-                questionAlerts
-
-                // The heading comes first, then the area, the search and the category labels.
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionTitle(outingsTitle)
-                        .id("outings")
-                    if isWide {
-                        // Area and search share one row on a wide screen.
-                        HStack(spacing: 14) {
-                            locationChip
-                            searchField
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
+                            ForEach(Array(events.prefix(pageLimit))) { event in
+                                GatherFeedCard(event: event)
+                            }
+                            if events.count > pageLimit {
+                                GatherLoadingCard()
+                                    .id("\(feedGeneration)-\(pageLimit)")
+                                    .task { await revealNextPage(generation: feedGeneration) }
+                            }
                         }
-                        .padding(.horizontal, 24)
-                    } else {
-                        locationChip
-                        searchField
+                        .padding(.horizontal, 20)
+                        .padding(.top, 12)
                     }
-                }
-
-                categoryChips
-
-                if outings.isEmpty {
-                    if !(isNearYou && !registered.isEmpty) { emptyState }
-                } else {
-                    findOutings
+                } header: {
+                    categoryStrip
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 10)
             .padding(.bottom, 24)
         }
-        .onChange(of: category) { settleList() }
-        .onChange(of: place) { settleList() }
-        .scrollTitleBar("Gatherings")
+        .background(Theme.background.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
-        .background(Theme.background)
-        .navigationTitle("Gatherings")
-        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
-        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Text("Gather").pageTitle().fixedSize()
+                    Spacer(minLength: 8)
+                    likedEventsButton
+                    hostEventButton
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Gather").pageTitle()
+                        Spacer()
+                        likedEventsButton
+                    }
+                    hostEventButton.frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+            .background(Theme.background)
+        }
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
-        .sheet(item: $confirmation) { GatherConfirmationSheet(event: $0) }
         .navigationDestination(isPresented: $showHost) { HostEventView() }
         .navigationDestination(isPresented: $showProfile) { ProfileView() }
-        .sheet(isPresented: $showProfilePrompt) {
-            CompleteProfileSheet(missing: state.missingProfileItems) {
-                showProfilePrompt = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showProfile = true }
-            }
-        }
+        .sheet(isPresented: $showFilters) { filtersSheet }
         .sheet(isPresented: $showLocationPicker) {
             LocationPickerSheet(selection: place, home: state.homeLocation) { place = $0 }
         }
-    }
-
-    /// Hosting needs a complete profile, so families can see who is hosting.
-    private func startHosting() {
-        if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
-    }
-
-    // MARK: Top of the page
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-        HStack(alignment: .center, spacing: 12) {
-            Text("Gatherings")
-                .pageTitle()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 8)
-
-            GatherGlassContainer(spacing: 10) {
-                HStack(spacing: 10) {
-                    NavigationLink { SavedEventsView() } label: { savedIcon }
-                    Button { startHosting() } label: {
-                        Label("Host", systemImage: "plus")
-                            .scaledFont(17, weight: .semibold, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherAccent)
-                            .padding(.horizontal, 18)
-                            .frame(minHeight: 44)
-                            .gatherGlass(in: Capsule())
-                    }
-                }
+        .sheet(isPresented: $showProfilePrompt, onDismiss: {
+            if openProfileAfterPrompt {
+                openProfileAfterPrompt = false
+                showProfile = true
             }
-            .buttonStyle(.plain)
-            .overlay(alignment: .topLeading) { savedBadge }
-        }
-
-        Text("Good company. Shared discoveries.")
-            .pageSubtitle()
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-        }
-        .padding(.horizontal, 24)
-    }
-
-    /// Opens the saved events list.
-    private var savedIcon: some View {
-        Image(systemName: state.savedEvents.isEmpty ? "bookmark" : "bookmark.fill")
-            .scaledFont(17, weight: .semibold, maxScale: 1.3)
-            .foregroundStyle(Theme.ink)
-            .frame(width: 44, height: 44)
-            .background(Circle().fill(Theme.lavender))
-            .accessibilityLabel(state.savedEvents.isEmpty
-                                ? "Saved events"
-                                : "Saved events, \(state.savedEvents.count)")
-    }
-
-    /// Drawn outside the glass container so the glass can never cover it.
-    @ViewBuilder private var savedBadge: some View {
-        if !state.savedEvents.isEmpty {
-            Text("\(state.savedEvents.count)")
-                .scaledFont(11, weight: .bold, maxScale: 1.2)
-                .foregroundStyle(Color.white)
-                .frame(minWidth: 18, minHeight: 18)
-                .background(Circle().fill(Theme.ink))
-                .overlay(Circle().stroke(Theme.background, lineWidth: 2))
-                .offset(x: 26, y: -4)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
-    }
-
-    private var locationChip: some View {
-        Button { showLocationPicker = true } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "mappin.and.ellipse")
-                    .foregroundStyle(Theme.gatherAccent)
-                Text(place.name).fontWeight(.semibold).lineLimit(1)
-                Image(systemName: "chevron.down").font(.footnote.weight(.bold))
+        }) {
+            CompleteProfileSheet(missing: state.missingProfileItems) {
+                openProfileAfterPrompt = true
+                showProfilePrompt = false
             }
-            .scaledFont(15, maxScale: 1.3)
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 14)
-            .frame(minHeight: 38)
-            .gatherGlass(in: Capsule())
+        }
+        .onChange(of: filter) { resetPagination() }
+        .onChange(of: place) { resetPagination() }
+        .onChange(of: state.child.interests) { resetPagination() }
+        .onChange(of: state.child.id) { resetPagination() }
+        // A new label always opens from the top, not where the previous one was scrolled to.
+        .onChange(of: filter.category) { proxy.scrollTo(Self.topID, anchor: .top) }
+        }
+    }
+
+    private var likedEventsButton: some View {
+        NavigationLink {
+            SavedEventsView()
+        } label: {
+            Image(systemName: state.savedEvents.isEmpty ? "heart" : "heart.fill")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 44, height: 44)
+                .gatherGlass(in: Circle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Location: \(place.name). Change location")
-        .padding(.horizontal, isWide ? 0 : 24)
+        .accessibilityLabel("Liked events, \(state.savedEvents.count) saved")
+        .accessibilityIdentifier("gather.likedEvents")
     }
 
-    private var searchField: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(Theme.gatherText)
-            TextField("Find a workshop or outing", text: $query)
-                .scaledFont(16, maxScale: 1.3)
-                .submitLabel(.search)
+    private var hostEventButton: some View {
+        Button(action: hostEvent) {
+            Label("Host an event", systemImage: "plus")
+                .scaledFont(14, weight: .semibold, maxScale: 1.3)
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 15).frame(minHeight: 44)
+                .background(Theme.lilac, in: Capsule())
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.horizontal, 18)
-        .frame(minHeight: 48)
-        .background(Capsule().fill(Color.white))
-        .overlay(Capsule().stroke(Theme.lilacBorder, lineWidth: 1))
-        .frame(maxWidth: isWide ? .infinity : nil)
-        .padding(.horizontal, isWide ? 0 : 24)
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("gather.hostEvent")
     }
 
-    private var categoryChips: some View {
+    private var discoveryControls: some View {
+        VStack(spacing: 16) {
+            HStack(spacing: 14) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").scaledFont(20, maxScale: 1.35)
+                        .foregroundStyle(Theme.secondary)
+                    TextField("Search events or activities…", text: $filter.query)
+                        .scaledFont(16, maxScale: 1.35).submitLabel(.search)
+                        .accessibilityIdentifier("gather.search")
+                    if !filter.query.isEmpty {
+                        Button { filter.query = "" } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.secondary)
+                        }.accessibilityLabel("Clear search")
+                    }
+                }
+                .padding(.horizontal, 18).frame(minHeight: 50)
+                .background(Theme.field, in: Capsule())
+                Button { showFilters = true } label: {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .scaledFont(23, weight: .regular, maxScale: 1.35)
+                        .foregroundStyle(Theme.ink).frame(width: 44, height: 48)
+                        .overlay(alignment: .topTrailing) {
+                            if activeFilterCount > 0 {
+                                Text("\(activeFilterCount)").font(.caption2.bold()).foregroundStyle(.white)
+                                    .frame(width: 17, height: 17).background(Theme.accentFill, in: Circle())
+                            }
+                        }
+                }
+                .accessibilityLabel("Filters and your events")
+                .accessibilityIdentifier("gather.filters")
+            }
+            .padding(.horizontal, 20)
+
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Same look as the filter chips in Chats: rounded pills, lavender when selected.
+    private var categoryStrip: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 10) {
-                ForEach(categories, id: \.self) { name in
-                    Button { category = name } label: {
-                        Text(name)
-                            .scaledFont(15, weight: name == category ? .semibold : .regular, maxScale: 1.3)
-                            .foregroundStyle(name == category ? Theme.ink : Theme.gatherText)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 9)
-                            .background(Capsule().fill(name == category ? Theme.lavender : Theme.chipFill))
+            HStack(spacing: 8) {
+                ForEach(GatherFeedCategory.ordered(interests: state.child.interests)) { category in
+                    let selected = filter.category == category
+                    Button { filter.category = category } label: {
+                        Text(category.rawValue)
+                            .scaledFont(15, weight: selected ? .semibold : .regular, maxScale: 1.2)
+                            .lineLimit(1)
+                            .foregroundStyle(selected ? Theme.ink : Theme.secondary)
+                            .padding(.horizontal, 16)
+                            .frame(height: 36)
+                            .background(Capsule().fill(selected ? Color.adaptive(0xD9D2FF, 0x3B3059) : Theme.field))
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .contentShape(.capsule)
-                    .accessibilityAddTraits(name == category ? .isSelected : [])
+                    .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            .padding(.horizontal, 20)
         }
         .scrollIndicators(.hidden)
-        .contentMargins(.horizontal, 24, for: .scrollContent)
-        .animation(.snappy, value: category)
+        .padding(.vertical, 8)
+        .background(Theme.background)
     }
 
-    // MARK: Sections
-
-    private var nextGatherings: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("Your next gathering")
-
-            if isWide {
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 18) {
-                        ForEach(registered) { event in
-                            TicketCard(event: event) { confirmation = event }
-                                .containerRelativeFrame(.horizontal, count: 2, spacing: 18)
-                                .id(event.id)
-                        }
+    private var filtersSheet: some View {
+        NavigationStack {
+            List {
+                Section("Discover") {
+                    Button {
+                        showFilters = false
+                        showLocationPicker = true
+                    } label: {
+                        HStack { Label("Location", systemImage: "mappin.and.ellipse"); Spacer(); Text(place.name).foregroundStyle(Theme.secondary) }
                     }
-                    .scrollTargetLayout()
+                    Toggle("Free events only", isOn: $filter.freeOnly).tint(Theme.accent)
+                    Toggle("Online events only", isOn: $filter.onlineOnly).tint(Theme.accent)
                 }
-                .scrollTargetBehavior(.viewAligned)
-                .contentMargins(.horizontal, 24, for: .scrollContent)
-                .scrollPosition(id: $ticketID)
-                .scrollIndicators(.hidden)
-            } else {
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 0) {
-                        ForEach(registered) { event in
-                            TicketCard(event: event) { confirmation = event }
-                                .padding(.horizontal, 24)
-                                .containerRelativeFrame(.horizontal)
-                                .id(event.id)
-                        }
+                Section("Your gatherings") {
+                    NavigationLink { SavedEventsView() } label: {
+                        Label("Liked events (\(state.savedEvents.count))", systemImage: "heart")
                     }
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $ticketID)
-                .scrollIndicators(.hidden)
-
-                if registered.count > 1 {
-                    GatherPageDots(count: registered.count, current: ticketPage)
-                }
-            }
-        }
-    }
-
-    /// Tells the host when families have asked questions about an event they host.
-    @ViewBuilder private var questionAlerts: some View {
-        let waiting = state.hostedEventsWithQuestions
-        if !waiting.isEmpty {
-            VStack(spacing: 10) {
-                ForEach(waiting) { event in
-                    NavigationLink(value: event) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "bubble.left.and.exclamationmark.bubble.right.fill")
-                                .scaledFont(18, maxScale: 1.2)
-                                .foregroundStyle(Theme.ink)
-                                .frame(width: 42, height: 42)
-                                .background(Color.white, in: .circle)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(event.unansweredCount == 1
-                                     ? "1 new question"
-                                     : "\(event.unansweredCount) new questions")
-                                    .rowTitle()
-                                Text("On “\(event.title)”. Tap to answer.")
-                                    .rowDetail()
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: "chevron.right")
-                                .font(.footnote.weight(.semibold))
-                                .foregroundStyle(Theme.gatherText)
-                        }
-                        .padding(14)
-                        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
+                    Button {
+                        filter.category = .yours
+                        showFilters = false
+                    } label: { Label("Your events", systemImage: "calendar") }
+                    NavigationLink { GatherTicketsView() } label: {
+                        Label("Your tickets", systemImage: "ticket")
                     }
-                    .buttonStyle(.plain)
+                    Button {
+                        showFilters = false
+                        hostEvent()
+                    } label: { Label("Host an event", systemImage: "plus.circle") }
                 }
-            }
-            .padding(.horizontal, 24)
-        }
-    }
-
-    private var noRegistrations: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionTitle("Your next gathering")
-            EmptyTicketCard()
-                .frame(maxWidth: isWide ? 560 : .infinity, alignment: .leading)
-                .padding(.horizontal, 24)
-        }
-    }
-
-    /// "5 gatherings · 3 workshops available"
-    private var availabilityText: String {
-        let gatherings = outings.filter { $0.kind == .gathering }.count
-        let workshops = outings.filter { $0.kind == .workshop }.count
-        let gatheringText = "\(gatherings) \(gatherings == 1 ? "gathering" : "gatherings")"
-        let workshopText = "\(workshops) \(workshops == 1 ? "workshop" : "workshops")"
-        return "\(gatheringText) · \(workshopText) available"
-    }
-
-    private var findOutings: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(availabilityText)
-                .caption()
-                .padding(.horizontal, 24)
-
-            // Plain stacks (the list is short), so cards aren't recycled while the list changes.
-            Group {
-                if isWide {
-                    // Two outings in each row.
-                    let rows = stride(from: 0, to: outings.count, by: 2).map { start in
-                        Array(outings[start..<min(start + 2, outings.count)])
-                    }
-                    VStack(spacing: 20) {
-                        ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                            HStack(alignment: .top, spacing: 20) {
-                                ForEach(row) { event in outingLink(event, coverHeight: 200) }
-                                if row.count == 1 { Color.clear.frame(maxWidth: .infinity) }
+                if !state.hostedEventsWithQuestions.isEmpty {
+                    Section("Questions for you") {
+                        ForEach(state.hostedEventsWithQuestions) { event in
+                            NavigationLink {
+                                EventDetailView(event: event)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(event.title)
+                                    Text("\(event.unansweredCount) unanswered questions").font(.caption).foregroundStyle(Theme.secondary)
+                                }
                             }
                         }
                     }
-                } else {
-                    VStack(spacing: 16) {
-                        ForEach(outings) { event in outingLink(event, coverHeight: 180) }
-                    }
+                }
+                Section {
+                    Button("Reset filters") { filter = GatherFeedFilter(); place = .nearYou }
                 }
             }
-            .padding(.horizontal, 24)
-            .allowsHitTesting(!isListSettling)
+            // Text buttons and "Done" are black, not purple. Toggles keep the app's purple.
+            .tint(Theme.ink)
+            .navigationTitle("Make it your kind of day")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showFilters = false } } }
         }
-    }
-
-    private func outingLink(_ event: Event, coverHeight: CGFloat) -> some View {
-        NavigationLink(value: event) {
-            OutingCard(event: event, coverHeight: coverHeight)
-                .contentShape(.rect(cornerRadius: 26))
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .top)
-    }
-
-    /// Blocks taps on the cards for a short moment after the list changed.
-    private func settleList() {
-        isListSettling = true
-        Task {
-            try? await Task.sleep(for: .milliseconds(450))
-            isListSettling = false
-        }
+        .presentationDragIndicator(.visible)
     }
 
     private var emptyState: some View {
-        ContentUnavailableView("Nothing here yet",
-                               systemImage: "calendar.badge.exclamationmark",
-                               description: Text("Try another area or category, or host the first one."))
-            .padding(.top, 24)
+        ContentUnavailableView {
+            Label("A little quiet here", systemImage: "sparkles")
+        } description: {
+            Text("Try another location or category to find your next gathering.")
+        } actions: {
+            Button("Explore all upcoming events") { filter = GatherFeedFilter(); place = .world }
+                .buttonStyle(.bordered).tint(Theme.accent)
+        }
     }
 
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text)
-            .sectionTitle()
-            .padding(.horizontal, 24)
+    private func hostEvent() {
+        if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
+    }
+
+    private func resetPagination() {
+        feedGeneration = UUID()
+        pageLimit = pageSize
+    }
+
+    @MainActor private func revealNextPage(generation: UUID) async {
+        // The current catalog is local. Reveal it in finite pages, with the same loading
+        // treatment ready for a paginated event service. Never duplicate events at the end.
+        do { try await Task.sleep(for: .milliseconds(750)) } catch { return }
+        guard !Task.isCancelled, generation == feedGeneration else { return }
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
+            pageLimit = min(pageLimit + pageSize, events.count)
+        }
     }
 }

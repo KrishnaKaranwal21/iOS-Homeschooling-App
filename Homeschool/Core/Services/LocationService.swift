@@ -7,6 +7,7 @@ import CoreLocation
 final class LocationService: NSObject, CLLocationManagerDelegate {
     enum Status { case idle, locating, denied, failed }
 
+    private(set) var lastLocation: CLLocation?
     private(set) var status: Status = .idle
     /// Called with the area that was found.
     var onPlace: ((Place) -> Void)?
@@ -29,6 +30,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
             status = .locating
             manager.requestLocation()
         default:
+            lastLocation = nil
             status = .denied
         }
     }
@@ -38,6 +40,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         case .authorizedWhenInUse, .authorizedAlways:
             if status == .locating { manager.requestLocation() }
         case .denied, .restricted:
+            lastLocation = nil
             status = .denied
         default:
             break
@@ -72,7 +75,10 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         guard let last = locations.last else { return }
         let latitude = last.coordinate.latitude
         let longitude = last.coordinate.longitude
-        Task { @MainActor in await self.resolve(latitude: latitude, longitude: longitude) }
+        Task { @MainActor in
+            self.lastLocation = CLLocation(latitude: latitude, longitude: longitude)
+            await self.resolve(latitude: latitude, longitude: longitude)
+        }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
