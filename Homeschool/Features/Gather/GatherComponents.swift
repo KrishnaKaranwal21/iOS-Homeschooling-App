@@ -79,35 +79,17 @@ struct GatherSegmented<Value: Hashable>: View {
     let options: [Value]
     @Binding var selection: Value
     let title: (Value) -> String
-    @Namespace private var highlight
-
     var body: some View {
-        HStack(spacing: 0) {
+        Picker("Selection", selection: $selection) {
             ForEach(options, id: \.self) { option in
-                Button {
-                    withAnimation(.snappy) { selection = option }
-                } label: {
-                    Text(title(option))
-                        .scaledFont(15, weight: selection == option ? .semibold : .regular, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background {
-                            if selection == option {
-                                Capsule()
-                                    .fill(Theme.lilac)
-                                    .matchedGeometryEffect(id: "highlight", in: highlight)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(selection == option ? .isSelected : [])
+                Text(title(option)).tag(option)
             }
         }
-        .padding(4)
-        .background(Capsule().fill(Theme.surface))
-        .overlay(Capsule().stroke(Theme.cardBorder, lineWidth: 1))
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(minHeight: 44)
+        .gatherGlass(in: Capsule(), tint: Theme.lilac.opacity(0.25))
+        .sensoryFeedback(.selection, trigger: selection)
     }
 }
 

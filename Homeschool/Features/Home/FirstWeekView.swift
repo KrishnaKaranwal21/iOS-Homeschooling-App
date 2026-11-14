@@ -54,7 +54,7 @@ private struct WeekPlanPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 header
-                Text(saved ? "WEEK 1" : "WEEK 1 · DRAFT")
+                Text("YOUR WEEK")
                     .scaledFont(11, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(Color.adaptive(0x8D4540, 0xF2ABA3))
                     .padding(.horizontal, 15).padding(.vertical, 6)
@@ -66,7 +66,7 @@ private struct WeekPlanPage: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(child.programmeText).scaledFont(16, weight: .semibold, maxScale: 1.2)
-                    Text("\(plan.days.count) days · \(plan.days.count * plan.hoursPerDay) learning hours")
+                    Text("\(plan.days.count) days · \(LearningProgress.duration(plan.plannedMinutes)) planned")
                         .scaledFont(14, maxScale: 1.3)
                         .foregroundStyle(WeekStyle.secondary)
                 }
@@ -89,7 +89,7 @@ private struct WeekPlanPage: View {
                 }
                 if !completed.isEmpty { completedSection }
                 if dailyMinutes > plan.hoursPerDay * 60 {
-                    Text("This day is \(dailyMinutes - plan.hoursPerDay * 60) min over your chosen rhythm. You can adjust any task before saving.")
+                    Text("This day is \(dailyMinutes - plan.hoursPerDay * 60) min over your chosen rhythm. Adjust a task to make a little more room.")
                         .caption().foregroundStyle(Color.adaptive(0x9C4A4B, 0xF0ADAA))
                 }
             }
@@ -129,8 +129,13 @@ private struct WeekPlanPage: View {
             .presentationDragIndicator(.visible)
         }
         .onChange(of: plan) { _, _ in
-            saved = state.weeklyPlans[child.id.uuidString] == plan
+            state.saveWeek(plan, for: child.id)
+            saved = true
             if !remaining.isEmpty { wrapUpRequest = nil }
+        }
+        .onAppear {
+            state.saveWeek(plan, for: child.id)
+            saved = true
         }
         .onChange(of: selectedDay) { _, _ in
             wrapUpRequest = nil
@@ -176,7 +181,7 @@ private struct WeekPlanPage: View {
                         VStack(spacing: 5) {
                             Text(day.uppercased()).scaledFont(18, weight: .heavy, maxScale: 1.2)
                             Capsule().fill(Color(hex: 0xFF8D9A)).frame(width: 25, height: 6)
-                            Text("\(plan.hoursPerDay)h")
+                            Text(LearningProgress.duration(plan.minutes(on: day)))
                                 .scaledFont(16, weight: .medium, maxScale: 1.2)
                                 .foregroundStyle(WeekStyle.secondary)
                         }
@@ -187,7 +192,7 @@ private struct WeekPlanPage: View {
                         .padding(.vertical, 5)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: day)!]), \(plan.hoursPerDay) hours")
+                    .accessibilityLabel("\(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: day)!]), \(LearningProgress.duration(plan.minutes(on: day))) planned")
                     .accessibilityAddTraits(day == selectedDay ? .isSelected : [])
                 }
             }
@@ -315,10 +320,11 @@ private struct WeekPlanPage: View {
             Button {
                 state.saveWeek(plan, for: child.id)
                 saved = true
+                dismiss()
             } label: {
                 HStack(spacing: 6) {
                     if saved { Image(systemName: "checkmark") }
-                    Text(saved ? "Week saved" : "Save this week")
+                    Text("Done")
                 }
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(.white)
@@ -326,7 +332,7 @@ private struct WeekPlanPage: View {
                     .background(Theme.buttonFill, in: Capsule())
             }
             .buttonStyle(.plain)
-            Text("Review now. Adjust anytime.")
+            Text("Changes save automatically. Adjust anytime.")
                 .scaledFont(11, maxScale: 1.2).foregroundStyle(WeekStyle.secondary)
         }
         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 10)
@@ -394,7 +400,6 @@ private struct WeekPlanPage: View {
                                 if let index = plan.activities.firstIndex(where: { $0.id == activity.id }) {
                                     plan.activities[index].isDone = false
                                     wrapUpRequest = nil
-                                    state.saveWeek(plan, for: child.id)
                                 }
                             }
                         } label: {
@@ -416,7 +421,6 @@ private struct WeekPlanPage: View {
         withAnimation(rowAnimation) {
             guard plan.complete(activity.id) else { return }
             completionFeedback += 1
-            state.saveWeek(plan, for: child.id)
             requestWrapUpIfFinished()
         }
     }
@@ -426,7 +430,6 @@ private struct WeekPlanPage: View {
         withAnimation(rowAnimation) {
             removedIndex = index
             removedActivity = plan.removeForDay(activity.id)
-            state.saveWeek(plan, for: child.id)
             requestWrapUpIfFinished()
         }
     }
@@ -438,7 +441,6 @@ private struct WeekPlanPage: View {
             removedActivity = nil
             wrapUpRequest = nil
             selectedDay = plan.day(for: activity.date)
-            state.saveWeek(plan, for: child.id)
         }
     }
 

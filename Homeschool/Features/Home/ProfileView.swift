@@ -120,8 +120,7 @@ struct ProfileView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .frame(width: 44, height: 44)
-                .background(.regularMaterial, in: .circle)
-                .roundedStroke(Theme.lilacBorder, cornerRadius: 22)
+                .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.25))
         }
         .buttonStyle(.plain)
         .padding(.leading, 20)
@@ -676,10 +675,6 @@ private struct SettingsTab: View {
     @Environment(AppState.self) private var state
     @Environment(\.openURL) private var openURL
 
-    @AppStorage("pref.notifyChats") private var notifyChats = true
-    @AppStorage("pref.notifyCommunity") private var notifyCommunity = true
-    @AppStorage("pref.notifyGatherings") private var notifyGatherings = true
-    @AppStorage("pref.showProfile") private var showProfile = true
 
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
     @State private var confirmAddAccount = false
@@ -696,7 +691,10 @@ private struct SettingsTab: View {
             case .account:       accountCard
             }
         }
-        .task { notificationStatus = await ExamReminders.authorizationStatus() }
+        .task {
+            notificationStatus = await ExamReminders.authorizationStatus()
+            state.syncGatheringReminders()
+        }
         .confirmationDialog("Add another account?", isPresented: $confirmAddAccount, titleVisibility: .visible) {
             Button("Continue") { state.signOut() }
             Button("Cancel", role: .cancel) {}
@@ -736,6 +734,7 @@ private struct SettingsTab: View {
                         Task {
                             _ = await ExamReminders.requestAuthorization()
                             notificationStatus = await ExamReminders.authorizationStatus()
+                            state.syncGatheringReminders()
                         }
                     } label: {
                         ProfileInfoRow(symbol: "bell.badge", title: "Allow notifications", value: "Turn on")
@@ -746,12 +745,12 @@ private struct SettingsTab: View {
                     EmptyView()
                 }
 
-                toggleRow("Chat messages", symbol: "bubble.left", isOn: $notifyChats)
+                toggleRow("Chat messages", symbol: "bubble.left", isOn: Binding(get: { state.preferences.notifyChats }, set: { state.preferences.notifyChats = $0 }))
                 ProfileDivider()
-                toggleRow("Connection requests", symbol: "person.badge.plus", isOn: $notifyCommunity)
+                toggleRow("Connection requests", symbol: "person.badge.plus", isOn: Binding(get: { state.preferences.notifyCommunity }, set: { state.preferences.notifyCommunity = $0 }))
                 ProfileDivider()
-                toggleRow("Gathering reminders", "Events you registered for or saved.",
-                          symbol: "calendar", isOn: $notifyGatherings)
+                toggleRow("Gathering reminders", "One hour before registered or saved events.",
+                          symbol: "calendar", isOn: Binding(get: { state.preferences.notifyGatherings }, set: { state.preferences.notifyGatherings = $0 }))
             }
         }
     }
@@ -787,8 +786,8 @@ private struct SettingsTab: View {
                     .buttonStyle(.plain)
                 }
                 ProfileDivider()
-                toggleRow("Show my profile to other parents", "Turn off to hide yourself in Community.",
-                          symbol: "person.crop.circle", isOn: $showProfile)
+                toggleRow("Show my profile to other parents", "Turn off to hide your profile and stop new connection requests.",
+                          symbol: "person.crop.circle", isOn: Binding(get: { state.preferences.showProfile }, set: { state.preferences.showProfile = $0 }))
                 ProfileDivider()
                 NavigationLink {
                     BlockedChatsView()

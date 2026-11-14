@@ -71,7 +71,7 @@ struct ConnectView: View {
         HStack(spacing: 10) {
             Image(systemName: "eye")
                 .foregroundStyle(Theme.gatherAccent)
-            Text("This is how other parents see your profile.")
+            Text(state.preferences.showProfile ? "This is how other parents see your profile." : "Your profile is hidden. Only you can see this preview.")
                 .scaledFont(14, weight: .medium, maxScale: 1.3)
                 .foregroundStyle(Theme.ink)
             Spacer(minLength: 0)

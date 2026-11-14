@@ -26,6 +26,7 @@ enum PlaceCatalog {
     static let nearby: [Place] = [
         .potheri,
         Place(name: "Guduvanchery", detail: "Chennai area, India", country: "India", kind: .area),
+        Place(name: "Urapakkam", detail: "Chennai area, India", country: "India", kind: .area),
         Place(name: "Chengalpattu", detail: "Chennai area, India", country: "India", kind: .area),
         Place(name: "Maraimalai Nagar", detail: "Chennai area, India", country: "India", kind: .area),
         Place(name: "Tambaram", detail: "Chennai area, India", country: "India", kind: .area)
@@ -63,6 +64,12 @@ enum PlaceCatalog {
         if nearby.contains(where: { $0.name == home.name }) { return Set(nearby.map(\.name)) }
         if let areas = areasByCity[home.name] { return areas.union([home.name]) }
         return [home.name]
+    }
+
+    /// Static profiles follow the chosen area/city rather than retaining the original demo location.
+    static func matchesCommunity(_ parent: Parent, home: Place) -> Bool {
+        nearbyNames(around: home).contains { $0.localizedCaseInsensitiveCompare(parent.place) == .orderedSame }
+            && parent.distanceKm <= CommunityOptions.nearKm
     }
 
     static func matches(_ event: Event, selection: Place, home: Place = .potheri) -> Bool {

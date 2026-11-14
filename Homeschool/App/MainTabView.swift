@@ -87,7 +87,7 @@ struct MainTabView: View {
         .onChange(of: selection) { old, new in
             // An event opened from a notification shouldn't stay open once you leave Gatherings.
             if old == .gather { state.gatherPath = NavigationPath() }
-            // Leaving Home for the first time ends the first-time Home.
+            // Records the first Home visit; returning-session routing is decided separately when logging in or restoring the app.
             if old == .home && new != .home { state.markFirstHomeSeen() }
             // Coming back to a tab shows its first page, not the last page you had open.
             resetCounts[old, default: 0] += 1

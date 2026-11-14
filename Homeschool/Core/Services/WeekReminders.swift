@@ -1,16 +1,31 @@
 import Foundation
 import UserNotifications
 
-/// Reminders are scheduled only when the family saves their weekly draft.
-enum WeekReminders {
+/// Keeps task reminders in sync with saved weekly edits and completion.
+@MainActor enum WeekReminders {
+    private static var jobs: [Child.ID: Task<Void, Never>] = [:]
+
     static func sync(plan: WeeklyPlan, child: Child) async {
+        let previous = jobs[child.id]
+        previous?.cancel()
+        let job = Task {
+            await previous?.value
+            guard !Task.isCancelled else { return }
+            await replace(plan: plan, child: child)
+        }
+        jobs[child.id] = job
+        await job.value
+    }
+
+    private static func replace(plan: WeeklyPlan, child: Child) async {
         let center = UNUserNotificationCenter.current()
         let prefix = "week-task-\(child.id.uuidString)-"
         let pending = await center.pendingNotificationRequests()
+        guard !Task.isCancelled else { return }
         center.removePendingNotificationRequests(withIdentifiers:
             pending.map(\.identifier).filter { $0.hasPrefix(prefix) })
         let status = await center.notificationSettings().authorizationStatus
-        guard status == .authorized || status == .provisional else { return }
+        guard !Task.isCancelled, status == .authorized || status == .provisional else { return }
         let calendar = Calendar.current
         let scheduled = plan.activities.compactMap { activity -> (WeekActivity, Date)? in
             guard activity.reminder, !activity.isDone, let time = activity.time else { return nil }
@@ -22,6 +37,7 @@ enum WeekReminders {
         // iOS limits pending notifications across the app, including exam reminders.
         let otherCount = pending.filter { !$0.identifier.hasPrefix(prefix) }.count
         for (activity, date) in scheduled.prefix(max(0, 64 - otherCount)) {
+            guard !Task.isCancelled else { return }
             let content = UNMutableNotificationContent()
             content.title = "\(child.displayName)’s learning time"
             content.body = "\(activity.title) · \(activity.minutes) min"

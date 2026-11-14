@@ -470,8 +470,8 @@ struct ChatDetailView: View {
         guard let item else { return }
         Task {
             defer { photoItem = nil }
-            guard let image = try? await item.loadTransferable(type: Image.self) else { return }
-            state.chats.send(text: "", image: PickedImage(image: image), in: threadID)
+            guard let image = try? await item.loadTransferable(type: Data.self) else { return }
+            if let photo = PickedImage(data: image) { state.chats.send(text: "", image: photo, in: threadID) }
         }
     }
 }

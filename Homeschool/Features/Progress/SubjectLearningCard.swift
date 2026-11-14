@@ -6,16 +6,21 @@ struct SubjectLearningCard: View {
     let subject: SubjectLearningProgress
     let index: Int
     let selectedDate: Date
+    let overviewTitle: String
+    let allowsPlanning: Bool
     @Binding var isExpanded: Bool
     let onToggleActivity: (WeekActivity) -> Void
     @State private var showWholeWeek: Bool
     @State private var expandedActivityID: WeekActivity.ID?
 
     init(subject: SubjectLearningProgress, index: Int, selectedDate: Date,
+         overviewTitle: String = "Whole week", allowsPlanning: Bool = true,
          isExpanded: Binding<Bool>, onToggleActivity: @escaping (WeekActivity) -> Void) {
         self.subject = subject
         self.index = index
         self.selectedDate = selectedDate
+        self.overviewTitle = overviewTitle
+        self.allowsPlanning = allowsPlanning
         _isExpanded = isExpanded
         self.onToggleActivity = onToggleActivity
         _showWholeWeek = State(initialValue: !subject.activities.contains {
@@ -44,7 +49,7 @@ struct SubjectLearningCard: View {
                     .contentShape(RoundedRectangle(cornerRadius: 25))
             }
             .buttonStyle(SubjectCardPressStyle(reduceMotion: reduceMotion))
-            .accessibilityLabel("\(subject.name), \(percent) percent of weekly learning completed, \(subject.completedCount) of \(subject.activities.count) activities")
+            .accessibilityLabel("\(subject.name), \(percent) percent of \(overviewTitle == "Whole month" ? "monthly" : "weekly") learning completed, \(subject.completedCount) of \(subject.activities.count) activities")
             .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
             .accessibilityHint(isExpanded ? "Close subject card" : "Open activities and learning details")
             .accessibilityIdentifier("progress.subject.\(subject.id)")
@@ -112,7 +117,7 @@ struct SubjectLearningCard: View {
                     }
                 }
                 .foregroundStyle(palette.ink.opacity(0.8))
-                Text(next?.title ?? (finished ? "A whole week of little wins." : "Make space for a new idea."))
+                Text(next?.title ?? (finished ? "A lovely collection of little wins." : "Make space for a new idea."))
                     .scaledFont(14, weight: .semibold, maxScale: 1.25)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -149,7 +154,7 @@ struct SubjectLearningCard: View {
                 } else {
                     Text("\(percent)%").scaledFont(17, weight: .heavy, maxScale: 1.15)
                         .contentTransition(.numericText())
-                    Text("THIS WEEK").scaledFont(6, weight: .bold, maxScale: 1.15).tracking(0.3)
+                    Text(overviewTitle == "Whole month" ? "THIS MONTH" : "THIS WEEK").scaledFont(6, weight: .bold, maxScale: 1.15).tracking(0.3)
                 }
             }
             .foregroundStyle(palette.ink)
@@ -167,15 +172,13 @@ struct SubjectLearningCard: View {
                 Rectangle().fill(palette.ink.opacity(0.12)).frame(width: 1, height: 30)
                 timeStatistic("Left to explore", value: LearningProgress.duration(max(0, subject.plannedMinutes - subject.loggedMinutes)))
             }
-            HStack(spacing: 4) {
-                scopeButton(selectedDate.formatted(.dateTime.weekday(.wide)), wholeWeek: false)
-                scopeButton("Whole week", wholeWeek: true)
+            GatherSegmented(options: [false, true], selection: $showWholeWeek) {
+                $0 ? overviewTitle : selectedDate.formatted(.dateTime.weekday(.wide))
             }
-            .padding(4)
-            .background(Theme.surface.opacity(0.45), in: Capsule())
+            .onChange(of: showWholeWeek) { _, _ in expandedActivityID = nil }
 
             if visibleActivities.isEmpty {
-                Text(showWholeWeek ? "No activities in this subject yet. There’s room for a little curiosity." : "A little pause for this subject today. Take a look at the whole week or plan something new.")
+                Text(showWholeWeek ? "No activities in this subject yet. There’s room for a little curiosity." : "A little pause for this subject today. Take a look at the full plan or add something new.")
                     .scaledFont(13, maxScale: 1.25).foregroundStyle(palette.ink.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -190,7 +193,7 @@ struct SubjectLearningCard: View {
                     activityRow(activity)
                 }
             }
-            NavigationLink {
+            if allowsPlanning { NavigationLink {
                 FirstWeekView(initialDay: WeeklyPlan.dayNames[(Calendar.current.component(.weekday, from: selectedDate) + 5) % 7], backTitle: "Progress")
             } label: {
                 Label(subject.activities.isEmpty ? "Plan a little learning" : "Adjust the weekly plan", systemImage: "plus")
@@ -200,6 +203,7 @@ struct SubjectLearningCard: View {
                     .background(Theme.surface.opacity(0.7), in: Capsule())
             }
             .buttonStyle(.plain)
+            }
         }
     }
 
@@ -210,19 +214,6 @@ struct SubjectLearningCard: View {
             Text(title).scaledFont(10, maxScale: 1.25).foregroundStyle(palette.ink.opacity(0.75))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func scopeButton(_ title: String, wholeWeek: Bool) -> some View {
-        Button {
-            withAnimation(motion) { showWholeWeek = wholeWeek; expandedActivityID = nil }
-        } label: {
-            Text(title).scaledFont(12, weight: .semibold, maxScale: 1.2)
-                .foregroundStyle(palette.ink)
-                .frame(maxWidth: .infinity, minHeight: 36)
-                .background(showWholeWeek == wholeWeek ? Theme.surface : .clear, in: Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(showWholeWeek == wholeWeek ? .isSelected : [])
     }
 
     private func activityRow(_ activity: WeekActivity) -> some View {
@@ -301,29 +292,8 @@ struct SubjectLearningCard: View {
     }
 
     private var symbol: String {
-        switch subject.id {
-        case "mathematics": return "function"
-        case "science": return "flask"
-        case "computer skills": return "chevron.left.forwardslash.chevron.right"
-        case "art & craft": return "paintpalette"
-        case "english", "hindi": return "text.book.closed"
-        default:
-            if subject.id.contains("plumbing") { return "wrench.and.screwdriver" }
-            if subject.id.contains("tailor") { return "scissors" }
-            return "book.closed"
-        }
+        SubjectCardPalette.symbol(for: subject.name)
     }
-}
-
-private struct SubjectCardPalette {
-    let paper: Color
-    let ink: Color
-    static let all = [
-        SubjectCardPalette(paper: Color.adaptive(0xEEE7FF, 0x2F263F), ink: Color.adaptive(0x5940A5, 0xD2BCFF)),
-        SubjectCardPalette(paper: Color.adaptive(0xFFE7DD, 0x3D2A29), ink: Color.adaptive(0x9B4D3B, 0xF4B8A7)),
-        SubjectCardPalette(paper: Color.adaptive(0xE2F0E7, 0x22352D), ink: Color.adaptive(0x386553, 0xA8DAC0)),
-        SubjectCardPalette(paper: Color.adaptive(0xFFF1CE, 0x393122), ink: Color.adaptive(0x88621E, 0xE8CC8C))
-    ]
 }
 
 private struct SubjectCardPressStyle: ButtonStyle {

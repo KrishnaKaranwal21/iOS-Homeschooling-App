@@ -21,7 +21,7 @@ enum ActivityRepeat: String, Codable, CaseIterable {
     case daily = "Every day"
 }
 
-/// A saved week belongs to one child. Task edits are drafts; daily completion and removal save immediately.
+/// A dated week belongs to one child; every saved edit and completion feeds Home and Progress.
 struct WeeklyPlan: Codable, Equatable {
     static let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     static let fullDayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -92,6 +92,8 @@ struct WeeklyPlan: Codable, Equatable {
         activities(on: day).reduce(0) { $0 + $1.minutes }
     }
 
+    var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
+
     mutating func add(_ activity: WeekActivity) {
         var dates = [activity.date]
         if activity.repeatRule != .never {
@@ -145,6 +147,15 @@ struct WeeklyPlan: Codable, Equatable {
             }
         }
         return plan
+    }
+
+    /// Reuses this calendar week's saved edits and completion; a new week starts from the child's current curriculum and rhythm.
+    static func homeWeek(for child: Child, savedPlan: WeeklyPlan?, now: Date = .now) -> WeeklyPlan {
+        let generated = firstWeek(for: child, now: now)
+        if let savedPlan, Calendar.current.isDate(savedPlan.weekStart, inSameDayAs: generated.weekStart) {
+            return savedPlan
+        }
+        return generated
     }
 }
 

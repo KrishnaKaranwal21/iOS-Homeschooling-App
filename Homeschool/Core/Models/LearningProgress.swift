@@ -79,13 +79,17 @@ enum ProgressRange: String, Identifiable, CaseIterable {
     var id: String { rawValue }
 }
 
-/// Every range uses saved activity dates; days outside the saved plan stay empty.
+/// Every range includes dated learning from the child’s current and archived weeks.
 struct ProgressTimeline {
     let interval: DateInterval
     let buckets: [ProgressChartBucket]
     let activities: [WeekActivity]
 
     init(plan: WeeklyPlan, range: ProgressRange, selectedDate: Date, calendar: Calendar = .current) {
+        self.init(plans: [plan], range: range, selectedDate: selectedDate, calendar: calendar)
+    }
+
+    init(plans: [WeeklyPlan], range: ProgressRange, selectedDate: Date, calendar: Calendar = .current) {
         let start: Date
         let end: Date
         switch range {
@@ -93,7 +97,9 @@ struct ProgressTimeline {
             start = calendar.startOfDay(for: selectedDate)
             end = calendar.date(byAdding: .day, value: 1, to: start)!
         case .week:
-            start = calendar.startOfDay(for: plan.weekStart)
+            let day = calendar.startOfDay(for: selectedDate)
+            let offset = (calendar.component(.weekday, from: day) + 5) % 7
+            start = calendar.date(byAdding: .day, value: -offset, to: day)!
             end = calendar.date(byAdding: .day, value: 7, to: start)!
         case .month:
             let month = calendar.dateInterval(of: .month, for: selectedDate)!
@@ -101,7 +107,12 @@ struct ProgressTimeline {
             end = month.end
         }
         interval = DateInterval(start: start, end: end)
-        let included = plan.activities.filter { $0.date >= start && $0.date < end }
+        var seenWeeks: Set<Date> = []
+        let weeks = plans.filter { seenWeeks.insert(calendar.startOfDay(for: $0.weekStart)).inserted }
+        var seen: Set<WeekActivity.ID> = []
+        let included = weeks.flatMap(\.activities).filter {
+            $0.date >= start && $0.date < end && seen.insert($0.id).inserted
+        }.sorted { $0.date < $1.date }
         activities = included
         if range == .day {
             buckets = included.enumerated().map { index, activity in

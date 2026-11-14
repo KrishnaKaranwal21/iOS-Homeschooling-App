@@ -54,6 +54,23 @@ import Foundation
         let dstMonth = ProgressTimeline(plan: plan, range: .month, selectedDate: date(2026, 3, 1), calendar: calendar)
         expect(dstMonth.buckets.count == 31, "Daylight-saving transition does not lose calendar dates")
         expect(Set(dstMonth.buckets.map(\.id)).count == 31, "Day IDs remain unique across daylight saving")
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let earlier = WeeklyPlan(weekStart: date(2026, 10, 19), days: ["Mon"], hoursPerDay: 1,
+            activities: [WeekActivity(title: "Earlier reading", subject: "English", date: date(2026, 10, 19), minutes: 35, isDone: true)])
+        var outdated = plan
+        outdated.activities[0].isDone = false
+        outdated.activities.append(WeekActivity(title: "Removed from active week", subject: "English", date: monday, minutes: 99))
+        let combined = ProgressTimeline(plans: [plan, earlier, outdated], range: .month, selectedDate: monday, calendar: calendar)
+        expect(combined.plannedMinutes == 170 && combined.loggedMinutes == 95, "Month includes archived weeks without double-counting repeated snapshots")
+        expect(combined.activities.first { $0.id == plan.activities[0].id }!.isDone, "Active data takes precedence over an older snapshot")
+        let historicalDay = ProgressTimeline(plans: [plan, earlier], range: .day, selectedDate: date(2026, 10, 19), calendar: calendar)
+        expect(historicalDay.loggedMinutes == 35, "Selecting a historical day reads its archived learning")
+        let historicalWeek = ProgressTimeline(plans: [plan, earlier], range: .week, selectedDate: date(2026, 10, 19), calendar: calendar)
+        expect(historicalWeek.plannedMinutes == 35, "Week follows the selected date rather than the current plan")
+        expect(plan.plannedMinutes == 225, "Weekly summary totals reflect actual activities")
+        var edited = plan
+        edited.add(WeekActivity(title: "Extra practice", subject: "English", date: monday, minutes: 25))
+        expect(edited.plannedMinutes == 250 && edited.minutes(on: "Mon") == 115, "Adding learning updates weekly and daily totals together")
         print("Passed \(checks) progress timeline checks")
     }
 }

@@ -31,13 +31,20 @@ private struct ProgressLearningPage: View {
     }
 
     private var plan: WeeklyPlan { state.weeklyPlans[child.id.uuidString] ?? generatedPlan }
-    private var progress: LearningProgress { LearningProgress(plan: plan, selectedSubjects: state.child.subjectNames) }
+    private var progress: LearningProgress {
+        var scoped = plan
+        if range != .day { scoped.activities = timeline.activities }
+        return LearningProgress(plan: scoped, selectedSubjects: child.subjectNames)
+    }
     private var selectedDay: String { plan.day(for: selectedDate) }
     private var day: DayLearningProgress {
         DayLearningProgress(name: selectedDay, date: selectedDate,
-                            activities: plan.activities.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) })
+                            activities: timeline.activities.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) })
     }
-    private var timeline: ProgressTimeline { ProgressTimeline(plan: plan, range: range, selectedDate: selectedDate) }
+    private var timeline: ProgressTimeline {
+        let saved = state.learningPlans(for: child.id)
+        return ProgressTimeline(plans: saved.isEmpty ? [plan] : saved, range: range, selectedDate: selectedDate)
+    }
     private var selectedBucket: ProgressChartBucket? { timeline.buckets.first { $0.id == selectedBucketID } }
     private var isRangeOverview: Bool { range != .day && selectedBucketID == nil }
     private var detail: DayLearningProgress {
@@ -109,12 +116,12 @@ private struct ProgressLearningPage: View {
         .sensoryFeedback(.success, trigger: completionFeedback)
         .sensoryFeedback(.selection, trigger: selectedBucketID)
         .onAppear {
+            state.prepareHomeWeek(for: child.id)
             if !selectedDateIsInPlan { selectedDate = plan.date(for: selectedDay) }
             selectedBucketID = nil
         }
         .onChange(of: range) { _, _ in
             expandedSubjectID = nil
-            if range == .week && !selectedDateIsInPlan { selectedDate = plan.date(for: selectedDay) }
             selectedBucketID = nil
         }
     }
@@ -143,6 +150,7 @@ private struct ProgressLearningPage: View {
                 }
             }
             .pickerStyle(.segmented)
+            .gatherGlass(in: Capsule(), tint: Theme.lilac.opacity(0.25))
             .frame(width: 196)
             .frame(minHeight: 44)
             .accessibilityIdentifier("progress.range")
@@ -174,12 +182,13 @@ private struct ProgressLearningPage: View {
     }
 
     private var weekRange: String {
-        let start = plan.weekStart.formatted(.dateTime.day())
-        let end = plan.weekEnd.formatted(.dateTime.day().month(.abbreviated))
-        if Calendar.current.component(.month, from: plan.weekStart) == Calendar.current.component(.month, from: plan.weekEnd) {
-            return "\(start)–\(end)"
+        let startDate = timeline.interval.start
+        let endDate = Calendar.current.date(byAdding: .day, value: -1, to: timeline.interval.end)!
+        let end = endDate.formatted(.dateTime.day().month(.abbreviated))
+        if Calendar.current.component(.month, from: startDate) == Calendar.current.component(.month, from: endDate) {
+            return "\(startDate.formatted(.dateTime.day()))–\(end)"
         }
-        return "\(plan.weekStart.formatted(.dateTime.day().month(.abbreviated))) – \(end)"
+        return "\(startDate.formatted(.dateTime.day().month(.abbreviated))) – \(end)"
     }
 
     private func learningChart(height: CGFloat) -> some View {
@@ -377,11 +386,12 @@ private struct ProgressLearningPage: View {
                         .font(.system(size: 19, weight: .medium))
                         .foregroundStyle(ProgressPalette.purple)
                 }
-                Text("Pick a card. Explore your week.")
+                Text(range == .month ? "Pick a card. Explore your month." : "Pick a card. Explore your week.")
                     .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.muted)
             }
             ForEach(Array(progress.subjects.enumerated()), id: \.element.id) { index, subject in
                 SubjectLearningCard(subject: subject, index: index, selectedDate: day.date,
+                    overviewTitle: range == .month ? "Whole month" : "Whole week", allowsPlanning: selectedDateIsInPlan,
                     isExpanded: Binding(
                         get: { expandedSubjectID == subject.id },
                         set: { expandedSubjectID = $0 ? subject.id : nil }),
@@ -395,14 +405,13 @@ private struct ProgressLearningPage: View {
     }
 
     private func toggleActivity(_ activity: WeekActivity) {
-        var updated = plan
-        guard let index = updated.activities.firstIndex(where: { $0.id == activity.id }) else { return }
-        let completing = !updated.activities[index].isDone
+        var savedPlan: WeeklyPlan?
+        let completing = !activity.isDone
         withAnimation(selectionMotion) {
-            updated.activities[index].isDone.toggle()
-            state.saveWeek(updated, for: child.id)
-            if completing { completionFeedback += 1 }
+            savedPlan = state.toggleLearningActivity(activity.id, for: child.id)
+            if savedPlan != nil && completing { completionFeedback += 1 }
         }
+        guard let updated = savedPlan else { return }
         let activityDay = updated.day(for: activity.date)
         if completing && updated.remainingActivities(on: activityDay).isEmpty {
             withAnimation(.easeOut(duration: 0.2)) {

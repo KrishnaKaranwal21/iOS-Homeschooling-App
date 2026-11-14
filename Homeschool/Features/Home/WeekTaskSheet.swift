@@ -46,7 +46,7 @@ struct WeekTaskSheet: View {
                         .font(.system(size: 22, weight: .regular))
                         .foregroundStyle(Theme.ink)
                         .frame(width: 38, height: 38)
-                        .background(WeekStyle.field, in: Circle())
+                        .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.35))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close task")
@@ -246,7 +246,7 @@ struct WeekTaskSheet: View {
                 onSave(activity)
                 dismiss()
             } label: {
-                Text(isEditing ? "Update weekly draft" : "Add to weekly draft")
+                Text(isEditing ? "Save activity" : "Add to your week")
                     .scaledFont(16, weight: .semibold, maxScale: 1.2)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: 46)
@@ -254,7 +254,7 @@ struct WeekTaskSheet: View {
             }
             .buttonStyle(.plain)
             .disabled(title.isEmpty || (activity.reminder && !hasTime))
-            Text("Check the day’s total before saving your week.")
+            Text("Changes save to your weekly plan.")
                 .scaledFont(11, maxScale: 1.2)
                 .foregroundStyle(WeekStyle.secondary)
                 .multilineTextAlignment(.center)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Home for a brand-new family: a gentle first week and a swipeable "Explore more" row.
-/// It disappears once the family has visited another tab and come back.
+/// Returning logins and restored sessions use ReturningHomeView; changing tabs alone keeps this first-session introduction.
 struct FirstHomeView: View {
     @Environment(AppState.self) private var state
     @Environment(\.openTab) private var openTab
@@ -232,7 +232,7 @@ struct FirstHomeView: View {
             }
             .buttonStyle(.plain)
 
-            Text("Make changes before saving.")
+            Text("Review your week. Adjust anytime.")
                 .scaledFont(13, maxScale: 1.3)
                 .foregroundStyle(warmText)
                 .frame(maxWidth: .infinity)

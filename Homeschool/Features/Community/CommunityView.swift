@@ -27,7 +27,7 @@ struct CommunityView: View {
     private var parents: [Parent] {
         // "Near you" is the same 10 km as on the Gatherings page. No distance is ever shown.
         let nearby = MockData.parents
-            .filter { $0.distanceKm <= CommunityOptions.nearKm }
+            .filter { PlaceCatalog.matchesCommunity($0, home: state.homeLocation) && !state.connectedParents.contains($0.id) }
             .sorted { $0.distanceKm < $1.distanceKm }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let searched = text.isEmpty ? nearby : nearby.filter { $0.searchText.localizedCaseInsensitiveContains(text) }
@@ -66,6 +66,12 @@ struct CommunityView: View {
                     searchField
                 }
                 filterChips
+                if !state.preferences.showProfile {
+                    Label("Your profile is hidden. You can still browse and message your connections.", systemImage: "eye.slash")
+                        .caption().foregroundStyle(Theme.secondary)
+                        .padding(.horizontal, pageInset)
+                        .accessibilityIdentifier("community.profileHidden")
+                }
 
                 Text("Parents near you")
                     .sectionTitle()
@@ -456,12 +462,12 @@ struct NotificationsView: View {
                     .sectionTitle()
                     .padding(.top, 4)
 
-                if state.notifications.isEmpty {
+                if state.visibleNotifications.isEmpty {
                     Text("You’re all caught up.")
                         .rowDetail()
                 }
 
-                ForEach(state.notifications) { item in
+                ForEach(state.visibleNotifications) { item in
                     row(item)
                 }
             }
@@ -472,7 +478,7 @@ struct NotificationsView: View {
         .scrollNavigationTitle("Notifications")
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
-        .animation(.snappy, value: state.notifications.count)
+        .animation(.snappy, value: state.visibleNotifications.count)
     }
 
     @ViewBuilder private func row(_ item: AppNotification) -> some View {

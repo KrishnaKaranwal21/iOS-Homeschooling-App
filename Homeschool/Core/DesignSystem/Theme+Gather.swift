@@ -101,3 +101,12 @@ extension GatherFeedCategory {
         }
     }
 }
+
+/// Keep Apple's accessible switch and its native Liquid Glass rendering on iOS 26+.
+struct HomeschoolSwitchStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Toggle(isOn: configuration.$isOn) { configuration.label }
+            .toggleStyle(.switch)
+            .tint(Theme.tabSelected)
+    }
+}

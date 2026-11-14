@@ -1,15 +1,16 @@
 import SwiftUI
+import UIKit
 
 /// A question and answer the host adds to their event.
-struct EventFAQ: Identifiable, Hashable {
-    let id = UUID()
+struct EventFAQ: Identifiable, Hashable, Codable {
+    var id = UUID()
     var question: String
     var answer: String
 }
 
 /// A question a family asked the host. The host answers it, and can add it to the event's public FAQs.
-struct EventQuestion: Identifiable, Hashable {
-    let id = UUID()
+struct EventQuestion: Identifiable, Hashable, Codable {
+    var id = UUID()
     var asker: String
     var text: String
     var date: Date
@@ -20,21 +21,21 @@ struct EventQuestion: Identifiable, Hashable {
     var isAnswered: Bool { answer != nil }
 }
 
-struct Event: Identifiable, Hashable {
-    enum Kind: String, CaseIterable, Identifiable {
+struct Event: Identifiable, Hashable, Codable {
+    enum Kind: String, CaseIterable, Identifiable, Codable {
         case gathering = "Gathering"
         case workshop = "Workshop"
         var id: String { rawValue }
     }
 
-    enum Mode: String, CaseIterable, Identifiable {
+    enum Mode: String, CaseIterable, Identifiable, Codable {
         case inPerson = "In person"
         case online = "Online"
         var id: String { rawValue }
     }
 
     /// What the host expects of parents and guardians at the event.
-    enum ParentPresence: String, CaseIterable, Identifiable {
+    enum ParentPresence: String, CaseIterable, Identifiable, Codable {
         case required   = "Parent/guardian required to stay"
         case optional   = "Parent/guardian optional"
         case dropOffOnly = "Drop-off only (No parent/guardian)"
@@ -65,7 +66,7 @@ struct Event: Identifiable, Hashable {
         }
     }
 
-    let id = UUID()
+    var id = UUID()
     var title: String
     /// Science, Habit, Art, Coding, Nature, or Community for events parents host.
     var category: String
@@ -196,17 +197,20 @@ extension Event {
     }
 }
 
-/// A photo the person picked, kept as a SwiftUI `Image` (loaded with `PhotosPickerItem.loadTransferable(type: Image.self)`).
-/// `Image` is not `Hashable`/`Equatable`, so identity is the wrapper's own id.
-struct PickedImage: Identifiable, Hashable {
-    let id = UUID()
-    let image: Image
+/// Original photo bytes persist alongside a stable identity; SwiftUI images are rebuilt on demand.
+struct PickedImage: Identifiable, Hashable, Codable {
+    var id = UUID()
+    let data: Data
 
-    static func == (lhs: PickedImage, rhs: PickedImage) -> Bool { lhs.id == rhs.id }
-    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    init?(data: Data) {
+        guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.8) else { return nil }
+        self.data = jpeg
+    }
+
+    var image: Image { Image(uiImage: UIImage(data: data) ?? UIImage()) }
 }
 
-struct EventCoordinate: Hashable {
+struct EventCoordinate: Hashable, Codable {
     let latitude: Double
     let longitude: Double
 }

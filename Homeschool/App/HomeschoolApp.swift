@@ -7,6 +7,7 @@ struct HomeschoolApp: App {
     var body: some Scene {
         WindowGroup {
             RootView().environment(state).tint(Theme.ink)
+                .toggleStyle(HomeschoolSwitchStyle())
                 .preferredColorScheme((AppAppearance(rawValue: appearance) ?? .system).colorScheme)
         }
     }

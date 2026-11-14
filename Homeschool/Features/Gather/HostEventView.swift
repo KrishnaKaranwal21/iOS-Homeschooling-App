@@ -93,8 +93,8 @@ struct HostEventView: View {
         }
         .onChange(of: coverItem) { _, item in
             Task {
-                if let image = try? await item?.loadTransferable(type: Image.self) {
-                    coverImage = PickedImage(image: image)
+                if let image = try? await item?.loadTransferable(type: Data.self) {
+                    coverImage = PickedImage(data: image)
                 } else {
                     coverImage = nil
                 }

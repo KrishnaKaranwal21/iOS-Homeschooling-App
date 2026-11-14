@@ -148,12 +148,12 @@ struct EventPhotosSection: View {
         .task(id: selectedPhoto) {
             guard let selectedPhoto else { return }
             do {
-                guard let image = try await selectedPhoto.loadTransferable(type: Image.self) else {
+                guard let image = try await selectedPhoto.loadTransferable(type: Data.self) else {
                     errorMessage = "This photo couldn’t be loaded. Try another image."
                     return
                 }
                 guard !Task.isCancelled, let index = state.events.firstIndex(where: { $0.id == event.id }) else { return }
-                state.events[index].photos.append(PickedImage(image: image))
+                if let photo = PickedImage(data: image) { state.events[index].photos.append(photo) }
                 errorMessage = nil
             } catch { errorMessage = "This photo couldn’t be loaded. Try another image." }
         }
