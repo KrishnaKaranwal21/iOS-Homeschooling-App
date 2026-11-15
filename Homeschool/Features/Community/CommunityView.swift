@@ -14,6 +14,8 @@ struct CommunityView: View {
     @State private var query = ""
     @State private var filter: CommunityFilter = .nearby
     @State private var showLocationPicker = false
+    /// The place chosen in the picker. "Near you" until the person picks another one.
+    @State private var place: Place = .nearYou
 
     /// Ages of my children, from their dates of birth.
     private var myAges: [Int] {
@@ -27,7 +29,7 @@ struct CommunityView: View {
     private var parents: [Parent] {
         // "Near you" is the same 10 km as on the Gatherings page. No distance is ever shown.
         let nearby = MockData.parents
-            .filter { PlaceCatalog.matchesCommunity($0, home: state.homeLocation) && !state.connectedParents.contains($0.id) }
+            .filter { PlaceCatalog.matchesCommunity($0, selection: place, home: state.homeLocation) && !state.connectedParents.contains($0.id) }
             .sorted { $0.distanceKm < $1.distanceKm }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let searched = text.isEmpty ? nearby : nearby.filter { $0.searchText.localizedCaseInsensitiveContains(text) }
@@ -73,7 +75,7 @@ struct CommunityView: View {
                         .accessibilityIdentifier("community.profileHidden")
                 }
 
-                Text("Parents near you")
+                Text(place.kind == .nearby ? "Parents near you" : place.kind == .world ? "Parents everywhere" : "Parents in \(place.name)")
                     .sectionTitle()
                     .padding(.horizontal, pageInset)
                     .padding(.top, 4)
@@ -117,8 +119,7 @@ struct CommunityView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Parent.self) { ConnectView(parent: $0) }
         .sheet(isPresented: $showLocationPicker) {
-            LocationPickerSheet(allowsWorld: false, selection: state.homeLocation,
-                                home: state.homeLocation) { state.homeLocation = $0 }
+            LocationPickerSheet(selection: place, home: state.homeLocation) { place = $0 }
         }
     }
 
@@ -163,7 +164,7 @@ struct CommunityView: View {
             HStack(spacing: 8) {
                 Image(systemName: "mappin.and.ellipse")
                     .foregroundStyle(Theme.gatherAccent)
-                Text("Near you").fontWeight(.semibold).lineLimit(1)
+                Text(place.kind == .nearby ? "Near you" : place.name).fontWeight(.semibold).lineLimit(1)
                 Image(systemName: "chevron.down").font(.footnote.weight(.bold))
             }
             .scaledFont(15, maxScale: 1.3)
@@ -173,7 +174,9 @@ struct CommunityView: View {
             .gatherGlass(in: Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Near you, based on \(state.homeLocation.name). Change area")
+        .accessibilityLabel(place.kind == .nearby
+                            ? "Near you, based on \(state.homeLocation.name). Change area"
+                            : "\(place.name). Change area")
         .padding(.horizontal, isWide ? 0 : pageInset)
     }
 
@@ -240,7 +243,8 @@ struct CommunityView: View {
     private var emptyMessage: String {
         switch filter {
         case .nearby:
-            return "No parents found near you yet."
+            return place.kind == .nearby ? "No parents found near you yet."
+                : "No parents found in \(place.kind == .world ? "this area" : place.name) yet."
         case .similarAges:
             return myAges.isEmpty
                 ? "Add your child’s date of birth in their profile to find families with similar ages."
@@ -314,9 +318,8 @@ struct ParentCard: View {
             .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: .rect(cornerRadius: 30))
-        .roundedStroke(highlight ? Theme.lavender : Theme.lilacBorder,
-                       cornerRadius: 30, lineWidth: highlight ? 1.5 : 1)
+        .background(Theme.surface, in: .rect(cornerRadius: 28))
+        .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
     }
 
     private var identityHeader: some View {
@@ -519,8 +522,8 @@ struct NotificationsView: View {
                 }
             }
             .padding(14)
-            .background(Theme.surface, in: .rect(cornerRadius: 24))
-            .roundedStroke(Theme.lilacBorder, cornerRadius: 24)
+            .background(Theme.surface, in: .rect(cornerRadius: 28))
+            .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
         } else {
             Button {
                 state.markRead(item.id)
@@ -582,8 +585,8 @@ private struct NotificationCard: View {
         }
         .padding(framed ? 14 : 0)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(framed ? Theme.surface : Color.clear, in: .rect(cornerRadius: 24))
-        .roundedStroke(framed ? Theme.lilacBorder : Color.clear, cornerRadius: 24)
+        .background(framed ? Theme.surface : Color.clear, in: .rect(cornerRadius: 28))
+        .roundedStroke(framed ? Theme.lilacBorder : Color.clear, cornerRadius: 28)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }

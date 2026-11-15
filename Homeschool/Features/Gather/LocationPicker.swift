@@ -29,7 +29,14 @@ enum PlaceCatalog {
         Place(name: "Urapakkam", detail: "Chennai area, India", country: "India", kind: .area),
         Place(name: "Chengalpattu", detail: "Chennai area, India", country: "India", kind: .area),
         Place(name: "Maraimalai Nagar", detail: "Chennai area, India", country: "India", kind: .area),
-        Place(name: "Tambaram", detail: "Chennai area, India", country: "India", kind: .area)
+        Place(name: "Tambaram", detail: "Chennai area, India", country: "India", kind: .area),
+        Place(name: "Kattankulathur", detail: "Chennai area, India", country: "India", kind: .area)
+    ]
+
+    /// Areas in Mumbai that have families or events.
+    static let mumbaiAreas: [Place] = [
+        Place(name: "Kharghar", detail: "Mumbai area, India", country: "India", kind: .area),
+        Place(name: "Navi Mumbai", detail: "Mumbai area, India", country: "India", kind: .area)
     ]
 
     static let india: [Place] = [
@@ -51,25 +58,58 @@ enum PlaceCatalog {
         ("Colombo", "Sri Lanka"), ("Kathmandu", "Nepal"), ("Auckland", "New Zealand")
     ].map { Place(name: $0.0, detail: $0.1, country: $0.1, kind: .city) }
 
-    static var all: [Place] { nearby + india + worldCountries + worldCities }
+    static var all: [Place] { nearby + mumbaiAreas + india + worldCountries + worldCities }
 
     /// Areas that belong to a city, so choosing "Chennai" also shows events in Potheri and nearby.
     private static let areasByCity: [String: Set<String>] = [
-        "Chennai": Set(nearby.map(\.name))
+        "Chennai": Set(nearby.map(\.name)),
+        "Mumbai": Set(mumbaiAreas.map(\.name)),
+        "Thane": Set(mumbaiAreas.map(\.name))
     ]
 
     /// Whether an event is relevant to the place chosen in the filter.
     /// Area names that count as "near" a home location.
     static func nearbyNames(around home: Place) -> Set<String> {
         if nearby.contains(where: { $0.name == home.name }) { return Set(nearby.map(\.name)) }
+        if mumbaiAreas.contains(where: { $0.name == home.name }) { return Set(mumbaiAreas.map(\.name)) }
         if let areas = areasByCity[home.name] { return areas.union([home.name]) }
         return [home.name]
     }
 
     /// Static profiles follow the chosen area/city rather than retaining the original demo location.
     static func matchesCommunity(_ parent: Parent, home: Place) -> Bool {
-        nearbyNames(around: home).contains { $0.localizedCaseInsensitiveCompare(parent.place) == .orderedSame }
-            && parent.distanceKm <= CommunityOptions.nearKm
+        guard parent.distanceKm <= CommunityOptions.nearKm else { return false }
+        // The whole country, or a city or area named in the profile, also counts.
+        if home.kind == .country || home.kind == .world {
+            return home.kind == .world || home.country.isEmpty
+                || parent.country.localizedCaseInsensitiveCompare(home.country) == .orderedSame
+        }
+        if home.name.localizedCaseInsensitiveCompare(parent.city) == .orderedSame { return true }
+        return nearbyNames(around: home).contains { $0.localizedCaseInsensitiveCompare(parent.place) == .orderedSame }
+    }
+
+    /// Community filter for the place chosen in the picker. "Near you" keeps the 10 km rule;
+    /// any other choice lists the parents who live in that area, city or country.
+    static func matchesCommunity(_ parent: Parent, selection: Place, home: Place) -> Bool {
+        func same(_ a: String, _ b: String) -> Bool { a.localizedCaseInsensitiveCompare(b) == .orderedSame }
+        switch selection.kind {
+        case .nearby:
+            return matchesCommunity(parent, home: home)
+        case .world:
+            return true
+        case .country:
+            return same(parent.country, selection.country) || same(parent.country, selection.name)
+        case .area:
+            return same(parent.place, selection.name)
+        case .city:
+            if same(parent.city, selection.name) || same(parent.place, selection.name) { return true }
+            if areasByCity[selection.name]?.contains(parent.place) ?? false { return true }
+            // Places found through map search can come back as "Panaji, Goa" style names.
+            return !selection.name.isEmpty
+                && (parent.city.localizedCaseInsensitiveContains(selection.name)
+                    || selection.name.localizedCaseInsensitiveContains(parent.city)
+                    || selection.name.localizedCaseInsensitiveContains(parent.place))
+        }
     }
 
     static func matches(_ event: Event, selection: Place, home: Place = .potheri) -> Bool {
