@@ -16,6 +16,8 @@ struct ReturningHomeView: View {
     @State private var addedActivityID: WeekActivity.ID?
     @State private var showCompleted = false
     @State private var pendingCompletion: WeekActivity?
+    @State private var pendingDeletion: WeekActivity?
+    @State private var wrapUpRequest: DayLearningSummary?
 
     private var plan: WeeklyPlan { state.weeklyPlans[child.id.uuidString] ?? .firstWeek(for: child) }
     private var selectedDay: String { plan.day(for: selectedDate) }
@@ -86,11 +88,18 @@ struct ReturningHomeView: View {
             .presentationCornerRadius(28)
         }
         .sheet(item: $activeSubject, onDismiss: {
+            if let activity = pendingDeletion {
+                pendingDeletion = nil
+                delete(activity)
+                return
+            }
             guard let activity = pendingCompletion else { return }
             pendingCompletion = nil
             toggle(activity)
         }) { selection in
-            HomeActivitySheet(activity: selection.activity) { pendingCompletion = selection.activity }
+            HomeActivitySheet(activity: selection.activity,
+                              onToggle: { pendingCompletion = selection.activity },
+                              onDelete: { pendingDeletion = selection.activity })
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
@@ -103,6 +112,16 @@ struct ReturningHomeView: View {
         .onChange(of: selectedDate) { _, _ in
             activeSubject = nil
             showCompleted = false
+            wrapUpRequest = nil
+        }
+        // Once every task for the day is ticked off, show the same "Learning, wrapped up." pop-up as the week page.
+        .task(id: wrapUpRequest?.id) {
+            guard let summary = wrapUpRequest else { return }
+            do { try await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 450)) }
+            catch { return }
+            guard !Task.isCancelled, selectedDay == summary.day, day.isComplete else { return }
+            withAnimation(.easeOut(duration: 0.22)) { state.dailyWrapUp = summary }
+            wrapUpRequest = nil
         }
         .sensoryFeedback(.success, trigger: completionFeedback)
         .sensoryFeedback(.selection, trigger: undoFeedback)
@@ -149,19 +168,6 @@ struct ReturningHomeView: View {
             } else {
                 rhythm
             }
-            NavigationLink {
-                FirstWeekView(initialDay: selectedDay, backTitle: "Home")
-            } label: {
-                Text("View your week")
-                    .scaledFont(16, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Theme.buttonText)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(Theme.buttonFill, in: Capsule())
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("home.previewWeek")
-            Text("Adjust anytime. Changes save automatically.")
-                .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.warmText)
-                .frame(maxWidth: .infinity)
             if !isToday {
                 Button("Back to today") { withAnimation(motion) { selectedDate = today } }
                     .scaledFont(12, weight: .medium, maxScale: 1.2)
@@ -238,10 +244,12 @@ struct ReturningHomeView: View {
             }
             Spacer(minLength: 0)
             Button { showTaskEditor = true } label: {
-                Image(systemName: "plus").font(.system(size: 21, weight: .medium))
-                    .foregroundStyle(HomePalette.onInk)
-                    .frame(width: 44, height: 44)
-                    .background(HomePalette.ink, in: Circle())
+                Image(systemName: "plus").font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(HomePalette.plusInk)
+                    .frame(width: 52, height: 52)
+                    .background(HomePalette.plusFill, in: Circle())
+                    .overlay(Circle().strokeBorder(HomePalette.plusRing, lineWidth: 2))
+                    .shadow(color: HomePalette.plusInk.opacity(0.10), radius: 6, y: 2)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Add a learning activity")
@@ -305,74 +313,61 @@ struct ReturningHomeView: View {
         }
     }
 
+    /// A plain to-do row inside the subject's coloured box: tick on the left, topic name beside it.
+    /// Tapping the tick completes the task; tapping the box opens its description.
     private func subjectCard(_ task: HomeLearningTask) -> some View {
         let index = task.subjectIndex
         let palette = SubjectCardPalette.all[index % SubjectCardPalette.all.count]
         let finished = task.activity.isDone
-        return Button {
-            activeSubject = HomeSubjectSelection(activity: task.activity)
-        } label: {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top) {
-                    Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(palette.ink)
-                        .frame(width: 36, height: 36)
-                        .background(Theme.surface.opacity(0.85), in: .rect(cornerRadius: 11))
-                        .rotationEffect(.degrees(reduceMotion ? 0 : -6))
-                    Spacer(minLength: 12)
-                    if finished {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(palette.ink)
-                            .frame(width: 24, height: 24)
-                            .background(Theme.surface.opacity(0.7), in: Circle())
-                    }
-                }
-                .accessibilityHidden(true)
-                HStack(alignment: .bottom, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(task.subjectName).sectionTitle()
-                            .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-                        if task.showsActivityTitle {
-                            Text(task.activity.title).rowDetail()
-                                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
+        return ZStack(alignment: .leading) {
+            Button {
+                activeSubject = HomeSubjectSelection(activity: task.activity)
+            } label: {
+                Text(task.activity.title)
+                    .scaledFont(18, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(finished ? Theme.secondary : Theme.ink)
+                    .strikethrough(finished)
+                    .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(palette.ink)
-                        .frame(width: 44, height: 44)
-                        .background(Theme.surface.opacity(0.85), in: Circle())
-                        .accessibilityHidden(true)
-                }
-                .frame(minHeight: 52, alignment: .bottom)
+                    .padding(.leading, 64).padding(.trailing, 18).padding(.vertical, 18)
+                    .frame(minHeight: 72)
+                    .background {
+                        ZStack(alignment: .trailing) {
+                            palette.paper
+                            // The subject's own symbol (flask for Science, paintpalette for Art...) sits faintly behind the task.
+                            Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
+                                .font(.system(size: 62, weight: .ultraLight))
+                                .foregroundStyle(palette.ink.opacity(0.08))
+                                .rotationEffect(.degrees(-15))
+                                .padding(.trailing, 16)
+                                .accessibilityHidden(true)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 27))
+                    }
+                    .overlay(RoundedRectangle(cornerRadius: 27).strokeBorder(Theme.surface.opacity(0.9), lineWidth: 1.5))
+                    .shadow(color: palette.ink.opacity(0.06), radius: 6, y: 3)
+                    .rotationEffect(.degrees(reduceMotion ? 0 : (index.isMultiple(of: 2) ? -0.6 : 0.6)))
+                    .contentShape(RoundedRectangle(cornerRadius: 27))
             }
-            .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                ZStack(alignment: .trailing) {
-                    palette.paper
-                    Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
-                        .font(.system(size: 115, weight: .ultraLight))
-                        .foregroundStyle(palette.ink.opacity(0.065))
-                        .rotationEffect(.degrees(-15))
-                        .offset(x: 22, y: -8)
-                        .accessibilityHidden(true)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 27))
+            .buttonStyle(HomeSubjectPressStyle(reduceMotion: reduceMotion))
+            .accessibilityLabel("\(task.activity.title), \(task.subjectName)")
+            .accessibilityValue(finished ? "Completed" : "Not complete")
+            .accessibilityHint("Open the task description")
+            .accessibilityIdentifier("home.activity.\(task.id)")
+
+            Button { toggle(task.activity) } label: {
+                Image(systemName: finished ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 26, weight: .regular))
+                    .foregroundStyle(palette.ink)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            .overlay(RoundedRectangle(cornerRadius: 27).strokeBorder(Theme.surface.opacity(0.9), lineWidth: 1.5))
-            .shadow(color: palette.ink.opacity(0.06), radius: 6, y: 3)
-            .rotationEffect(.degrees(reduceMotion ? 0 : (index.isMultiple(of: 2) ? -0.6 : 0.6)))
-            .contentShape(RoundedRectangle(cornerRadius: 27))
+            .buttonStyle(.plain)
+            .padding(.leading, 12)
+            .accessibilityLabel(finished ? "Mark \(task.activity.title) not complete" : "Mark \(task.activity.title) complete")
+            .accessibilityIdentifier("home.tick.\(task.id)")
         }
-        .buttonStyle(HomeSubjectPressStyle(reduceMotion: reduceMotion))
         .padding(.horizontal, 3)
-        .accessibilityLabel(task.showsActivityTitle ? "\(task.subjectName), \(task.activity.title)" : task.subjectName)
-        .accessibilityValue(finished ? "Completed" : "Not complete")
-        .accessibilityHint("Open subject description and completion button")
-        .accessibilityIdentifier("home.activity.\(task.id)")
     }
 
     private func toggle(_ activity: WeekActivity) {
@@ -385,6 +380,22 @@ struct ReturningHomeView: View {
             if completing { completionFeedback += 1 }
             else { undoFeedback += 1 }
         }
+        if completing { requestWrapUpIfFinished(in: updated) } else { wrapUpRequest = nil }
+    }
+
+    /// Removes just this day's occurrence of the task. Repeats on other days stay.
+    private func delete(_ activity: WeekActivity) {
+        var updated = plan
+        guard updated.removeForDay(activity.id) != nil else { return }
+        withAnimation(motion) { state.saveWeek(updated, for: child.id) }
+        requestWrapUpIfFinished(in: updated)
+    }
+
+    /// Same rule as the week page: show the wrap-up once nothing is left to do and something was completed.
+    private func requestWrapUpIfFinished(in updated: WeeklyPlan) {
+        let dayTasks = updated.activities(on: selectedDay).filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
+        guard !dayTasks.isEmpty, dayTasks.allSatisfy(\.isDone) else { return }
+        wrapUpRequest = updated.learningSummary(on: selectedDay, childName: child.displayName)
     }
 
     private func refreshDay() {
@@ -417,4 +428,8 @@ private enum HomePalette {
     static let ink = Color.adaptive(0x1B1D1C, 0xF5F5F7)
     static let onInk = Color.adaptive(0xFFFFFF, 0x1B1D1C)
     static let coral = Color.adaptive(0xB46759, 0xF0ADAA)
+    // Add-activity button: soft lavender disc, white ring, deep navy plus.
+    static let plusFill = Color.adaptive(0xE6E0FF, 0x3B3059)
+    static let plusInk = Color.adaptive(0x2B2559, 0xE6E0FF)
+    static let plusRing = Color.adaptive(0xFFFFFF, 0x4A4060)
 }
