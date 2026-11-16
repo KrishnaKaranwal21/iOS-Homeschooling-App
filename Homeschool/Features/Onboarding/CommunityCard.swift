@@ -12,7 +12,7 @@ struct CommunityCard: View {
             HStack {
                 SmileyFace()
                 Spacer()
-                Circle().fill(Color.adaptive(0xFFC8C9, 0x482D38))
+                Circle().fill(Color(hex: 0xFFC8C9))
                     .frame(width: 54, height: 54)
                     .overlay(Image(systemName: "bubble.left.and.bubble.right")
                         .scaledFont(24, maxScale: 1.15)

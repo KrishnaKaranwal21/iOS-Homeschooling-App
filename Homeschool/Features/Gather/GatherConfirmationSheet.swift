@@ -1,8 +1,7 @@
 import SwiftUI
 
 /// "Attending" / "Hosting" pill shown on an event cover.
-/// Fixed white pill with fixed dark text, drawn in light mode whatever the app appearance,
-/// so the words are always readable over any cover.
+/// A white pill with dark text stays readable over any event cover.
 struct EventAttendingBadge: View {
     var title = "Going"
     var symbol = "checkmark.circle.fill"
@@ -89,8 +88,8 @@ struct GatherConfirmationSheet: View {
                         Text(calendarSaved ? "Added to calendar" : "Add to calendar")
                             .scaledFont(17, weight: .semibold, maxScale: 1.3)
                             .frame(maxWidth: .infinity, minHeight: 50)
-                            .foregroundStyle(Color.adaptive(0xFFFFFF, 0x171719))
-                            .background(Color.adaptive(0x333238, 0xF1F0F4), in: Capsule())
+                            .foregroundStyle(Color(hex: 0xFFFFFF))
+                            .background(Color(hex: 0x333238), in: Capsule())
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("event.confirmation.calendar")
 
@@ -113,7 +112,7 @@ struct GatherConfirmationSheet: View {
                 .frame(maxWidth: 680).frame(maxWidth: .infinity)
             }
             .background(Theme.background.ignoresSafeArea())
-            .safeAreaInset(edge: .top, spacing: 0) { header }
+            .scrollBlurHeader { header }
             .safeAreaInset(edge: .bottom, spacing: 0) { goingBar }
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
@@ -154,7 +153,6 @@ struct GatherConfirmationSheet: View {
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(Theme.background.opacity(0.97))
     }
 
     private var organizerSuggestion: some View {

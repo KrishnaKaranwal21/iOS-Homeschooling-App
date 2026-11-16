@@ -293,7 +293,7 @@ struct ChatDetailView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(shape.fill(mine ? Theme.pink : Color.adaptive(0xF0F1F4, 0x262628)))
+            .background(shape.fill(mine ? Theme.pink : Color(hex: 0xF0F1F4)))
             .contextMenu {
                 Button { state.chats.toggleStar(message.id, in: threadID) } label: {
                     Label(message.isStarred ? "Unstar" : "Star", systemImage: message.isStarred ? "star.slash" : "star")

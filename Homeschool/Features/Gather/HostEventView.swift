@@ -165,7 +165,7 @@ struct HostEventView: View {
                         .foregroundStyle(name == category ? Theme.ink : Theme.secondary)
                         .padding(.horizontal, 16)
                         .frame(height: 36)
-                        .background(Capsule().fill(name == category ? Color.adaptive(0xD9D2FF, 0x3B3059) : Theme.field))
+                        .background(Capsule().fill(name == category ? Color(hex: 0xD9D2FF) : Theme.field))
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

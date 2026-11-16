@@ -173,7 +173,7 @@ struct CallView: View {
 
     var body: some View {
         ZStack {
-            Color.adaptive(0xE6E1FF, 0x30283F).ignoresSafeArea()
+            Color(hex: 0xE6E1FF).ignoresSafeArea()
 
             VStack(spacing: 12) {
                 Spacer()

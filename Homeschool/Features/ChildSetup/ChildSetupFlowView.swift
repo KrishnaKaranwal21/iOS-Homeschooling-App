@@ -468,7 +468,6 @@ struct RhythmStep: View {
                             value: $child.supportHours, range: 0...8, color: Theme.lavender)
             }
             weeklySummary
-            dayRunCard
         }
     }
 
@@ -527,42 +526,6 @@ struct RhythmStep: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.pillFill, in: .rect(cornerRadius: 12))
-    }
-
-    // MARK: How should the day run?
-
-    private var dayRunCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("How should the day run?").cardTitle()
-            modeToggle
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .insetCard()
-    }
-
-    private var modeToggle: some View {
-        HStack(spacing: 0) {
-            modeButton("Flexible order", flexible: true)
-            modeButton("Set times", flexible: false)
-        }
-        .padding(4)
-        .background(Theme.pillFill, in: .rect(cornerRadius: 14))
-    }
-
-    private func modeButton(_ title: String, flexible: Bool) -> some View {
-        let selected = child.flexibleOrder == flexible
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { child.flexibleOrder = flexible }
-        } label: {
-            Text(title)
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(selected ? Theme.obsidian : Theme.systemGray)
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .background(selected ? Theme.surface : Color.clear, in: .rect(cornerRadius: 10))
-                .roundedStroke(selected ? Theme.cardBorder : Color.clear, cornerRadius: 10, lineWidth: 1)
-        }
-        .buttonStyle(.plain)
     }
 
     private var calendarBadge: some View {

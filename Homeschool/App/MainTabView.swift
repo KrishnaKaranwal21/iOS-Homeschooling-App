@@ -21,7 +21,6 @@ extension EnvironmentValues {
 struct MainTabView: View {
     @Environment(AppState.self) private var state
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.colorScheme) private var colorScheme
     @State private var selection: AppTab = .home
     /// Changing a tab's number rebuilds it, which returns it to its first page.
     @State private var resetCounts: [AppTab: Int] = [:]
@@ -113,7 +112,7 @@ struct MainTabView: View {
             Image(systemName: symbol)
                 .font(.system(size: 21, weight: .semibold))
                 .foregroundStyle(color)
-                .environment(\.colorScheme, colorScheme)
+                .environment(\.colorScheme, .light)
                 .padding(2))
         renderer.scale = displayScale
         guard let bitmap = renderer.cgImage else { return Image(systemName: symbol) }

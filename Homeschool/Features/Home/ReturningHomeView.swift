@@ -19,7 +19,6 @@ struct ReturningHomeView: View {
     @State private var pendingCompletion: WeekActivity?
     @State private var pendingDeletion: WeekActivity?
     @State private var wrapUpRequest: DayLearningSummary?
-    @State private var showPlanner = false
     @State private var removedActivity: WeekActivity?
     @State private var removedIndex = 0
 
@@ -55,18 +54,17 @@ struct ReturningHomeView: View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    topRow
-                    Text("A little learning.\nA lighter day.")
-                        .pageTitle().lineSpacing(-3)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 12)
-                    weekCard.padding(.top, 26)
-                    todoHeading.padding(.top, 26)
-                    checklist.padding(.top, 16)
+                    HomePageHeader(dateText: today.formatted(.dateTime.weekday(.wide).month(.wide).day()),
+                                   onAddChild: { showAddChild = true })
+                    weekCard.padding(.top, 64)
+                    todoHeading.padding(.top, Theme.Spacing.l)
+                    checklist.padding(.top, Theme.Spacing.m)
                 }
-                .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 24)
+                .padding(.horizontal, TabPageLayout.horizontalInset)
+                .padding(.top, TabPageLayout.topInset).padding(.bottom, 24)
                 .frame(maxWidth: 650).frame(maxWidth: .infinity)
             }
+            .scrollTitleBar("Home")
             .onChange(of: showTaskEditor) { _, showing in
                 guard !showing, let addedActivityID else { return }
                 withAnimation(motion) { scrollProxy.scrollTo(addedActivityID, anchor: .center) }
@@ -77,9 +75,6 @@ struct ReturningHomeView: View {
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
         .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
-        .sheet(isPresented: $showPlanner) {
-            DayPlannerSheet(initialDay: selectedDay) { selectedDate = $0 }
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let removedActivity {
                 ActivityRemovalNotice(activity: removedActivity, onUndo: undoRemoval)
@@ -149,34 +144,8 @@ struct ReturningHomeView: View {
         .sensoryFeedback(.selection, trigger: selectedDate)
     }
 
-    private var topRow: some View {
-        HStack(spacing: 10) {
-            Text(today.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .scaledFont(14, maxScale: 1.3).foregroundStyle(Theme.secondary)
-                .lineLimit(1).minimumScaleFactor(0.75)
-            Spacer(minLength: 4)
-            ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
-                HStack(spacing: 7) {
-                    AvatarView(initials: String(child.displayName.prefix(1)).uppercased(), color: Theme.lavender, size: 26)
-                    Text(child.displayName).scaledFont(15, weight: .medium, maxScale: 1.3).lineLimit(1)
-                    Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold))
-                }
-                .padding(.leading, 5).padding(.trailing, 12).frame(height: 36)
-                .gatherGlass(in: Capsule(), tint: Theme.lilac)
-            }
-            NavigationLink { ProfileView() } label: {
-                Image(systemName: "person").font(.system(size: 17, weight: .medium))
-                    .frame(width: 36, height: 36).gatherGlass(in: Circle(), tint: Theme.lilac)
-            }
-            .accessibilityLabel("Profile")
-        }
-        .buttonStyle(.plain).frame(minHeight: 44)
-    }
-
     private var weekCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("YOUR WEEK").scaledFont(11, weight: .medium, maxScale: 1.2)
-                .tracking(0.5).foregroundStyle(Theme.warmText)
             Text(child.programmeText).scaledFont(14, weight: .medium, maxScale: 1.2)
                 .lineLimit(1).minimumScaleFactor(0.75)
                 .padding(.horizontal, 12).padding(.vertical, 5)
@@ -189,16 +158,10 @@ struct ReturningHomeView: View {
             } else {
                 rhythm
             }
-            Button { showPlanner = true } label: {
-                HStack(spacing: 6) {
-                    Text("\(plan.days.count) learning days").scaledFont(11, maxScale: 1.25)
-                    Spacer()
-                    Text("View your week").scaledFont(14, weight: .semibold, maxScale: 1.25)
-                    Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .medium))
-                }
-                .foregroundStyle(Theme.warmText).frame(minHeight: 44)
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("home.previewWeek")
+            Text("\(plan.days.count) learning days")
+                .scaledFont(11, maxScale: 1.25)
+                .foregroundStyle(Theme.warmText)
+                .frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 32)
             if !isToday {
                 Button("Back to today") { withAnimation(motion) { selectedDate = today } }
                     .scaledFont(12, weight: .medium, maxScale: 1.2)
@@ -211,7 +174,10 @@ struct ReturningHomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.pink, in: .rect(cornerRadius: 28))
         .overlay(alignment: .topTrailing) {
-            HomeMascotView().frame(width: 116).offset(x: 3, y: -54)
+            HomeMascotIllustration()
+                .frame(width: 128)
+                .alignmentGuide(.top) { $0.height * HomeMascotIllustration.cardEdge }
+                .offset(x: -6)
                 .accessibilityHidden(true).allowsHitTesting(false)
         }
     }
@@ -501,13 +467,13 @@ private struct HomeSubjectPressStyle: ButtonStyle {
 
 private enum HomePalette {
     // Match the soft lavender surface and deeper purple text used by Progress.
-    static let taskSurface = Color.adaptive(0xE6DEFF, 0x292338)
-    static let taskAccent = Color.adaptive(0x4430A5, 0xBBA4FF)
-    static let ink = Color.adaptive(0x1B1D1C, 0xF5F5F7)
-    static let onInk = Color.adaptive(0xFFFFFF, 0x1B1D1C)
-    static let coral = Color.adaptive(0xB46759, 0xF0ADAA)
+    static let taskSurface = Color(hex: 0xE6DEFF)
+    static let taskAccent = Color(hex: 0x4430A5)
+    static let ink = Color(hex: 0x1B1D1C)
+    static let onInk = Color(hex: 0xFFFFFF)
+    static let coral = Color(hex: 0xB46759)
     // Add-activity button: soft lavender disc, white ring, deep navy plus.
-    static let plusFill = Color.adaptive(0xE6E0FF, 0x3B3059)
-    static let plusInk = Color.adaptive(0x2B2559, 0xE6E0FF)
-    static let plusRing = Color.adaptive(0xFFFFFF, 0x4A4060)
+    static let plusFill = Color(hex: 0xE6E0FF)
+    static let plusInk = Color(hex: 0x2B2559)
+    static let plusRing = Color(hex: 0xFFFFFF)
 }

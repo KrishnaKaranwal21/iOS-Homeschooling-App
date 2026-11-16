@@ -15,7 +15,7 @@ struct FirstWeekView: View {
     }
 }
 
-/// The shared native planner opens from Home and Progress while the first-week preview remains available during setup.
+/// The day planner, shown as a full screen pushed from Progress. The first-week preview remains available during setup.
 struct DayPlannerSheet: View {
     @Environment(AppState.self) private var state
     var initialDay: String? = nil
@@ -26,9 +26,6 @@ struct DayPlannerSheet: View {
                      initialDay: initialDay, backTitle: "", onAddChild: {},
                      isSheet: true, onSelectDate: onSelectDate)
             .id(state.child.id)
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(32)
     }
 }
 
@@ -49,7 +46,6 @@ private struct WeekPlanPage: View {
         let isEditing: Bool
     }
     @State private var taskEditor: TaskEditorRequest?
-    @State private var showTimes = false
     @State private var saved = false
     @State private var showCompleted = false
     @State private var removedActivity: WeekActivity?
@@ -89,7 +85,7 @@ private struct WeekPlanPage: View {
                 header
                 Text("YOUR WEEK")
                     .scaledFont(11, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Color.adaptive(0x8D4540, 0xF2ABA3))
+                    .foregroundStyle(Color(hex: 0x8D4540))
                     .padding(.horizontal, 15).padding(.vertical, 6)
                     .background(WeekStyle.pink, in: Capsule())
 
@@ -124,13 +120,14 @@ private struct WeekPlanPage: View {
                 if !completed.isEmpty { completedSection }
                 if dailyMinutes > plan.hoursPerDay * 60 {
                     Text("This day is \(dailyMinutes - plan.hoursPerDay * 60) min over your chosen rhythm. Adjust a task to make a little more room.")
-                        .caption().foregroundStyle(Color.adaptive(0x9C4A4B, 0xF0ADAA))
+                        .caption().foregroundStyle(Color(hex: 0x9C4A4B))
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, isSheet ? 22 : 8)
+            .padding(.top, 8)
             .padding(.bottom, 8)
         }
+        .scrollTitleBar(isSheet ? "Activity plan" : "Your week")
         .scrollIndicators(.hidden)
         .background(Theme.background)
         .foregroundStyle(Theme.ink)
@@ -152,20 +149,6 @@ private struct WeekPlanPage: View {
             .presentationDetents(isSheet ? [.large] : [.fraction(0.82), .large])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
-        }
-        .sheet(isPresented: $showTimes) {
-            DayStartTimeSheet(day: WeeklyPlan.fullDayNames[dayIndex],
-                              initialTime: plan.startTimes[selectedDay]) { time in
-                plan.startTimes[selectedDay] = time
-            }
-            .presentationDetents([.height(340)])
-            .presentationDragIndicator(.visible)
-        }
-        // The plan can change outside this page (for example, when the child's days, hours or subjects are edited).
-        .onChange(of: state.weeklyPlans[child.id.uuidString]) { _, latest in
-            guard let latest, latest != plan else { return }
-            plan = latest
-            if !plan.days.contains(selectedDay), let first = plan.days.first { selectedDay = first }
         }
         .onChange(of: plan) { _, _ in
             state.saveWeek(plan, for: child.id)
@@ -194,25 +177,18 @@ private struct WeekPlanPage: View {
 
     private var plannerHeader: some View {
         HStack(spacing: 12) {
-            Label("PLAN YOUR DAY", systemImage: "pencil.and.outline")
-                .scaledFont(11, weight: .semibold, maxScale: 1.25)
-                .tracking(1).foregroundStyle(WeekStyle.purple)
-            Spacer()
             Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.system(size: 16, weight: .medium))
+                Image(systemName: "chevron.left").font(.system(size: 16, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.4))
             }
-            .buttonStyle(.plain).accessibilityLabel("Close day planner")
+            .buttonStyle(.plain).accessibilityLabel("Back")
+            Spacer(minLength: 0)
         }
     }
 
     private var plannerIntro: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(WeeklyPlan.fullDayNames[dayIndex]),\nyour way.")
-                .scaledFont(32, weight: .heavy, maxScale: 1.2).tracking(-1)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
             HStack(spacing: 6) {
                 Text(child.displayName)
                 Text("·")
@@ -313,9 +289,9 @@ private struct WeekPlanPage: View {
                                 .background(Theme.surface, in: .rect(cornerRadius: 14))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(selected ? Color.adaptive(0xB46759, 0xF0ADAA).opacity(0.85) : .clear, lineWidth: 1.25)
+                                        .strokeBorder(selected ? Color(hex: 0xB46759).opacity(0.85) : .clear, lineWidth: 1.25)
                                 }
-                                .shadow(color: Color.adaptive(0xB46759, 0xF0ADAA).opacity(selected ? 0.08 : 0), radius: 4, y: 2)
+                                .shadow(color: Color(hex: 0xB46759).opacity(selected ? 0.08 : 0), radius: 4, y: 2)
                                 .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
                             }
                             .buttonStyle(.plain)
@@ -346,14 +322,6 @@ private struct WeekPlanPage: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(isSheet ? "Your activities" : WeeklyPlan.fullDayNames[dayIndex]).sectionTitle()
-                Spacer()
-                Button { showTimes = true } label: {
-                    Label(plan.startTimes[selectedDay] == nil ? "Set times" : "Edit times", systemImage: "clock")
-                        .scaledFont(13, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(WeekStyle.secondary)
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
             }
             Text(Self.duration(dailyMinutes) + " learning" + (completed.isEmpty ? "" : " · \(remaining.count) left"))
                 .scaledFont(14, maxScale: 1.2).foregroundStyle(WeekStyle.secondary)
@@ -370,7 +338,7 @@ private struct WeekPlanPage: View {
                 HStack(spacing: 10) {
                     Text("\(activity.minutes) min")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(isSheet ? palette.ink : (activity.subject.lowercased().contains("math") ? Color.adaptive(0x8D4540, 0xF2ABA3) : WeekStyle.purple))
+                        .foregroundStyle(isSheet ? palette.ink : (activity.subject.lowercased().contains("math") ? Color(hex: 0x8D4540) : WeekStyle.purple))
                         .frame(width: 62, height: 32)
                         .background(isSheet ? palette.paper : (activity.subject.lowercased().contains("math") ? WeekStyle.pink : Theme.field), in: Capsule())
                         .overlay { if isSheet { Capsule().strokeBorder(palette.ink.opacity(0.14), lineWidth: 0.8) } }
@@ -412,7 +380,7 @@ private struct WeekPlanPage: View {
                     .foregroundStyle(WeekStyle.purple)
                     .frame(width: 30, height: 30)
                     .background(WeekStyle.field, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.adaptive(0xB5A9DA, 0x8F7DAE), lineWidth: 1))
+                    .overlay(Circle().strokeBorder(Color(hex: 0xB5A9DA), lineWidth: 1))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -423,7 +391,7 @@ private struct WeekPlanPage: View {
             Button { remove(activity) } label: {
                 Image(systemName: "minus.circle")
                     .font(.system(size: 19, weight: .regular))
-                    .foregroundStyle(Color.adaptive(0x9C6C73, 0xD7A1AE))
+                    .foregroundStyle(Color(hex: 0x9C6C73))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -631,38 +599,13 @@ private struct WeekPlanPage: View {
 }
 
 enum WeekStyle {
-    static let pink = Color.adaptive(0xFFC4C8, 0x482D38)
-    static let lavender = Color.adaptive(0xE9E5FF, 0x30283F)
-    static let field = Color.adaptive(0xF4F2FF, 0x24212D)
-    static let secondary = Color.adaptive(0x817D9F, 0xAEA6C3)
-    static let purple = Color.adaptive(0x2B2859, 0xD4C8F4)
-    static let border = Color.adaptive(0xDFDDED, 0x40384F)
-    static let taskGrey = Color.adaptive(0xF0EFF2, 0x2A2830)
-}
-
-private struct DayStartTimeSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let day: String
-    let onSave: (Date?) -> Void
-    @State private var time: Date
-
-    init(day: String, initialTime: Date?, onSave: @escaping (Date?) -> Void) {
-        self.day = day
-        self.onSave = onSave
-        _time = State(initialValue: initialTime ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now)!)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("\(day)’s start time").sectionTitle()
-            Text("Tasks without a set time follow in order from here.").caption()
-            DatePicker("Start learning", selection: $time, displayedComponents: .hourAndMinute)
-            Button("Set times") { onSave(time); dismiss() }.buttonStyle(.primaryHomeschool)
-            Button("Keep it flexible") { onSave(nil); dismiss() }.frame(maxWidth: .infinity)
-        }
-        .padding(24)
-        .background(Theme.background)
-    }
+    static let pink = Color(hex: 0xFFC4C8)
+    static let lavender = Color(hex: 0xE9E5FF)
+    static let field = Color(hex: 0xF4F2FF)
+    static let secondary = Color(hex: 0x817D9F)
+    static let purple = Color(hex: 0x2B2859)
+    static let border = Color(hex: 0xDFDDED)
+    static let taskGrey = Color(hex: 0xF0EFF2)
 }
 
 /// Only unused weekdays are offered, so a seven-day routine never shows an extra add tile.

@@ -127,14 +127,14 @@ struct WeekTaskSheet: View {
                 }
                 .scaledFont(14, weight: .medium, maxScale: 1.2)
                 .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(Color.adaptive(0xECEAF6, 0x30283F), in: Capsule())
+                .background(Color(hex: 0xECEAF6), in: Capsule())
                 .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
             }
             .accessibilityLabel("Subject, \(activity.subject)")
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.adaptive(0xEEEEEE, 0x303033), in: .rect(cornerRadius: 16))
+        .background(Color(hex: 0xEEEEEE), in: .rect(cornerRadius: 16))
     }
 
     private var subjectSymbol: String {
