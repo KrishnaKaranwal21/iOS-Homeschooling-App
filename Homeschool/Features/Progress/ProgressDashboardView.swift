@@ -328,7 +328,7 @@ private struct ProgressLearningPage: View {
 
     private func statistic(_ value: String, caption: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(value).scaledFont(22, weight: .heavy, maxScale: 1.15)
+            Text(value).scaledFont(22, weight: .bold, maxScale: 1.15)
                 .tracking(-0.7).lineLimit(1).minimumScaleFactor(0.65)
                 .contentTransition(.numericText())
             Text(caption).scaledFont(9, maxScale: 1.2)
@@ -343,7 +343,7 @@ private struct ProgressLearningPage: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(LearningProgress.duration(detailCreditedMinutes))
-                        .scaledFont(46, weight: .heavy, maxScale: 1.15)
+                        .scaledFont(46, weight: .bold, maxScale: 1.15)
                         .tracking(-2).lineLimit(1).minimumScaleFactor(0.6)
                         .contentTransition(.numericText())
                     Text(isRangeOverview ? "Credited · This \(range.rawValue.lowercased())" : "Credited · \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")

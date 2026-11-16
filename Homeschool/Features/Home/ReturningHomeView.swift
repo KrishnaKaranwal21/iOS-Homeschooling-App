@@ -249,11 +249,6 @@ struct ReturningHomeView: View {
                             .accessibilityIdentifier("home.day.\(name)")
                             .id(name)
                         }
-                        AddLearningDayButton(days: plan.days) { name in
-                            guard let date = state.addLearningDay(name, for: child.id) else { return }
-                            selectedDate = date
-                            showPlanner = true
-                        }
                     }
                     .padding(.horizontal, 3).padding(.vertical, 7)
                 }
