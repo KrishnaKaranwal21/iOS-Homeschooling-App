@@ -25,13 +25,37 @@ enum AccountStore {
         set { storedAccounts = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 
-    /// The signed-in session lives in the Keychain, not in UserDefaults.
+    /// Keychain session email; the static prototype also retains its selected local profile.
     private static let currentKey = "mock.currentEmail"
+    // The local prototype also remembers the selected profile when Keychain is unavailable.
+    @AppStorage("mock.selectedAccountEmail") private static var selectedEmail: String?
+    @AppStorage("mock.hasSelectedAccount") private static var hasSelectedAccount = false
 
     /// The account that is signed in on this device.
     static var current: Account? {
+        if hasSelectedAccount {
+            guard let email = selectedEmail else { return nil }
+            return all[normalized(email)]
+        }
         guard let email = Keychain.string(for: currentKey) else { return nil }
-        return all[email]
+        guard let account = all[normalized(email)] else { return nil }
+        select(email)
+        return account
+    }
+
+    /// Older builds could save a completed family without retaining its selected account.
+    /// Recover only an unambiguous legacy profile; explicit sign-out must stay signed out.
+    static func recoverLegacySession() -> Account? {
+        if let current { return current }
+        guard !hasSelectedAccount, all.count == 1, let account = all.values.first else { return nil }
+        select(account.email)
+        return account
+    }
+
+    private static func select(_ email: String?) {
+        selectedEmail = email.map(normalized)
+        hasSelectedAccount = true
+        Keychain.set(selectedEmail, for: currentKey)
     }
 
     static func update(_ account: Account) {
@@ -49,12 +73,12 @@ enum AccountStore {
     static func switchTo(_ email: String) {
         let key = normalized(email)
         guard all[key] != nil else { return }
-        Keychain.set(key, for: currentKey)
+        select(key)
     }
 
     /// Ends the session on this device. The account itself stays.
     static func signOut() {
-        Keychain.set(nil, for: currentKey)
+        select(nil)
     }
 
     /// Removes the account and ends the session.
@@ -62,10 +86,12 @@ enum AccountStore {
         var accounts = all
         accounts.removeValue(forKey: normalized(email))
         all = accounts
-        Keychain.set(nil, for: currentKey)
+        select(nil)
     }
 
-    static func normalized(_ email: String) -> String {
+    /// Pure string clean-up with no shared state, so it is safe to call from any isolation context.
+    /// (The project defaults every type to the main actor, which made this helper main-actor-only.)
+    nonisolated static func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
@@ -82,7 +108,7 @@ enum AccountStore {
         if account.name.isEmpty, let name, !name.isEmpty { account.name = name }
         accounts[id] = account
         all = accounts
-        Keychain.set(id, for: currentKey)
+        select(id)
         return account
     }
 }

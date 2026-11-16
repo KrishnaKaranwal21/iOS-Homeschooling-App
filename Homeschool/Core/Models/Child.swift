@@ -36,7 +36,9 @@ struct Child: Equatable, Identifiable, Codable {
     static let sample = Child(name: "Maya", curriculum: "NIOS", level: "Level C",
                               birthDate: Date(timeIntervalSince1970: 1_368_576_000),
                               interests: ["Coding", "Art"], learningDays: ["Mon", "Tue", "Thu", "Fri"],
-                              hoursPerDay: 4, supportHours: 2)
+                              hoursPerDay: 4, supportHours: 2,
+                              selectedSubjects: ["core|Mathematics", "core|Science", "core|Social Science",
+                                                 "lang|English", "skill|Computer Skills"])
 
     var isBasicsComplete: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -83,7 +85,8 @@ extension Child {
 
     /// Names of the chosen subjects, taken from keys like "groupId|Subject name".
     var subjectNames: [String] {
-        selectedSubjects.compactMap { $0.split(separator: "|", omittingEmptySubsequences: false).last.map(String.init) }
+        // A subject offered in two groups (for example Environmental Science) is one subject.
+        Array(Set(selectedSubjects.compactMap { $0.split(separator: "|", omittingEmptySubsequences: false).last.map(String.init) }))
             .sorted()
     }
 

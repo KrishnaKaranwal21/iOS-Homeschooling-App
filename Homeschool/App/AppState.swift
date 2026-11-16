@@ -78,7 +78,18 @@ final class AppState {
         didSet { storedWeeklyPlans = Self.encode(weeklyPlans) }
     }
 
-    // Saves FirstWeekView or Progress edits under the child UUID and asynchronously resynchronises that child learning reminders.
+    /// An added day becomes part of this child's routine; its activities are planned separately.
+    @discardableResult
+    func addLearningDay(_ day: String, for childID: Child.ID) -> Date? {
+        guard let index = children.firstIndex(where: { $0.id == childID }) else { return nil }
+        var plan = weeklyPlans[childID.uuidString] ?? .firstWeek(for: children[index])
+        guard plan.includeLearningDay(day) else { return nil }
+        children[index].learningDays.insert(day)
+        saveWeek(plan, for: childID)
+        return plan.date(for: day)
+    }
+
+    // Saves shared planner edits and asynchronously resynchronises that child's learning reminders.
     func saveWeek(_ plan: WeeklyPlan, for childID: Child.ID) {
         // Stores First Week or Progress edits under the same child key that Progress later reads to rebuild its chart and totals.
         weeklyPlans[childID.uuidString] = plan
@@ -118,7 +129,7 @@ final class AppState {
         let keys = [childKey] + weeklyPlans.keys.filter { $0.hasPrefix("history|\(childKey)|") }.sorted()
         for key in keys {
             guard var plan = weeklyPlans[key], let index = plan.activities.firstIndex(where: { $0.id == id }) else { continue }
-            plan.activities[index].isDone.toggle()
+            plan.activities[index].setCompleted(!plan.activities[index].isDone)
             if key == childKey { saveWeek(plan, for: childID) }
             else { weeklyPlans[key] = plan }
             return plan
@@ -140,26 +151,67 @@ final class AppState {
         }
     }
 
+
     private func restoreEvents() {
         restoringEvents = true
-        eventArchiveAccount = account.map { AccountStore.normalized($0.email) } ?? "local-family"
-        events = LocalArchive.load([Event].self, category: "events", account: eventArchiveAccount)
-            ?? MockData.events.sorted { $0.start < $1.start }
+
+        eventArchiveAccount = account.map {
+            AccountStore.normalized($0.email)
+        } ?? "local-family"
+
+        let mockEvents = MockData.events.sorted { $0.start < $1.start }
+
+        let savedEvents = LocalArchive.load(
+            [Event].self,
+            category: "events",
+            account: eventArchiveAccount
+        ) ?? mockEvents
+
+        events = savedEvents.map { savedEvent in
+            var updatedEvent = savedEvent
+
+            if savedEvent.title == "Pond Life Walk",
+               let mockEvent = mockEvents.first(where: {
+                   $0.storageKey == savedEvent.storageKey
+               }) {
+                updatedEvent.coverName = mockEvent.coverName
+            }
+
+            return updatedEvent
+        }
+
         restoringEvents = false
+
+        // Persist the updated cover without resetting other event data.
+        LocalArchive.save(
+            events,
+            category: "events",
+            account: eventArchiveAccount
+        )
+
         notifications = MockData.notifications.map { notification in
             var item = notification
+
             switch item.action {
             case .openEvent(let id), .openEventQuestions(let id):
                 if let old = MockData.events.first(where: { $0.id == id }),
-                   let restored = events.first(where: { $0.storageKey == old.storageKey }) {
-                    if case .openEventQuestions = item.action { item.action = .openEventQuestions(restored.id) }
-                    else { item.action = .openEvent(restored.id) }
+                   let restored = events.first(where: {
+                       $0.storageKey == old.storageKey
+                   }) {
+                    if case .openEventQuestions = item.action {
+                        item.action = .openEventQuestions(restored.id)
+                    } else {
+                        item.action = .openEvent(restored.id)
+                    }
                 }
-            default: break
+            default:
+                break
             }
+
             return item
         }
     }
+
 
     func syncGatheringReminders() {
         gatheringReminders.sync(events: events.filter { $0.isRegistered || bookmarkedKeys.contains($0.storageKey) },
@@ -223,6 +275,23 @@ final class AppState {
     init() {
         // Checks whether a previous session completed setup and reached the main app.
         if storedStage == "main" {
+            if account == nil, let recovered = AccountStore.recoverLegacySession() {
+                account = recovered
+                let key = AccountStore.normalized(recovered.email)
+                // Keep content created while the older build had lost its account selection.
+                if LocalArchive.load([Event].self, category: "events", account: key) == nil,
+                   let legacy = LocalArchive.load([Event].self, category: "events", account: "local-family") {
+                    LocalArchive.save(legacy, category: "events", account: key)
+                }
+                if LocalArchive.load([ChatThread].self, category: "chats", account: key) == nil,
+                   let legacy = LocalArchive.load([ChatThread].self, category: "chats", account: "local-family") {
+                    LocalArchive.save(legacy, category: "chats", account: key)
+                }
+                if bookingsByAccount[key] == nil, let legacy = bookingsByAccount["local-family"] {
+                    bookingsByAccount[key] = legacy
+                }
+                chats.reload(withSamples: false, account: key)
+            }
             // Restores the main launch stage instead of showing onboarding again.
             stage = .main
             isReturningSession = true
@@ -307,17 +376,19 @@ final class AppState {
     }
 
     // Trims and saves the active parent name and mobile number, then updates observable account data.
-    func updateAccount(name: String, mobile: String) {
+    @discardableResult
+    func updateAccount(name: String, mobile: String) -> Bool {
         // Stops if there is no signed-in parent account to edit and otherwise creates a mutable copy.
-        guard var current = account else { return }
+        guard var current = account ?? AccountStore.current else { return false }
         // Removes surrounding whitespace before storing the parent name.
-        current.name = name.trimmingCharacters(in: .whitespaces)
+        current.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         // Removes surrounding whitespace before storing the parent contact number.
-        current.mobile = mobile.trimmingCharacters(in: .whitespaces)
+        current.mobile = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
         // Writes the updated parent account to the local account store.
         AccountStore.update(current)
         // Replaces the observed account so dependent profile and community views refresh.
         account = current
+        return true
     }
 
     /// Saves what other parents see on the community profile.
@@ -399,6 +470,15 @@ final class AppState {
         selectedChildID = newChild.id
     }
 
+    /// Removes a child and everything saved for them. The last remaining child can't be removed.
+    func removeChild(_ id: Child.ID) {
+        guard children.count > 1, children.contains(where: { $0.id == id }) else { return }
+        let key = id.uuidString
+        weeklyPlans = weeklyPlans.filter { k, _ in k != key && !k.hasPrefix("history|\(key)|") }
+        children.removeAll { $0.id == id }
+        if selectedChildID == id, let first = children.first { selectedChildID = first.id }
+    }
+
     /// Switches a child's NIOS level. Subjects depend on the level, so they are cleared and chosen again.
     @discardableResult
     // Changes a child level and clears level-dependent subject choices before saving the profile.
@@ -421,8 +501,27 @@ final class AppState {
     func updateChild(_ updated: Child) {
         // Finds the child being edited and safely exits if that ID is no longer present.
         guard let index = children.firstIndex(where: { $0.id == updated.id }) else { return }
+        let previous = children[index]
         // Replaces the matching array entry, triggering persistence and observable updates.
         children[index] = updated
+        // Learning days, hours per day and subjects shape the saved week, so Home, the planner and Progress must follow.
+        if previous.learningDays != updated.learningDays
+            || previous.hoursPerDay != updated.hoursPerDay
+            || previous.selectedSubjects != updated.selectedSubjects {
+            syncWeek(with: updated)
+        }
+    }
+
+    /// Re-applies a child's current rhythm and subjects to their saved week.
+    /// Without a saved week there is nothing to update: screens build the week from the profile directly.
+    private func syncWeek(with child: Child) {
+        let key = child.id.uuidString
+        guard weeklyPlans[key] != nil else { return }
+        // A saved week from an earlier calendar week is archived and rebuilt from the updated profile.
+        prepareHomeWeek(for: child.id)
+        guard let saved = weeklyPlans[key] else { return }
+        let updated = saved.reconciled(with: child)
+        if updated != saved { saveWeek(updated, for: child.id) }
     }
 
     // Encodes all child profiles locally and refreshes their exam-deadline notification schedule.
@@ -532,28 +631,46 @@ final class AppState {
     }
 
     // Loads the active account bookings, remaps regenerated event UUIDs, and restores event attendance flags.
+
     private func restoreBookings() {
-        // Clears the active in-memory booking lookup before rebuilding or changing account state.
         registrations = [:]
-        // Loads only the booking entries associated with the active account namespace.
+
         let saved = bookingsByAccount[bookingAccountKey] ?? [:]
-        // Visits event indices so registration flags can be updated in place.
+
+        let demoEventTitles: Set<String> = [
+            "Mini Science Fair",
+            "Creative Art & Craft Day",
+            "Nature Discovery Walk"
+        ]
+
+        let sampleRegistrant = Registrant(
+            parentName: "Asha Patel",
+            email: "asha.patel@example.com",
+            mobile: "+91 98765 43210",
+            childName: "Maya",
+            childAge: "10",
+            notes: ""
+        )
         for index in events.indices {
-            // Reads the current event while matching it to persisted booking information.
             let event = events[index]
-            // Looks up a saved booking by its stable event key.
             if var booking = saved[event.storageKey] {
-                // Reconnects the persisted booking to the freshly generated catalogue event UUID without changing the ticket booking ID.
                 booking = booking.forEvent(event.id)
-                // Makes the restored booking available to event details and ticket screens using the current event ID.
                 registrations[event.id] = booking
-                // Marks the current family as registered and adjusts the event family count only if the flag changes.
+                events[index].updateRegistration(true)
+            } else if demoEventTitles.contains(event.title) {
+                let booking = Registration(
+                    eventID: event.id,
+                    registrant: sampleRegistrant,
+                    registeredAt: event.start,
+                    amountPaid: event.price
+                )
+                registrations[event.id] = booking
                 events[index].updateRegistration(true)
             } else {
-                // Clears the current-family attending flag and keeps the displayed count consistent.
                 events[index].updateRegistration(false)
             }
         }
+        saveBookings()
     }
 
     /// Pages that cover the tab bar (an open chat) count themselves in here, so the bottom bar used on
@@ -571,6 +688,10 @@ final class AppState {
     func sendRequest(to parent: Parent) {
         // Adds the parent ID to the local pending-connection set without sending a network request.
         requestedParents.insert(parent.id)
+    }
+    
+    func withdrawRequest(to parent: Parent) {
+        requestedParents.remove(parent.id)
     }
 
     // MARK: Notifications and pop-ups

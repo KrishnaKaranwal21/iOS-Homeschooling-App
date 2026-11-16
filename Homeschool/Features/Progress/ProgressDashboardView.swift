@@ -22,6 +22,7 @@ private struct ProgressLearningPage: View {
     @State private var selectedDate: Date
     @State private var range: ProgressRange = .week
     @State private var selectedBucketID: String?
+    @State private var showPlanner = false
 
     init(child: Child, onAddChild: @escaping () -> Void) {
         self.child = child
@@ -34,7 +35,8 @@ private struct ProgressLearningPage: View {
     private var progress: LearningProgress {
         var scoped = plan
         if range != .day { scoped.activities = timeline.activities }
-        return LearningProgress(plan: scoped, selectedSubjects: child.subjectNames)
+        return LearningProgress(plan: scoped, selectedSubjects: child.subjectNames,
+                                creditedActivities: timeline.creditedActivities)
     }
     private var selectedDay: String { plan.day(for: selectedDate) }
     private var day: DayLearningProgress {
@@ -50,6 +52,9 @@ private struct ProgressLearningPage: View {
     private var detail: DayLearningProgress {
         DayLearningProgress(name: selectedDay, date: selectedDate,
                             activities: isRangeOverview ? timeline.activities : day.activities)
+    }
+    private var detailCreditedMinutes: Int {
+        isRangeOverview ? timeline.loggedMinutes : (selectedBucket?.loggedMinutes ?? 0)
     }
     private var selectedDateIsInPlan: Bool {
         selectedDate >= Calendar.current.startOfDay(for: plan.weekStart)
@@ -73,8 +78,8 @@ private struct ProgressLearningPage: View {
                                 .padding(.top, -4)
                             rangeTotals
                         }
-                        .padding(.horizontal, 22)
-                        .padding(.top, 12)
+                        .padding(.horizontal, TabPageLayout.horizontalInset)
+                        .padding(.top, TabPageLayout.topInset)
                         .padding(.bottom, 24)
 
                         VStack(alignment: .leading, spacing: 28) {
@@ -103,6 +108,7 @@ private struct ProgressLearningPage: View {
                 }
                 .scrollIndicators(.hidden)
                 .background(ProgressPalette.background.ignoresSafeArea())
+                .scrollTitleBar("Progress")
                 .onChange(of: expandedSubjectID) { _, subjectID in
                     guard let subjectID else { return }
                     withAnimation(reduceMotion ? nil : selectionMotion) {
@@ -113,6 +119,10 @@ private struct ProgressLearningPage: View {
         }
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
+        // The planner is a full screen pushed onto Progress, not a sheet.
+        .navigationDestination(isPresented: $showPlanner) {
+            DayPlannerSheet(initialDay: selectedDay) { selectedDate = $0 }
+        }
         .sensoryFeedback(.success, trigger: completionFeedback)
         .sensoryFeedback(.selection, trigger: selectedBucketID)
         .onAppear {
@@ -127,9 +137,7 @@ private struct ProgressLearningPage: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Text("Progress").pageTitle()
-            Spacer(minLength: 0)
+        TabPageHeader(title: "Progress") {
             ChildSwitcherMenu(onAddChild: onAddChild) {
                 HStack(spacing: 8) {
                     AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(), color: Theme.lavender, size: 27)
@@ -145,7 +153,7 @@ private struct ProgressLearningPage: View {
     private var controls: some View {
         HStack(alignment: .center, spacing: 12) {
             Picker("Progress range", selection: $range.animation(selectionMotion)) {
-                ForEach(ProgressRange.allCases) { option in
+                ForEach([ProgressRange.week, .month]) { option in
                     Text(option.rawValue).tag(option)
                 }
             }
@@ -186,9 +194,9 @@ private struct ProgressLearningPage: View {
         let endDate = Calendar.current.date(byAdding: .day, value: -1, to: timeline.interval.end)!
         let end = endDate.formatted(.dateTime.day().month(.abbreviated))
         if Calendar.current.component(.month, from: startDate) == Calendar.current.component(.month, from: endDate) {
-            return "\(startDate.formatted(.dateTime.day()))–\(end)"
+            return "\(startDate.formatted(.dateTime.day())) to \(end)"
         }
-        return "\(startDate.formatted(.dateTime.day().month(.abbreviated))) – \(end)"
+        return "\(startDate.formatted(.dateTime.day().month(.abbreviated))) to \(end)"
     }
 
     private func learningChart(height: CGFloat) -> some View {
@@ -198,7 +206,7 @@ private struct ProgressLearningPage: View {
                     .scaledFont(9, weight: .semibold, maxScale: 1.15).tracking(1.2)
                     .lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
-                legend("Logged", color: ProgressPalette.logged)
+                legend("Credited", color: ProgressPalette.logged)
                 legend("Planned", color: Theme.surface.opacity(0.65))
             }
             .foregroundStyle(ProgressPalette.purple)
@@ -231,7 +239,7 @@ private struct ProgressLearningPage: View {
     }
 
     private var chartMaximum: Int {
-        let largest = timeline.buckets.map(\.plannedMinutes).max() ?? 0
+        let largest = timeline.buckets.map { max($0.plannedMinutes, $0.loggedMinutes) }.max() ?? 0
         return max(60, Int(ceil(Double(largest) / 60)) * 60)
     }
 
@@ -255,24 +263,26 @@ private struct ProgressLearningPage: View {
         } label: {
             VStack(spacing: 10) {
                 Group {
-                    if bucket.plannedMinutes > 0 {
-                        Capsule().fill(Theme.surface.opacity(isSelected ? 0.72 : 0.42))
-                            .frame(height: max(4, plannedHeight))
-                            .overlay(alignment: .bottom) {
-                                if bucket.loggedMinutes > 0 {
-                                    Rectangle()
-                                        .fill(isSelected ? ProgressPalette.purple : ProgressPalette.logged)
-                                        .frame(height: min(max(4, plannedHeight), max(1, loggedHeight)))
-                                        .overlay(alignment: .top) {
-                                            if bucket.isComplete && loggedHeight >= 24 && range != .month {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.background)
-                                                    .padding(.top, 10)
-                                            }
+                    if bucket.plannedMinutes > 0 || bucket.loggedMinutes > 0 {
+                        ZStack(alignment: .bottom) {
+                            Capsule().fill(Theme.surface.opacity(isSelected ? 0.72 : 0.42))
+                                .frame(height: bucket.plannedMinutes > 0 ? max(1, plannedHeight) : 0)
+                            if bucket.loggedMinutes > 0 {
+                                Rectangle()
+                                    .fill(isSelected ? ProgressPalette.purple : ProgressPalette.logged)
+                                    .frame(height: max(1, loggedHeight))
+                                    .overlay(alignment: .top) {
+                                        if bucket.isComplete && loggedHeight >= plannedHeight && loggedHeight >= 24 && range != .month {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundStyle(Theme.background)
+                                                .padding(.top, 10)
                                         }
-                                }
+                                    }
                             }
-                            .clipShape(Capsule())
+                        }
+                        .frame(height: max(1, max(plannedHeight, loggedHeight)))
+                        .clipShape(Capsule())
                     } else {
                         Capsule().fill(ProgressPalette.purple.opacity(isSelected ? 0.7 : 0.2)).frame(height: 3)
                     }
@@ -290,7 +300,7 @@ private struct ProgressLearningPage: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(bucket.title), \(LearningProgress.duration(bucket.loggedMinutes)) logged, \(LearningProgress.duration(bucket.plannedMinutes)) planned")
+        .accessibilityLabel("\(bucket.title), \(LearningProgress.duration(bucket.loggedMinutes)) credited, \(LearningProgress.duration(bucket.plannedMinutes)) planned")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("progress.bar.\(index)")
     }
@@ -303,15 +313,14 @@ private struct ProgressLearningPage: View {
     }
 
     private var rangeTotals: some View {
-        let percentage = Int((timeline.fraction * 100).rounded())
-        return HStack(alignment: .top, spacing: 0) {
-            statistic(LearningProgress.duration(timeline.loggedMinutes), caption: "Logged this \(range.rawValue.lowercased())")
+        HStack(alignment: .top, spacing: 0) {
+            statistic(LearningProgress.duration(timeline.loggedMinutes), caption: "Credited this \(range.rawValue.lowercased())")
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
             statistic(LearningProgress.duration(timeline.plannedMinutes),
                       caption: range == .day ? "Daily goal" : "Planned this \(range.rawValue.lowercased())")
                 .padding(.leading, 13)
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
-            statistic("\(percentage)%", caption: "Completed")
+            statistic("\(timeline.completionPercentage)%", caption: "Plan complete")
                 .padding(.leading, 13)
         }
         .accessibilityIdentifier("progress.rangeTotals")
@@ -319,7 +328,7 @@ private struct ProgressLearningPage: View {
 
     private func statistic(_ value: String, caption: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(value).scaledFont(22, weight: .heavy, maxScale: 1.15)
+            Text(value).scaledFont(22, weight: .bold, maxScale: 1.15)
                 .tracking(-0.7).lineLimit(1).minimumScaleFactor(0.65)
                 .contentTransition(.numericText())
             Text(caption).scaledFont(9, maxScale: 1.2)
@@ -333,21 +342,19 @@ private struct ProgressLearningPage: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(LearningProgress.duration(detail.loggedMinutes))
-                        .scaledFont(46, weight: .heavy, maxScale: 1.15)
+                    Text(LearningProgress.duration(detailCreditedMinutes))
+                        .scaledFont(46, weight: .bold, maxScale: 1.15)
                         .tracking(-2).lineLimit(1).minimumScaleFactor(0.6)
                         .contentTransition(.numericText())
-                    Text(isRangeOverview ? "Learning · This \(range.rawValue.lowercased())" : "Learning · \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")
+                    Text(isRangeOverview ? "Credited · This \(range.rawValue.lowercased())" : "Credited · \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")
                         .scaledFont(15, weight: .medium, maxScale: 1.25)
                     Text(isRangeOverview ? rangeLabel : day.date.formatted(.dateTime.day().month(.wide)))
                         .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 0)
                 if selectedDateIsInPlan {
-                    NavigationLink {
-                        FirstWeekView(initialDay: selectedDay, backTitle: "Progress")
-                    } label: {
-                        Label("Plan", systemImage: "plus")
+                    Button { showPlanner = true } label: {
+                        Text("Plan")
                             .scaledFont(14, weight: .medium, maxScale: 1.2)
                             .padding(.horizontal, 16).frame(height: 44)
                             .gatherGlass(in: Capsule())
@@ -358,10 +365,10 @@ private struct ProgressLearningPage: View {
             }
             HStack(alignment: .top, spacing: 10) {
                 dayStatistic(LearningProgress.duration(detail.plannedMinutes), caption: "Planned")
-                dayStatistic("\(detail.completed.count) / \(detail.activities.count)", caption: "Activities")
+                dayStatistic("\(detail.completed.count) / \(detail.activities.count)", caption: "Planned tasks done")
                 dayStatistic(LearningProgress.duration(detail.remainingMinutes), caption: "Left to explore")
             }
-            Divider().overlay(Color.adaptive(0xEEEEEE, 0x303033))
+            Divider().overlay(Color(hex: 0xEEEEEE))
         }
     }
 
@@ -395,7 +402,7 @@ private struct ProgressLearningPage: View {
                     isExpanded: Binding(
                         get: { expandedSubjectID == subject.id },
                         set: { expandedSubjectID = $0 ? subject.id : nil }),
-                    onToggleActivity: toggleActivity)
+                    onToggleActivity: toggleActivity, onPlan: { showPlanner = true })
                     .id(subject.id)
             }
             if progress.subjects.isEmpty {
@@ -423,7 +430,7 @@ private struct ProgressLearningPage: View {
 }
 
 enum ProgressPalette {
-    static let background = Color.adaptive(0xE6DEFF, 0x19151F)
-    static let purple = Color.adaptive(0x4430A5, 0xBBA4FF)
-    static let logged = Color.adaptive(0xA99BC9, 0x75668F)
+    static let background = Color(hex: 0xE6DEFF)
+    static let purple = Color(hex: 0x4430A5)
+    static let logged = Color(hex: 0xA99BC9)
 }

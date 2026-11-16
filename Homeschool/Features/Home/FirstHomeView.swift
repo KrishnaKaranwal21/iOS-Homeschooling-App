@@ -11,7 +11,7 @@ struct FirstHomeView: View {
     @State private var showAddChild = false
     @State private var exploreID: ExploreCard.ID? = ExploreCard.all.first?.id
 
-    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
+    private let warmText = Color(hex: 0x9C4A4B)
     private static let weekOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     private var childName: String {
@@ -68,11 +68,12 @@ struct FirstHomeView: View {
                         page(.regular)
                     }
                     .scrollIndicators(.hidden)
+                    .scrollTitleBar("Home")
                 }
             }
         }
         .background(Theme.background)
-        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $showFirstWeek) {
             FirstWeekView()
@@ -86,14 +87,13 @@ struct FirstHomeView: View {
     /// A roomy single column: the greeting, the first-week card, then the explore cards two to a row.
     private var wideHome: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 32) {
-                topRow
-                headline
-                firstWeekCard(.regular)
-                wideExplore
+            VStack(alignment: .leading, spacing: 0) {
+                HomePageHeader(dateText: dateText, onAddChild: { showAddChild = true })
+                firstWeekSection(.regular)
+                wideExplore.padding(.top, 28)
             }
-            .padding(.horizontal, 36)
-            .padding(.top, 16)
+            .padding(.horizontal, TabPageLayout.horizontalInset)
+            .padding(.top, TabPageLayout.topInset)
             .padding(.bottom, 44)
             .frame(maxWidth: 880, alignment: .topLeading)
             .frame(maxWidth: .infinity)
@@ -116,95 +116,34 @@ struct FirstHomeView: View {
     private func page(_ density: Density) -> some View {
         let compact = density == .compact
         return VStack(alignment: .leading, spacing: 0) {
-            topRow
-            headline
-                .padding(.top, compact ? 6 : 8)
-            firstWeekCard(density)
-                .padding(.top, compact ? 12 : 16)
+            HomePageHeader(dateText: dateText, onAddChild: { showAddChild = true })
+            firstWeekSection(density)
             exploreSection(density)
                 .padding(.top, compact ? 14 : 18)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 6)
+        .padding(.horizontal, TabPageLayout.horizontalInset)
+        .padding(.top, TabPageLayout.topInset)
         .padding(.bottom, compact ? 6 : 10)
         .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 
-    // MARK: Top row and headline
-
-    private var topRow: some View {
-        HStack(spacing: 10) {
-            Text(dateText)
-                .scaledFont(15, maxScale: 1.3)
-                .foregroundStyle(Theme.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-            Spacer(minLength: 8)
-
-            ChildSwitcherMenu(onAddChild: { showAddChild = true }) {
-                HStack(spacing: 7) {
-                    AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(),
-                               color: Theme.lavender, size: isWide ? 32 : 26)
-                    Text(state.child.displayName)
-                        .scaledFont(15, weight: .medium, maxScale: 1.3)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .foregroundStyle(Theme.ink)
-                .padding(.leading, 5)
-                .padding(.trailing, 14)
-                .frame(height: isWide ? 46 : 36)
-                .background(Capsule().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
-            }
-
-            NavigationLink {
-                ProfileView()
-            } label: {
-                Image(systemName: "person")
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Theme.ink)
-                    .frame(width: isWide ? 46 : 36, height: isWide ? 46 : 36)
-                    .background(Circle().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Profile")
-        }
-        .frame(minHeight: isWide ? 46 : 36)
-    }
-
-    private var headline: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if isWide {
-                Text("A little plan.\nA lighter start.")
-                    .scaledFont(40, weight: .heavy, maxScale: 1.15)
-                    .tracking(-1.3)
-                    .foregroundStyle(Theme.ink)
-                    .lineSpacing(-4)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("A little plan.\nA lighter start.")
-                    .pageTitle()
-                    .lineSpacing(-3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text("Let’s shape \(childName)’s first week.")
-                .pageSubtitle()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
-    }
-
     // MARK: First week card
+
+    private func firstWeekSection(_ density: Density) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your week")
+                .scaledFont(21, weight: .heavy, maxScale: 1.2).tracking(-0.4)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            firstWeekCard(density)
+        }
+        .padding(.top, isWide ? 42 : 26)
+    }
 
     private func firstWeekCard(_ density: Density) -> some View {
         let compact = density == .compact
         return VStack(alignment: .leading, spacing: isWide ? 16 : (compact ? 6 : 8)) {
-            Text("YOUR FIRST WEEK")
-                .scaledFont(11, weight: .medium, maxScale: 1.2)
-                .tracking(0.5)
-                .foregroundStyle(warmText)
 
             Text(programme)
                 .scaledFont(14, weight: .medium, maxScale: 1.2)
@@ -212,12 +151,6 @@ struct FirstHomeView: View {
                 .padding(.horizontal, 12)
                 .frame(height: 26)
                 .background(Capsule().fill(Theme.surface))
-
-            Text("Your chosen rhythm")
-                .scaledFont(21, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.4)
-                .foregroundStyle(Theme.ink)
-                .padding(.top, 2)
 
             rhythmRow(compact: compact)
 
@@ -243,21 +176,10 @@ struct FirstHomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.pink, in: .rect(cornerRadius: isWide ? 36 : 28))
         .overlay(alignment: .topTrailing) {
-            if !isWide {
-                HomeMascotView()
-                    .frame(width: 138)
-                    .offset(x: 3, y: -66)
-                    .accessibilityHidden(true)
-            }
-        }
-        // iPad: the mascot sits behind the card and peeks over its top edge, so no cut edge shows.
-        .background(alignment: .topTrailing) {
-            if isWide {
-                HomeMascotView()
-                    .frame(width: 176)
-                    .offset(x: -28, y: -108)
-                    .accessibilityHidden(true)
-            }
+            HomeMascotIllustration()
+                .frame(width: isWide ? 156 : 128)
+                .alignmentGuide(.top) { $0.height * HomeMascotIllustration.cardEdge }
+                .offset(x: isWide ? -28 : -6)
         }
     }
 
@@ -388,11 +310,11 @@ struct ExploreCard: Identifiable {
     let action: Action
     let layout: ExploreLayout
 
-    private static let lavender = Color.adaptive(0xE7E5FD, 0x30283F)
-    private static let lavenderDeep = Color.adaptive(0xE5E3FD, 0x30283F)
-    private static let grey = Color.adaptive(0xF1F2F6, 0x242426)
-    private static let slate = Color.adaptive(0x747A96, 0xB7AFC9)
-    private static let mutedLavender = Color.adaptive(0x8585A3, 0xB7AFC9)
+    private static let lavender = Color(hex: 0xE7E5FD)
+    private static let lavenderDeep = Color(hex: 0xE5E3FD)
+    private static let grey = Color(hex: 0xF1F2F6)
+    private static let slate = Color(hex: 0x747A96)
+    private static let mutedLavender = Color(hex: 0x8585A3)
 
     static let all: [ExploreCard] = [
         ExploreCard(
@@ -448,21 +370,10 @@ struct ExploreCard: Identifiable {
 
 /// Draws one explore card at the same proportions as the design, at any width.
 private struct ExploreCardView: View {
-    @Environment(\.colorScheme) private var colorScheme
     let card: ExploreCard
     let onTap: () -> Void
 
-    private var artwork: String {
-        guard colorScheme == .dark else { return card.art }
-        // The original Explore crops have baked-in light backgrounds. Reuse the
-        // existing transparent illustrations so they blend into dark paper.
-        switch card.action {
-        case .findPeople: return "HomeArtPeople"
-        case .previewIdea: return "HomeArtComic"
-        case .exploreWorkshops: return "HomeArtWorkshop"
-        case .viewProgress: return "HomeArtProgress"
-        }
-    }
+    private var artwork: String { card.art }
 
     private let designWidth: CGFloat = 2435
     private let designHeight: CGFloat = 1259
@@ -474,11 +385,11 @@ private struct ExploreCardView: View {
     private let buttonSize: CGFloat = 88
     private let chipSize: CGFloat = 66
 
-    private let ink = Color.adaptive(0x111215, 0xF5F5F7)
-    private let pillColor = Color.adaptive(0x1A1E1B, 0x795DD0)
-    private let border = Color.adaptive(0xD5D2E0, 0x484052)
-    private let fold = Color.adaptive(0xEFDDDF,0x482D38)
-    private let chipPurple = Color.adaptive(0x8572BE, 0xBBA4FF)
+    private let ink = Color(hex: 0x111215)
+    private let pillColor = Color(hex: 0x1A1E1B)
+    private let border = Color(hex: 0xD5D2E0)
+    private let fold = Color(hex: 0xEFDDDF)
+    private let chipPurple = Color(hex: 0x8572BE)
 
     var body: some View {
         Color.clear

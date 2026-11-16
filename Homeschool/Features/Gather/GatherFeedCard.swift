@@ -148,9 +148,9 @@ struct GatherLoadingCard: View {
     }
 }
 
-/// Native event artwork remains sharp at every device size and in either appearance.
+/// Native event artwork remains sharp at every device size.
 /// Hosts' photos take precedence over this editorial cover.
-/// Uses the app's own font and soft, light colours in both appearances.
+/// Uses the app's own font and soft, light colours.
 struct GatherEventPoster: View {
     let event: Event
 

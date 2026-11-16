@@ -30,7 +30,7 @@ struct VerifyCodeView: View {
 
                 VStack(alignment: .leading, spacing: 18) {
                     Circle()
-                        .fill(Color.adaptive(0xFFC8C9, 0x482D38))
+                        .fill(Color(hex: 0xFFC8C9))
                         .frame(width: 56, height: 56)
                         .overlay(Image(systemName: "envelope")
                             .scaledFont(24)
@@ -121,7 +121,7 @@ struct VerifyCodeView: View {
     private func borderColor(active: Bool, filled: Bool) -> Color {
         if showError { return Color.red.opacity(0.7) }
         if active { return Theme.ink }
-        return filled ? Color.adaptive(0xEFB4B4, 0x75505D) : Theme.cardBorder
+        return filled ? Color(hex: 0xEFB4B4) : Theme.cardBorder
     }
 
     // MARK: Resend

@@ -5,6 +5,9 @@ struct HomeActivitySheet: View {
     @Environment(\.dismiss) private var dismiss
     let activity: WeekActivity
     let onToggle: () -> Void
+    let onDelete: () -> Void
+
+    @State private var confirmDelete = false
 
     private var guide: ActivityGuide { .suggested(for: activity) }
     private var hasCustomSteps: Bool { !activity.smallSteps.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -61,18 +64,38 @@ struct HomeActivitySheet: View {
             .scrollIndicators(.hidden)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button {
-                onToggle()
-                dismiss()
-            } label: {
-                Label(activity.isDone ? "Mark incomplete" : "Mark complete",
-                      systemImage: activity.isDone ? "arrow.uturn.backward" : "checkmark")
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 6) {
+                Button {
+                    onToggle()
+                    dismiss()
+                } label: {
+                    Label(activity.isDone ? "Mark incomplete" : "Mark complete",
+                          systemImage: activity.isDone ? "arrow.uturn.backward" : "checkmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.primaryHomeschool)
+                .accessibilityIdentifier("home.activity.complete")
+
+                Button { confirmDelete = true } label: {
+                    Label("Remove from this day", systemImage: "trash")
+                        .scaledFont(16, weight: .semibold, maxScale: 1.25)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityIdentifier("home.activity.delete")
             }
-            .buttonStyle(.primaryHomeschool)
-            .accessibilityIdentifier("home.activity.complete")
-            .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 16)
+            .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 10)
             .background(Theme.background)
+        }
+        .confirmationDialog("Remove this activity?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Remove from this day", role: .destructive) {
+                onDelete()
+                dismiss()
+            }
+            Button("Keep task", role: .cancel) {}
+        } message: {
+            Text("“\(activity.title)” will be removed from this day. Repeats on other days stay. You can undo this removal on Home.")
         }
         .foregroundStyle(Theme.ink).background(Theme.background).buttonStyle(.plain)
     }
