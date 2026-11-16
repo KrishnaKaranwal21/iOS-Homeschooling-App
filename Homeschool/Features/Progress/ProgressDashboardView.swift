@@ -118,7 +118,8 @@ private struct ProgressLearningPage: View {
         }
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showPlanner) {
+        // The planner is a full screen pushed onto Progress, not a sheet.
+        .navigationDestination(isPresented: $showPlanner) {
             DayPlannerSheet(initialDay: selectedDay) { selectedDate = $0 }
         }
         .sensoryFeedback(.success, trigger: completionFeedback)
@@ -129,12 +130,6 @@ private struct ProgressLearningPage: View {
             selectedBucketID = nil
         }
         .onChange(of: range) { _, _ in
-            expandedSubjectID = nil
-            selectedBucketID = nil
-        }
-        // Editing the child's days, hours or subjects refreshes the fallback plan used before a week is saved.
-        .onChange(of: child) { _, updated in
-            generatedPlan = .firstWeek(for: updated)
             expandedSubjectID = nil
             selectedBucketID = nil
         }
@@ -360,7 +355,7 @@ private struct ProgressLearningPage: View {
                 Spacer(minLength: 0)
                 if selectedDateIsInPlan {
                     Button { showPlanner = true } label: {
-                        Label("Plan", systemImage: "plus")
+                        Text("Plan")
                             .scaledFont(14, weight: .medium, maxScale: 1.2)
                             .padding(.horizontal, 16).frame(height: 44)
                             .gatherGlass(in: Capsule())

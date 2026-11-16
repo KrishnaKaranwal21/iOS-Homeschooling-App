@@ -15,7 +15,7 @@ struct FirstWeekView: View {
     }
 }
 
-/// The shared native planner opens from Home and Progress while the first-week preview remains available during setup.
+/// The day planner, shown as a full screen pushed from Progress. The first-week preview remains available during setup.
 struct DayPlannerSheet: View {
     @Environment(AppState.self) private var state
     var initialDay: String? = nil
@@ -26,9 +26,6 @@ struct DayPlannerSheet: View {
                      initialDay: initialDay, backTitle: "", onAddChild: {},
                      isSheet: true, onSelectDate: onSelectDate)
             .id(state.child.id)
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationCornerRadius(32)
     }
 }
 
@@ -128,7 +125,7 @@ private struct WeekPlanPage: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, isSheet ? 22 : 8)
+            .padding(.top, 8)
             .padding(.bottom, 8)
         }
         .scrollIndicators(.hidden)
@@ -161,12 +158,6 @@ private struct WeekPlanPage: View {
             .presentationDetents([.height(340)])
             .presentationDragIndicator(.visible)
         }
-        // The plan can change outside this page (for example, when the child's days, hours or subjects are edited).
-        .onChange(of: state.weeklyPlans[child.id.uuidString]) { _, latest in
-            guard let latest, latest != plan else { return }
-            plan = latest
-            if !plan.days.contains(selectedDay), let first = plan.days.first { selectedDay = first }
-        }
         .onChange(of: plan) { _, _ in
             state.saveWeek(plan, for: child.id)
             saved = true
@@ -194,25 +185,18 @@ private struct WeekPlanPage: View {
 
     private var plannerHeader: some View {
         HStack(spacing: 12) {
-            Label("PLAN YOUR DAY", systemImage: "pencil.and.outline")
-                .scaledFont(11, weight: .semibold, maxScale: 1.25)
-                .tracking(1).foregroundStyle(WeekStyle.purple)
-            Spacer()
             Button { dismiss() } label: {
-                Image(systemName: "xmark").font(.system(size: 16, weight: .medium))
+                Image(systemName: "chevron.left").font(.system(size: 16, weight: .semibold))
                     .frame(width: 44, height: 44)
                     .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.4))
             }
-            .buttonStyle(.plain).accessibilityLabel("Close day planner")
+            .buttonStyle(.plain).accessibilityLabel("Back")
+            Spacer(minLength: 0)
         }
     }
 
     private var plannerIntro: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(WeeklyPlan.fullDayNames[dayIndex]),\nyour way.")
-                .scaledFont(32, weight: .heavy, maxScale: 1.2).tracking(-1)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
             HStack(spacing: 6) {
                 Text(child.displayName)
                 Text("·")

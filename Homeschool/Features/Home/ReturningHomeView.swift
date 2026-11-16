@@ -19,7 +19,6 @@ struct ReturningHomeView: View {
     @State private var pendingCompletion: WeekActivity?
     @State private var pendingDeletion: WeekActivity?
     @State private var wrapUpRequest: DayLearningSummary?
-    @State private var showPlanner = false
     @State private var removedActivity: WeekActivity?
     @State private var removedIndex = 0
 
@@ -77,9 +76,6 @@ struct ReturningHomeView: View {
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
         .fullScreenCover(isPresented: $showAddChild) { AddChildFlow() }
-        .sheet(isPresented: $showPlanner) {
-            DayPlannerSheet(initialDay: selectedDay) { selectedDate = $0 }
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let removedActivity {
                 ActivityRemovalNotice(activity: removedActivity, onUndo: undoRemoval)
@@ -189,16 +185,10 @@ struct ReturningHomeView: View {
             } else {
                 rhythm
             }
-            Button { showPlanner = true } label: {
-                HStack(spacing: 6) {
-                    Text("\(plan.days.count) learning days").scaledFont(11, maxScale: 1.25)
-                    Spacer()
-                    Text("View your week").scaledFont(14, weight: .semibold, maxScale: 1.25)
-                    Image(systemName: "arrow.up.right").font(.system(size: 13, weight: .medium))
-                }
-                .foregroundStyle(Theme.warmText).frame(minHeight: 44)
-            }
-            .buttonStyle(.plain).accessibilityIdentifier("home.previewWeek")
+            Text("\(plan.days.count) learning days")
+                .scaledFont(11, maxScale: 1.25)
+                .foregroundStyle(Theme.warmText)
+                .frame(maxWidth: .infinity, alignment: .leading).frame(minHeight: 32)
             if !isToday {
                 Button("Back to today") { withAnimation(motion) { selectedDate = today } }
                     .scaledFont(12, weight: .medium, maxScale: 1.2)
