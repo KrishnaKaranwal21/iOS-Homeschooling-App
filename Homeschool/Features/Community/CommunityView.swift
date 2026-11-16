@@ -254,81 +254,154 @@ struct CommunityView: View {
 // MARK: - Parent card
 
 /// One parent: who they are and where, their children, what the children like, and what to do next.
+
 struct ParentCard: View {
     @Environment(AppState.self) private var state
     @Environment(\.openTab) private var openTab
+
+    @State private var showWithdrawConfirmation = false
+
     let parent: Parent
-    /// True for the family with the most in common.
     var highlight = false
 
     private var myInterests: Set<String> {
-        state.children.reduce(into: Set<String>()) { $0.formUnion($1.interests) }
+        state.children.reduce(into: Set<String>()) {
+            $0.formUnion($1.interests)
+        }
     }
 
-    private var requested: Bool { state.requestedParents.contains(parent.id) }
-    private var connected: Bool { state.connectedParents.contains(parent.id) }
+    private var requested: Bool {
+        state.requestedParents.contains(parent.id)
+    }
 
-    /// Their interests with the shared ones first.
+    private var connected: Bool {
+        state.connectedParents.contains(parent.id)
+    }
+
     private var interests: [String] {
         let all = parent.interests
-        return all.filter { myInterests.contains($0) } + all.filter { !myInterests.contains($0) }
+        return all.filter { myInterests.contains($0) }
+            + all.filter { !myInterests.contains($0) }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            identityHeader.padding(6)
+        ZStack(alignment: .bottomTrailing) {
+            NavigationLink(value: parent) {
+                VStack(alignment: .leading, spacing: 0) {
+                    identityHeader
+                        .padding(6)
 
-            VStack(alignment: .leading, spacing: 12) {
-                Text(parent.about)
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(parent.about)
+                            .scaledFont(15, maxScale: 1.3)
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
 
-                if !interests.isEmpty {
-                    FlowLayout(spacing: 6) {
-                        ForEach(interests.prefix(4), id: \.self) { name in
-                            InfoChip(title: name,tint: Theme.chipFill, isCompact: true,
-                                     symbol: myInterests.contains(name) ? "sparkles" : nil)
+                        if !interests.isEmpty {
+                            FlowLayout(spacing: 6) {
+                                ForEach(interests.prefix(4), id: \.self) { name in
+                                    InfoChip(
+                                        title: name,
+                                        tint: Theme.chipFill,
+                                        isCompact: true,
+                                        symbol: myInterests.contains(name) ? "sparkles" : nil
+                                    )
+                                }
+
+                                if interests.count > 4 {
+                                    InfoChip(
+                                        title: "+\(interests.count - 4)",
+                                        tint: Theme.chipFill,
+                                        isCompact: true
+                                    )
+                                }
+                            }
                         }
-                        if interests.count > 4 {
-                            InfoChip(title: "+\(interests.count - 4)", tint: Theme.chipFill, isCompact: true)
+
+                        if highlight {
+                            Label {
+                                Text("Most in common")
+                                    .foregroundStyle(Theme.ink)
+                            } icon: {
+                                Image(systemName: "sparkles")
+                                    .foregroundStyle(Theme.gatherAccent)
+                            }
+                            .scaledFont(12, weight: .semibold, maxScale: 1.3)
+                            .padding(.top, 1)
                         }
-                    }
-                }
 
-                if highlight {
-                    Label {
-                        Text("Most in common").foregroundStyle(Theme.ink)
-                    } icon: {
-                        Image(systemName: "sparkles").foregroundStyle(Theme.gatherAccent)
-                    }
-                    .scaledFont(12, weight: .semibold, maxScale: 1.3)
-                    .padding(.top, 1)
-                }
+                        ProfileDivider()
+                            .padding(.horizontal, -10)
+                            .padding(.top, 2)
 
-                ProfileDivider().padding(.horizontal, -10).padding(.top, 2)
-                footer
+                        // Footer: View profile
+                        HStack {
+                            Text("View profile")
+                                .scaledFont(14, weight: .semibold, maxScale: 1.25)
+                                .foregroundStyle(Theme.gatherText)
+
+                            Spacer()
+
+                            // Reserve space for the action button overlay.
+                            Color.clear
+                                .frame(width: 120, height: 44)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    Theme.surface,
+                    in: .rect(cornerRadius: 28)
+                )
+                .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
+                .contentShape(RoundedRectangle(cornerRadius: 28))
             }
-            .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 12)
+            .buttonStyle(.plain)
+
+            // Independent action button
+            actionButton
+                .padding(.trailing, 16)
+                .padding(.bottom, 16)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: .rect(cornerRadius: 28))
-        .roundedStroke(Theme.lilacBorder, cornerRadius: 28)
+        .confirmationDialog(
+            "Withdraw connection request?",
+            isPresented: $showWithdrawConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Withdraw Request", role: .destructive) {
+                state.withdrawRequest(to: parent)
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to withdraw your request to \(parent.name)?")
+        }
     }
+
+    // MARK: - Identity Header
 
     private var identityHeader: some View {
         HStack(alignment: .center, spacing: 14) {
             ParentAvatar(parent: parent, size: 72)
+
             VStack(alignment: .leading, spacing: 5) {
                 Text(parent.name)
                     .scaledFont(21, weight: .bold, maxScale: 1.3)
                     .foregroundStyle(Theme.ink)
-                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
+
                 Text(parent.role)
                     .scaledFont(14, maxScale: 1.3)
                     .foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
                 if !parent.place.isEmpty {
                     Label(parent.place, systemImage: "mappin.and.ellipse")
                         .scaledFont(13, maxScale: 1.3)
@@ -340,38 +413,16 @@ struct ParentCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
-        .background(Theme.pink_light, in: .rect(cornerRadius: 24))
+        .background(
+            Theme.pink_light,
+            in: .rect(cornerRadius: 24)
+        )
     }
 
-    private var profileLink: some View {
-        NavigationLink(value: parent) {
-            HStack(spacing: 8) {
-                Text("View profile")
-                Image(systemName: "arrow.right").fontWeight(.medium)
-            }
-            .scaledFont(15, weight: .semibold, maxScale: 1.3)
-            .foregroundStyle(Theme.tabSelected)
-            .frame(minHeight: 44).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("View \(parent.name)’s profile")
-    }
+    // MARK: - Action Button
 
-    private var footer: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                profileLink.fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-                actionButton.fixedSize(horizontal: true, vertical: false)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                profileLink
-                actionButton.frame(maxWidth: .infinity, alignment: .trailing)
-            }
-        }
-    }
-
-    @ViewBuilder private var actionButton: some View {
+    @ViewBuilder
+    private var actionButton: some View {
         if connected {
             Button {
                 state.chats.pendingOpenID = state.chats.startChat(with: parent)
@@ -385,20 +436,36 @@ struct ParentCard: View {
                     .background(Capsule().fill(Theme.lavender))
             }
             .buttonStyle(.plain)
-        } else {
-            Button { state.sendRequest(to: parent) } label: {
-                Text(requested ? "Requested" : "Connect")
+
+        } else if requested {
+            Button {
+                showWithdrawConfirmation = true
+            } label: {
+                Text("Requested")
                     .scaledFont(15, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(requested ? Theme.gatherText : Theme.buttonText)
+                    .foregroundStyle(Theme.gatherText)
                     .padding(.horizontal, 22)
                     .frame(minWidth: 104, minHeight: 44)
-                    .background(Capsule().fill(requested ? Theme.chipFill : Theme.buttonFill))
+                    .background(Capsule().fill(Theme.chipFill))
             }
             .buttonStyle(.plain)
-            .disabled(requested)
+
+        } else {
+            Button {
+                state.sendRequest(to: parent)
+            } label: {
+                Text("Connect")
+                    .scaledFont(15, weight: .semibold, maxScale: 1.25)
+                    .foregroundStyle(Theme.buttonText)
+                    .padding(.horizontal, 22)
+                    .frame(minWidth: 104, minHeight: 44)
+                    .background(Capsule().fill(Theme.buttonFill))
+            }
+            .buttonStyle(.plain)
         }
     }
 }
+
 
 /// Round photo, or the first letter of the name when there is no photo in the asset catalog
 /// (add an image named like `Parent-Sara` to show a photo).
@@ -585,3 +652,4 @@ private struct NotificationCard: View {
         .accessibilityElement(children: .combine)
     }
 }
+

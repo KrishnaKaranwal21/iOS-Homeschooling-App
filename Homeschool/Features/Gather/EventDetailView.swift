@@ -29,6 +29,7 @@ struct EventDetailView: View {
     private var myQuestions: [EventQuestion] { current.questions.filter(\.askedByMe) }
 
     var body: some View {
+        
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
@@ -53,7 +54,9 @@ struct EventDetailView: View {
                     }
                     EventLocationSection(event: current)
                     EventPhotosSection(event: current)
-                    reportButton
+                    if !current.isHostedByMe{
+                        reportButton
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)

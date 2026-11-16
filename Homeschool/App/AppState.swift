@@ -151,26 +151,67 @@ final class AppState {
         }
     }
 
+
     private func restoreEvents() {
         restoringEvents = true
-        eventArchiveAccount = account.map { AccountStore.normalized($0.email) } ?? "local-family"
-        events = LocalArchive.load([Event].self, category: "events", account: eventArchiveAccount)
-            ?? MockData.events.sorted { $0.start < $1.start }
+
+        eventArchiveAccount = account.map {
+            AccountStore.normalized($0.email)
+        } ?? "local-family"
+
+        let mockEvents = MockData.events.sorted { $0.start < $1.start }
+
+        let savedEvents = LocalArchive.load(
+            [Event].self,
+            category: "events",
+            account: eventArchiveAccount
+        ) ?? mockEvents
+
+        events = savedEvents.map { savedEvent in
+            var updatedEvent = savedEvent
+
+            if savedEvent.title == "Pond Life Walk",
+               let mockEvent = mockEvents.first(where: {
+                   $0.storageKey == savedEvent.storageKey
+               }) {
+                updatedEvent.coverName = mockEvent.coverName
+            }
+
+            return updatedEvent
+        }
+
         restoringEvents = false
+
+        // Persist the updated cover without resetting other event data.
+        LocalArchive.save(
+            events,
+            category: "events",
+            account: eventArchiveAccount
+        )
+
         notifications = MockData.notifications.map { notification in
             var item = notification
+
             switch item.action {
             case .openEvent(let id), .openEventQuestions(let id):
                 if let old = MockData.events.first(where: { $0.id == id }),
-                   let restored = events.first(where: { $0.storageKey == old.storageKey }) {
-                    if case .openEventQuestions = item.action { item.action = .openEventQuestions(restored.id) }
-                    else { item.action = .openEvent(restored.id) }
+                   let restored = events.first(where: {
+                       $0.storageKey == old.storageKey
+                   }) {
+                    if case .openEventQuestions = item.action {
+                        item.action = .openEventQuestions(restored.id)
+                    } else {
+                        item.action = .openEvent(restored.id)
+                    }
                 }
-            default: break
+            default:
+                break
             }
+
             return item
         }
     }
+
 
     func syncGatheringReminders() {
         gatheringReminders.sync(events: events.filter { $0.isRegistered || bookmarkedKeys.contains($0.storageKey) },
@@ -590,28 +631,46 @@ final class AppState {
     }
 
     // Loads the active account bookings, remaps regenerated event UUIDs, and restores event attendance flags.
+
     private func restoreBookings() {
-        // Clears the active in-memory booking lookup before rebuilding or changing account state.
         registrations = [:]
-        // Loads only the booking entries associated with the active account namespace.
+
         let saved = bookingsByAccount[bookingAccountKey] ?? [:]
-        // Visits event indices so registration flags can be updated in place.
+
+        let demoEventTitles: Set<String> = [
+            "Mini Science Fair",
+            "Creative Art & Craft Day",
+            "Nature Discovery Walk"
+        ]
+
+        let sampleRegistrant = Registrant(
+            parentName: "Asha Patel",
+            email: "asha.patel@example.com",
+            mobile: "+91 98765 43210",
+            childName: "Maya",
+            childAge: "10",
+            notes: ""
+        )
         for index in events.indices {
-            // Reads the current event while matching it to persisted booking information.
             let event = events[index]
-            // Looks up a saved booking by its stable event key.
             if var booking = saved[event.storageKey] {
-                // Reconnects the persisted booking to the freshly generated catalogue event UUID without changing the ticket booking ID.
                 booking = booking.forEvent(event.id)
-                // Makes the restored booking available to event details and ticket screens using the current event ID.
                 registrations[event.id] = booking
-                // Marks the current family as registered and adjusts the event family count only if the flag changes.
+                events[index].updateRegistration(true)
+            } else if demoEventTitles.contains(event.title) {
+                let booking = Registration(
+                    eventID: event.id,
+                    registrant: sampleRegistrant,
+                    registeredAt: event.start,
+                    amountPaid: event.price
+                )
+                registrations[event.id] = booking
                 events[index].updateRegistration(true)
             } else {
-                // Clears the current-family attending flag and keeps the displayed count consistent.
                 events[index].updateRegistration(false)
             }
         }
+        saveBookings()
     }
 
     /// Pages that cover the tab bar (an open chat) count themselves in here, so the bottom bar used on
@@ -629,6 +688,10 @@ final class AppState {
     func sendRequest(to parent: Parent) {
         // Adds the parent ID to the local pending-connection set without sending a network request.
         requestedParents.insert(parent.id)
+    }
+    
+    func withdrawRequest(to parent: Parent) {
+        requestedParents.remove(parent.id)
     }
 
     // MARK: Notifications and pop-ups

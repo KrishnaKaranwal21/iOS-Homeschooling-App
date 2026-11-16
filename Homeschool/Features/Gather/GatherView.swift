@@ -210,22 +210,44 @@ struct GatherView: View {
                     Toggle("Free events only", isOn: $filter.freeOnly).tint(Theme.accent)
                     Toggle("Online events only", isOn: $filter.onlineOnly).tint(Theme.accent)
                 }
+
                 Section("Your gatherings") {
-                    NavigationLink { SavedEventsView() } label: {
-                        Label("Liked events (\(state.savedEvents.count))", systemImage: "heart")
+                    NavigationLink {
+                        SavedEventsView()
+                    } label: {
+                        Label(
+                            "Liked events (\(state.savedEvents.count))",
+                            systemImage: "heart"
+                        )
                     }
+
+                    NavigationLink {
+                        PastEventsView()
+                    } label: {
+                        Label("Past events", systemImage: "clock.arrow.circlepath")
+                    }
+
                     Button {
                         filter.category = .yours
                         showFilters = false
-                    } label: { Label("Your events", systemImage: "calendar") }
-                    NavigationLink { GatherTicketsView() } label: {
+                    } label: {
+                        Label("Your events", systemImage: "calendar")
+                    }
+
+                    NavigationLink {
+                        GatherTicketsView()
+                    } label: {
                         Label("Your tickets", systemImage: "ticket")
                     }
+
                     Button {
                         showFilters = false
                         hostEvent()
-                    } label: { Label("Host an event", systemImage: "plus.circle") }
+                    } label: {
+                        Label("Host an event", systemImage: "plus.circle")
+                    }
                 }
+
                 if !state.hostedEventsWithQuestions.isEmpty {
                     Section("Questions for you") {
                         ForEach(state.hostedEventsWithQuestions) { event in
