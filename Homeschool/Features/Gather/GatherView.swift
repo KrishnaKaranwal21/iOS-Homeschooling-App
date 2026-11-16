@@ -111,7 +111,7 @@ struct GatherView: View {
             SavedEventsView()
         } label: {
             Image(systemName: state.savedEvents.isEmpty ? "heart" : "heart.fill")
-                .font(.system(size: 20, weight: .regular))
+                .scaledFont(20, weight: .regular)
                 .foregroundStyle(Theme.accent)
                 .frame(width: 44, height: 44)
                 .gatherGlass(in: Circle())
@@ -296,12 +296,17 @@ struct GatherView: View {
     }
 
     @MainActor private func revealNextPage(generation: UUID) async {
-        // The current catalog is local. Reveal it in finite pages, with the same loading
-        // treatment ready for a paginated event service. Never duplicate events at the end.
+        // The current catalog is local. Reveal it in finite pages, with the same loading treatment ready for a
+        // paginated event service. Never duplicate events at the end.
         do { try await Task.sleep(for: .milliseconds(750)) } catch { return }
         guard !Task.isCancelled, generation == feedGeneration else { return }
         withAnimation(reduceMotion ? nil : .easeOut(duration: 0.25)) {
             pageLimit = min(pageLimit + pageSize, events.count)
         }
     }
+}
+
+#Preview("Gather") {
+    GatherView()
+        .environment(AppState())
 }

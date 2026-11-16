@@ -2,31 +2,31 @@ import SwiftUI
 
 struct EventDetailView: View {
     let event: Event
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var sizeClass
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showConfirmation = false
-    @State private var showContactHost = false
-    @State private var showCalendar = false
-    @State private var calendarSaved = false
-    @State private var showOrganizerBanner = true
-    @State private var expandedAbout = false
-    @State private var expandedFAQs = false
-    @State private var descriptionFullHeight: CGFloat = 0
-    @State private var descriptionPreviewHeight: CGFloat = 0
-    @State private var showReport = false
-    @State private var reportSaved = false
-    @State private var reportNoticePending = false
-    @State private var showDetails = false
-    @State private var expandedQuestions = false
-    @State private var showHost = false
-    @State private var showProfile = false
-    @State private var showProfilePrompt = false
-    @State private var openProfileAfterPrompt = false
+    @Environment(AppState.self) var state
+    @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) var sizeClass
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @State var showConfirmation = false
+    @State var showContactHost = false
+    @State var showCalendar = false
+    @State var calendarSaved = false
+    @State var showOrganizerBanner = true
+    @State var expandedAbout = false
+    @State var expandedFAQs = false
+    @State var descriptionFullHeight: CGFloat = 0
+    @State var descriptionPreviewHeight: CGFloat = 0
+    @State var showReport = false
+    @State var reportSaved = false
+    @State var reportNoticePending = false
+    @State var showDetails = false
+    @State var expandedQuestions = false
+    @State var showHost = false
+    @State var showProfile = false
+    @State var showProfilePrompt = false
+    @State var openProfileAfterPrompt = false
 
-    private var current: Event { state.events.first { $0.id == event.id } ?? event }
-    private var myQuestions: [EventQuestion] { current.questions.filter(\.askedByMe) }
+    var current: Event { state.events.first { $0.id == event.id } ?? event }
+    var myQuestions: [EventQuestion] { current.questions.filter(\.askedByMe) }
 
     var body: some View {
         
@@ -117,13 +117,13 @@ struct EventDetailView: View {
         }
     }
 
-    private var fixedHeader: some View {
+    var fixedHeader: some View {
         ZStack {
             Text("Event").scaledFont(17, weight: .bold, maxScale: 1.2)
                 .foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
             HStack {
                 Button { dismiss() } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 21, weight: .light))
+                    Image(systemName: "chevron.left").accessibilityHidden(true).scaledFont(21, weight: .light)
                         .frame(width: 44, height: 44)
                         .gatherGlass(in: Circle())
                 }.accessibilityLabel("Back to Gather")
@@ -140,7 +140,7 @@ struct EventDetailView: View {
                     .accessibilityLabel(state.isBookmarked(current) ? "Unsave event" : "Save event")
                     .sensoryFeedback(.selection, trigger: state.isBookmarked(current))
                 }
-                .font(.system(size: 20, weight: .light))
+                .scaledFont(20, weight: .light)
                 .gatherGlass(in: Capsule())
             }
             .foregroundStyle(Theme.ink).buttonStyle(.plain)
@@ -148,7 +148,7 @@ struct EventDetailView: View {
         .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 12)
     }
 
-    private var organizerBanner: some View {
+    var organizerBanner: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Become an organizer for free!")
@@ -170,7 +170,7 @@ struct EventDetailView: View {
         .background(LinearGradient(colors: [Theme.lilac, Theme.lavender.opacity(0.5)], startPoint: .leading, endPoint: .trailing), in: .rect(cornerRadius: 24))
         .overlay(alignment: .topTrailing) {
             Button { showOrganizerBanner = false } label: {
-                Image(systemName: "xmark").font(.system(size: 10, weight: .medium))
+                Image(systemName: "xmark").scaledFont(10, weight: .medium)
                     .foregroundStyle(Theme.ink).frame(width: 28, height: 28)
                     .background(Theme.field, in: Circle())
             }.buttonStyle(.plain).offset(x: 6, y: -6)
@@ -178,7 +178,7 @@ struct EventDetailView: View {
         }
     }
 
-    private var eventSummary: some View {
+    var eventSummary: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text(current.title).scaledFont(32, weight: .bold, maxScale: 1.3)
                 .tracking(-0.9).foregroundStyle(Theme.ink)
@@ -186,28 +186,28 @@ struct EventDetailView: View {
                 .textSelection(.enabled)
                 .accessibilityAddTraits(.isHeader)
             HStack(spacing: 14) {
-                Image(systemName: "calendar").font(.system(size: 25, weight: .regular))
+                Image(systemName: "calendar").scaledFont(25, weight: .regular)
                     .foregroundStyle(Color(hex: 0xB8497B)).frame(width: 28)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(current.fullDateText).scaledFont(14, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
                     HStack(spacing: 4) {
                         Text(current.timeRangeWithZone).scaledFont(13, maxScale: 1.35).foregroundStyle(Theme.secondary)
                         Button { showDetails = true } label: {
-                            Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(Theme.secondary)
+                            Image(systemName: "info.circle").scaledFont(12).foregroundStyle(Theme.secondary)
                                 .frame(width: 28, height: 28)
                         }.buttonStyle(.plain).accessibilityLabel("Age guidance and parent requirements")
                     }
                 }
                 Spacer(minLength: 0)
                 Button { showCalendar = true } label: {
-                    Image(systemName: calendarSaved ? "calendar.badge.checkmark" : "calendar.badge.plus").font(.system(size: 20)).foregroundStyle(Theme.ink)
+                    Image(systemName: calendarSaved ? "calendar.badge.checkmark" : "calendar.badge.plus").scaledFont(20).foregroundStyle(Theme.ink)
                         .frame(width: 44, height: 44)
                 }.buttonStyle(.plain).accessibilityLabel(calendarSaved ? "Event added to calendar. Add another copy" : "Add event to calendar")
             }
             Divider().overlay(Theme.cardBorder)
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: current.mode == .online ? "video.fill" : "mappin.and.ellipse")
-                    .font(.system(size: 22, weight: .regular))
+                    .scaledFont(22, weight: .regular)
                     .foregroundStyle(Color(hex: 0x27846A)).frame(width: 28)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(current.mode == .online ? "Online event" : current.locationLines.title)
@@ -219,80 +219,7 @@ struct EventDetailView: View {
         }
     }
 
-    private var organizerCard: some View {
-        HStack(spacing: 16) {
-            Text(initials(current.host))
-                .scaledFont(20, weight: .bold, maxScale: 1.2).foregroundStyle(Theme.ink)
-                .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
-            VStack(alignment: .leading, spacing: 5) {
-                Text(current.host).scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
-                Text(current.isHostedByMe ? "You’re organizing this event" : current.hostRole)
-                    .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.field, in: .rect(cornerRadius: 26))
-        .accessibilityElement(children: .combine)
-    }
-
-    private var descriptionText: some View {
-        let content = (try? AttributedString(markdown: current.about,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(current.about)
-        return Text(content).scaledFont(16, maxScale: 1.35)
-            .foregroundStyle(Theme.secondary).lineSpacing(5)
-    }
-
-    private var descriptionSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            descriptionText
-                .lineLimit(expandedAbout ? nil : 6)
-                .fixedSize(horizontal: false, vertical: true)
-                .background(alignment: .topLeading) {
-                    descriptionText.lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                        .hidden().accessibilityHidden(true)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { descriptionFullHeight = $0 }
-                }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                    if !expandedAbout { descriptionPreviewHeight = $0 }
-                }
-            if expandedAbout || descriptionFullHeight > descriptionPreviewHeight + 1 {
-                Button(expandedAbout ? "Read less" : "Read more") {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { expandedAbout.toggle() }
-                }
-                .scaledFont(16, weight: .semibold, maxScale: 1.3)
-                .foregroundStyle(Theme.accent).buttonStyle(.plain)
-                .accessibilityIdentifier("event.readMore")
-            }
-            Text(current.normalizedCategory).scaledFont(13, weight: .semibold, maxScale: 1.25)
-                .foregroundStyle(Theme.ink).padding(.horizontal, 14).padding(.vertical, 7)
-                .roundedStroke(Theme.cardBorder, cornerRadius: 18)
-        }
-    }
-
-    private var reportButton: some View {
-        Button { showReport = true } label: {
-            HStack(spacing: 16) {
-                Image(systemName: "flag")
-                    .scaledFont(20, weight: .semibold, maxScale: 1.2).foregroundStyle(Theme.ink)
-                    .frame(width: 52, height: 52).background(Theme.lavender, in: .rect(cornerRadius: 15))
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Report this event").scaledFont(16, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
-                    Text("Tell us if something isn’t right")
-                        .scaledFont(13, maxScale: 1.3).foregroundStyle(Theme.secondary)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
-            }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.field, in: .rect(cornerRadius: 26))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("event.report")
-    }
-
-    private var detailsSheet: some View {
+    var detailsSheet: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -306,7 +233,7 @@ struct EventDetailView: View {
         }.presentationDragIndicator(.visible)
     }
 
-    private var practicalDetails: some View {
+    var practicalDetails: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(current.ages, systemImage: "person.2").foregroundStyle(Theme.ink)
             Label(current.parentPresence.shortTitle, systemImage: current.parentPresence.symbol).foregroundStyle(Theme.ink)
@@ -316,7 +243,7 @@ struct EventDetailView: View {
         .padding(.top, 6)
     }
 
-    private func attendanceBar(_ proxy: ScrollViewProxy) -> some View {
+    func attendanceBar(_ proxy: ScrollViewProxy) -> some View {
         HStack(spacing: 16) {
             Text(current.isHostedByMe ? "Hosting" : current.priceText)
                 .scaledFont(17, weight: .semibold, maxScale: 1.2).foregroundStyle(Theme.ink)
@@ -343,280 +270,7 @@ struct EventDetailView: View {
         .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 8)
     }
 
-    private func initials(_ name: String) -> String {
+    func initials(_ name: String) -> String {
         name.split(separator: " ").prefix(2).compactMap(\.first).map(String.init).joined().uppercased()
-    }
-    // MARK: FAQs
-
-    private var faqSection: some View {
-        VStack(alignment: .leading, spacing: expandedFAQs ? 10 : 0) {
-            Button {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { expandedFAQs.toggle() }
-            } label: {
-                HStack {
-                    Text(current.isHostedByMe ? "FAQs families see" : "FAQs").sectionTitle()
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.secondary)
-                        .rotationEffect(.degrees(expandedFAQs ? 180 : 0))
-                }
-                .frame(minHeight: 48).padding(.horizontal, 6).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityValue(expandedFAQs ? "Expanded" : "Collapsed")
-            .accessibilityHint("Show or hide the event questions")
-            .accessibilityIdentifier("event.faqToggle")
-
-            if expandedFAQs {
-                VStack(spacing: 0) {
-                    let faqs = current.allFAQs
-                    ForEach(Array(faqs.enumerated()), id: \.element.id) { index, faq in
-                        DisclosureGroup {
-                            Text(faq.answer).rowDetail()
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.bottom, 12)
-                        } label: {
-                            Text(faq.question).rowTitle().multilineTextAlignment(.leading)
-                                .padding(.vertical, 12)
-                        }
-                        .tint(Theme.secondary)
-                        if index < faqs.count - 1 {
-                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
-                        }
-                    }
-                    if !current.isHostedByMe {
-                        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
-                        Button { showContactHost = true } label: {
-                            HStack(spacing: 10) {
-                                Image(systemName: "bubble.left.and.text.bubble.right")
-                                    .foregroundStyle(Theme.accent)
-                                Text("Ask the host a question").rowTitle()
-                                Spacer(minLength: 0)
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.secondary)
-                            }
-                            .padding(.vertical, 14).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("event.askHost")
-                    }
-                }
-                .padding(.horizontal, 16)
-                .background(Theme.surface, in: .rect(cornerRadius: 24))
-                .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-                .transition(.opacity)
-            }
-        }
-    }
-
-    /// The questions I asked this host and their answers, so I can check back here.
-    private var myQuestionsSection: some View {
-        let mine = current.questions.filter(\.askedByMe).sorted { $0.date > $1.date }
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Your questions")
-                .sectionTitle()
-                .padding(.horizontal, 6)
-
-            if mine.isEmpty {
-                Text("Questions you ask the host, and their answers, show up here.")
-                    .rowDetail()
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface, in: .rect(cornerRadius: 24))
-                    .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(mine.enumerated()), id: \.element.id) { index, question in
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(alignment: .top, spacing: 10) {
-                                Image(systemName: "bubble.left.fill")
-                                    .foregroundStyle(Theme.tabSelected)
-                                    .padding(.top, 3)
-                                Text(question.text)
-                                    .rowTitle()
-                                    .multilineTextAlignment(.leading)
-                            }
-                            if let answer = question.answer {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Answer from \(current.host)")
-                                        .scaledFont(13, weight: .semibold, maxScale: 1.25)
-                                        .foregroundStyle(Theme.tabSelected)
-                                    Text(answer)
-                                        .rowDetail()
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .background(Theme.lilac, in: .rect(cornerRadius: 16))
-                            } else {
-                                Label("Waiting for \(current.host) to reply", systemImage: "clock")
-                                    .scaledFont(13, maxScale: 1.3)
-                                    .foregroundStyle(Theme.gatherText)
-                            }
-                        }
-                        .padding(.vertical, 14)
-                        if index < mine.count - 1 {
-                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .background(Theme.surface, in: .rect(cornerRadius: 24))
-                .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-            }
-
-            Button { showContactHost = true } label: {
-                Label("Ask the host", systemImage: "bubble.left.and.text.bubble.right")
-                    .scaledFont(15, weight: .semibold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.horizontal, 18)
-                    .frame(height: 44)
-                    .background(Capsule().fill(Theme.lavender))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 6)
-        }
-    }
-
-    // MARK: Host view
-
-    private func hostPanel(_ proxy: ScrollViewProxy) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: "star.fill")
-                .scaledFont(17, maxScale: 1.2)
-                .foregroundStyle(Theme.ink)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(Theme.surface.opacity(0.8)))
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("You’re hosting this event")
-                    .rowTitle()
-                Text(current.registeredCount == 1
-                     ? "1 family registered"
-                     : "\(current.registeredCount) families registered")
-                    .rowDetail()
-            }
-            Spacer(minLength: 8)
-            if current.unansweredCount > 0 {
-                Button { withAnimation { proxy.scrollTo("questions", anchor: .top) } } label: {
-                    Text("\(current.unansweredCount) new")
-                        .scaledFont(14, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Color.white)
-                        .padding(.horizontal, 14)
-                        .frame(height: 36)
-                        .background(Capsule().fill(Theme.buttonFill))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(current.unansweredCount) new questions. Show questions")
-            }
-        }
-        .padding(14)
-        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
-    }
-
-    /// Questions families sent. The host answers here and can add the answer to the public FAQs.
-    private var hostQuestionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Questions from families")
-                    .sectionTitle()
-                if current.unansweredCount > 0 {
-                    Text("\(current.unansweredCount) waiting")
-                        .scaledFont(13, weight: .semibold, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Theme.pink))
-                }
-            }
-            .padding(.horizontal, 6)
-
-            if current.questions.isEmpty {
-                Text("No questions yet. When a family asks something, it shows up here and on your Gather page.")
-                    .rowDetail()
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface, in: .rect(cornerRadius: 24))
-                    .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-            } else {
-                VStack(spacing: 0) {
-                    let items = current.sortedQuestions
-                    ForEach(Array(items.enumerated()), id: \.element.id) { index, question in
-                        HostQuestionRow(question: question) { answer, publish in
-                            state.answerQuestion(question.id, on: current.id, answer: answer, publish: publish)
-                        }
-                        if index < items.count - 1 {
-                            Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1)
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
-                .background(Theme.surface, in: .rect(cornerRadius: 24))
-                .roundedStroke(Theme.lilacBorder, cornerRadius: 24, lineWidth: 1)
-            }
-        }
-    }
-
-
-}
-
-/// One family question in the host's inbox: shows the question, and lets the host answer it.
-private struct HostQuestionRow: View {
-    let question: EventQuestion
-    let onAnswer: (_ answer: String, _ addToFAQs: Bool) -> Void
-
-    @State private var answer = ""
-    @State private var addToFAQs = true
-
-    private var canSend: Bool { !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: question.isAnswered ? "checkmark.circle.fill" : "questionmark.bubble.fill")
-                    .foregroundStyle(question.isAnswered ? Theme.tabSelected : Color(hex: 0xE5737A))
-                    .padding(.top, 2)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(question.text)
-                        .rowTitle()
-                        .multilineTextAlignment(.leading)
-                    Text("\(question.asker) · \(question.date.formatted(.relative(presentation: .named)))")
-                        .rowDetail()
-                }
-            }
-
-            if let reply = question.answer {
-                Text(reply)
-                    .rowDetail()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(Theme.lilac, in: .rect(cornerRadius: 16))
-            } else {
-                TextField("Write your answer", text: $answer, axis: .vertical)
-                    .lineLimit(2...5)
-                    .scaledFont(16, maxScale: 1.3)
-                    .gatherField()
-
-                Toggle("Add to this event’s FAQs", isOn: $addToFAQs)
-                    .scaledFont(15, maxScale: 1.3)
-                    .tint(Theme.tabSelected)
-
-                Button("Send answer") {
-                    guard canSend else { return }
-                    onAnswer(answer, addToFAQs)
-                }
-                .buttonStyle(.primaryHomeschool(isDimmed: !canSend))
-            }
-        }
-        .padding(.vertical, 14)
-    }
-}
-
-private struct EventAttendButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label.scaledFont(17, weight: .semibold, maxScale: 1.25)
-            .foregroundStyle(Color(hex: 0xFFFFFF))
-            .frame(minWidth: 100, minHeight: 46).padding(.horizontal, 16)
-            .background(LinearGradient(colors: [Color(hex: 0x2A2A2D), Color(hex: 0x1B1D1C)], startPoint: .top, endPoint: .bottom), in: Capsule())
-            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

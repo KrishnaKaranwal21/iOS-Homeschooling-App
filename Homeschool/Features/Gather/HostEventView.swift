@@ -126,7 +126,7 @@ struct HostEventView: View {
                 .foregroundStyle(Theme.gatherText)
         }
         .padding(14)
-        .background(Theme.pink_light, in: .rect(cornerRadius: 20))
+        .background(Theme.pinkLight, in: .rect(cornerRadius: 20))
     }
 
     private var makeItYours: some View {
@@ -182,7 +182,7 @@ struct HostEventView: View {
                 Text(place?.name ?? "Search a city or area")
                     .foregroundStyle(place == nil ? Theme.gatherText : Theme.ink)
                 Spacer()
-                Image(systemName: "chevron.down")
+                Image(systemName: "chevron.down").accessibilityHidden(true)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.gatherText)
             }
@@ -258,7 +258,7 @@ struct HostEventView: View {
                         HStack {
                             Text(isCustomAge ? "Custom range" : agePreset)
                             Spacer()
-                            Image(systemName: "chevron.up.chevron.down")
+                            Image(systemName: "chevron.up.chevron.down").accessibilityHidden(true)
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(Theme.gatherText)
                         }
@@ -302,7 +302,7 @@ struct HostEventView: View {
                             Text(parentPresence.rawValue)
                                 .multilineTextAlignment(.leading)
                             Spacer()
-                            Image(systemName: "chevron.up.chevron.down")
+                            Image(systemName: "chevron.up.chevron.down").accessibilityHidden(true)
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(Theme.gatherText)
                         }

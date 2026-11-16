@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Switches between the app's stages (sign in, onboarding, child setup, main tabs) from `AppState`, and reports whether the window is landscape.
 struct RootView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var sizeClass

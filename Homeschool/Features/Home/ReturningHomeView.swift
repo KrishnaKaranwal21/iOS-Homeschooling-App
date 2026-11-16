@@ -136,7 +136,8 @@ struct ReturningHomeView: View {
             completingActivities.removeAll()
             wrapUpRequest = nil
         }
-        // Once every task for the day is ticked off, show the same "Learning, wrapped up." pop-up as the week page.
+        // Once every task for the day is ticked off, show the same "Learning, wrapped up." pop-up as the week
+        // page.
         .task(id: wrapUpRequest?.id) {
             guard let summary = wrapUpRequest else { return }
             do { try await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 450)) }
@@ -244,7 +245,7 @@ struct ReturningHomeView: View {
             }
             Spacer(minLength: 0)
             Button { showTaskEditor = true } label: {
-                Image(systemName: "plus").font(.system(size: 24, weight: .medium))
+                Image(systemName: "plus").scaledFont(24, weight: .medium)
                     .foregroundStyle(HomePalette.plusInk)
                     .frame(width: 52, height: 52)
                     .background(HomePalette.plusFill, in: Circle())
@@ -305,7 +306,7 @@ struct ReturningHomeView: View {
                             Image(systemName: "checkmark.circle.fill")
                             Text("Completed · \(completedTasks.count)").cardTitle()
                             Spacer()
-                            Image(systemName: "chevron.down").rotationEffect(.degrees(showCompleted ? 180 : 0))
+                            Image(systemName: "chevron.down").accessibilityHidden(true).rotationEffect(.degrees(showCompleted ? 180 : 0))
                         }
                         .foregroundStyle(Theme.secondary).frame(minHeight: 44)
                     }
@@ -340,7 +341,7 @@ struct ReturningHomeView: View {
                         .opacity(finished ? 1 : 0)
                         .scaleEffect(finished || reduceMotion ? 1 : 0.65)
                 }
-                .font(.system(size: 26, weight: .regular))
+                .scaledFont(26, weight: .regular)
                 .foregroundStyle(palette.ink)
                 .frame(width: 28, height: 28)
                 .animation(tickMotion, value: finished)
@@ -376,7 +377,7 @@ struct ReturningHomeView: View {
             ZStack(alignment: .trailing) {
                 palette.paper
                 Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
-                    .font(.system(size: 62, weight: .ultraLight))
+                    .scaledFont(62, weight: .ultraLight)
                     .foregroundStyle(palette.ink.opacity(0.08))
                     .rotationEffect(.degrees(-15))
                     .padding(.trailing, 16)
@@ -450,33 +451,4 @@ struct ReturningHomeView: View {
         if today != newToday { today = newToday; selectedDate = newToday }
         state.prepareHomeWeek(for: child.id, today: newToday)
     }
-}
-
-private struct HomeSubjectSelection: Identifiable {
-    let activity: WeekActivity
-    var id: WeekActivity.ID { activity.id }
-}
-
-private struct HomeSubjectPressStyle: ButtonStyle {
-    let reduceMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
-    }
-}
-
-private enum HomePalette {
-    // Match the soft lavender surface and deeper purple text used by Progress.
-    static let taskSurface = Color(hex: 0xE6DEFF)
-    static let taskAccent = Color(hex: 0x4430A5)
-    static let ink = Color(hex: 0x1B1D1C)
-    static let onInk = Color(hex: 0xFFFFFF)
-    static let coral = Color(hex: 0xB46759)
-    // Add-activity button: soft lavender disc, white ring, deep navy plus.
-    static let plusFill = Color(hex: 0xE6E0FF)
-    static let plusInk = Color(hex: 0x2B2559)
-    static let plusRing = Color(hex: 0xFFFFFF)
 }

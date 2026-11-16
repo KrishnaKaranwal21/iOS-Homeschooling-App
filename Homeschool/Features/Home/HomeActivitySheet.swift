@@ -21,7 +21,7 @@ struct HomeActivitySheet: View {
                     .tracking(0.5).foregroundStyle(Theme.secondary)
                 Spacer(minLength: 12)
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark").font(.system(size: 17, weight: .medium))
+                    Image(systemName: "xmark").scaledFont(17, weight: .medium)
                         .frame(width: 44, height: 44).gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.35))
                 }
                 .accessibilityLabel("Close activity")

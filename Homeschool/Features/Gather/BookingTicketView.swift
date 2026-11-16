@@ -1,14 +1,16 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MARK: - BookingTicketView
+
+/// Full-screen booking ticket with its QR code, plus saving it as an image or sharing it.
 struct BookingTicketView: View {
     let event: Event
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
-    @State private var qrImage: UIImage?
+    @State private var qrImage: Image?
     @State private var ticketData: Data?
     @State private var showDownload = false
-    @State private var shareFile: TicketShareFile?
     @State private var errorMessage: String?
     @State private var savedNotice = false
 
@@ -49,7 +51,6 @@ struct BookingTicketView: View {
             guard let registration, current.isRegistered else { return }
             prepareTicket(registration)
         }
-        .sheet(item: $shareFile) { item in TicketShareSheet(url: item.url) }
         .fileExporter(isPresented: $showDownload, document: TicketImageDocument(data: ticketData ?? Data()),
             contentType: .png, defaultFilename: exportName) { result in
                 switch result {
@@ -70,7 +71,7 @@ struct BookingTicketView: View {
                 .accessibilityAddTraits(.isHeader)
             HStack {
                 Button { dismiss() } label: {
-                    Image(systemName: "xmark").font(.system(size: 17, weight: .regular))
+                    Image(systemName: "xmark").scaledFont(17, weight: .regular)
                         .foregroundStyle(Theme.ink).frame(width: 44, height: 44).gatherGlass(in: Circle())
                 }.buttonStyle(.plain).accessibilityLabel("Close ticket")
                 Spacer()
@@ -85,7 +86,7 @@ struct BookingTicketView: View {
 
     private var exportActions: some View {
         HStack(spacing: 12) {
-            Button(action: shareTicket) {
+            ShareLink(item: TicketImage(data: ticketData ?? Data()), preview: SharePreview(exportName)) {
                 Label("Share", systemImage: "square.and.arrow.up")
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .foregroundStyle(Theme.ink).background(Theme.field, in: Capsule())
@@ -112,7 +113,7 @@ struct BookingTicketView: View {
         do {
             let payload = try BookingCode(event: current, registration: booking).encoded()
             guard let qr = BookingCode.image(for: payload) else { throw TicketExportError.renderFailed }
-            qrImage = UIImage(cgImage: qr)
+            qrImage = Image(decorative: qr, scale: 1)
             let renderer = ImageRenderer(content: ticket(booking)
                 .frame(width: 390).padding(20).background(Theme.background)
                 .environment(\.colorScheme, .light).environment(\.dynamicTypeSize, .large))
@@ -121,97 +122,17 @@ struct BookingTicketView: View {
             ticketData = data
         } catch { errorMessage = "The ticket couldn’t be prepared. Please try again." }
     }
-
-    private func shareTicket() {
-        guard let ticketData, let registration else { return }
-        do {
-            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("BookingTickets", isDirectory: true)
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            let url = directory.appendingPathComponent("\(exportName)-\(registration.id.uuidString).png")
-            try ticketData.write(to: url, options: .atomic)
-            shareFile = TicketShareFile(url: url)
-        } catch { errorMessage = "The ticket couldn’t be shared. Please try again." }
-    }
 }
 
-private enum TicketExportError: Error { case renderFailed }
+// MARK: - TicketExportError
 
-struct BookingTicketCard: View {
-    let event: Event
-    let registration: Registration
-    let qrImage: UIImage?
+/// Why exporting a ticket image failed.
+enum TicketExportError: Error { case renderFailed }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Group {
-                if let qrImage {
-                    Image(uiImage: qrImage).interpolation(.none).resizable().scaledToFit()
-                        .accessibilityLabel("Booking QR code. Reference \(registration.code)")
-                } else {
-                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .accessibilityLabel("Preparing booking QR code")
-                }
-            }
-            .frame(maxWidth: 184).aspectRatio(1, contentMode: .fit).padding(8).background(.white, in: .rect(cornerRadius: 10))
-            .frame(maxWidth: .infinity).padding(.top, 40).padding(.bottom, 8)
+// MARK: - TicketImageDocument
 
-            DashedLine(vertical: false).stroke(Theme.secondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [2, 4]))
-                .frame(height: 1).padding(.vertical, 4)
-            VStack(alignment: .leading, spacing: 7) {
-                Text(event.title).scaledFont(19, weight: .bold, maxScale: 1.35).foregroundStyle(Theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(event.mode == .online ? "Online event" : event.locationLines.title)
-                    .scaledFont(14, maxScale: 1.35).foregroundStyle(Theme.secondary)
-            }
-            VStack(spacing: 12) {
-                detail("Name", registration.registrant.parentName)
-                detail("Group", event.host)
-                detail("Date", event.start.formatted(.dateTime.day().month(.abbreviated).year()))
-                detail("Time", event.timeWithZone)
-                detail(registration.places == 1 ? "Learner" : "Learners", registration.registrant.childName)
-                if registration.places > 1 { detail("Places", String(registration.places)) }
-                detail("Booking", registration.code)
-            }
-            .padding(.top, 3)
-        }
-        .padding(.horizontal, 22).padding(.bottom, 30)
-        .background(Theme.surface, in: TicketNotchShape())
-        .overlay { TicketNotchShape().stroke(Theme.cardBorder.opacity(0.35), lineWidth: 0.5) }
-        .accessibilityIdentifier("ticket.booking")
-    }
-
-    private func detail(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Text(label).foregroundStyle(Theme.secondary).frame(width: 65, alignment: .leading)
-            Text(value.isEmpty ? "—" : value).foregroundStyle(Theme.ink)
-                .frame(maxWidth: .infinity, alignment: .trailing).multilineTextAlignment(.trailing)
-        }
-        .scaledFont(13, maxScale: 1.35).fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-private struct TicketNotchShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let radius: CGFloat = 20
-        let notch: CGFloat = 32
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX - notch, y: rect.minY))
-        path.addArc(center: CGPoint(x: rect.midX, y: rect.minY), radius: notch, startAngle: .degrees(180), endAngle: .degrees(0), clockwise: true)
-        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + radius), control: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX - radius, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
-        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - radius), control: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
-        path.addQuadCurve(to: CGPoint(x: rect.minX + radius, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
-        path.closeSubpath()
-        return path
-    }
-}
-
-private struct TicketImageDocument: FileDocument {
+/// A PNG of the ticket, used by the system file exporter.
+struct TicketImageDocument: FileDocument {
     static var readableContentTypes: [UTType] { [.png] }
     let data: Data
     init(data: Data) { self.data = data }
@@ -219,17 +140,13 @@ private struct TicketImageDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
-private struct TicketShareFile: Identifiable {
-    let id = UUID()
-    let url: URL
-}
+// MARK: - TicketImage
 
-private struct TicketShareSheet: UIViewControllerRepresentable {
-    let url: URL
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        controller.completionWithItemsHandler = { _, _, _, _ in try? FileManager.default.removeItem(at: url) }
-        return controller
+/// A PNG of the ticket that `ShareLink` hands to the system share sheet.
+struct TicketImage: Transferable {
+    let data: Data
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .png) { $0.data }
     }
-    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

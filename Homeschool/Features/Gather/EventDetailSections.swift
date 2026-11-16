@@ -3,6 +3,8 @@ import MapKit
 import PhotosUI
 import EventKitUI
 
+// MARK: - EventLocationSection
+
 struct EventLocationSection: View {
     let event: Event
     @Environment(AppState.self) private var state
@@ -24,7 +26,7 @@ struct EventLocationSection: View {
                 Text("Location").scaledFont(23, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
                 Spacer()
                 Image(systemName: event.mode == .online ? "video" : "mappin.and.ellipse")
-                    .font(.system(size: 24, weight: .light)).foregroundStyle(Theme.accent).accessibilityHidden(true)
+                    .scaledFont(24, weight: .light).foregroundStyle(Theme.accent).accessibilityHidden(true)
             }
             if event.mode == .online {
                 onlineDetails
@@ -41,7 +43,7 @@ struct EventLocationSection: View {
                                                 .padding(.horizontal, 8).padding(.vertical, 4).background(Theme.surface, in: Capsule())
                                         }
                                         Image(systemName: "mappin.circle.fill")
-                                            .font(.system(size: 42)).foregroundStyle(Color(hex: 0xF2A070), .white)
+                                            .scaledFont(42).foregroundStyle(Color(hex: 0xF2A070), .white)
                                     }
                                 }
                             }
@@ -51,7 +53,7 @@ struct EventLocationSection: View {
                             Theme.field
                             VStack(spacing: 12) {
                                 if loading { ProgressView() }
-                                Image(systemName: "map").font(.system(size: 34, weight: .light)).foregroundStyle(Theme.accent)
+                                Image(systemName: "map").scaledFont(34, weight: .light).foregroundStyle(Theme.accent)
                                 Text(loading ? "Finding the event location…" : "Open location in Maps")
                                     .font(.subheadline).foregroundStyle(Theme.secondary)
                             }
@@ -100,6 +102,7 @@ struct EventLocationSection: View {
     }
 }
 
+// MARK: - EventPhotosSection
 
 struct EventPhotosSection: View {
     let event: Event
@@ -145,7 +148,7 @@ struct EventPhotosSection: View {
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
                         HStack(spacing: 18) {
                             Image(systemName: "camera")
-                                .font(.system(size: 26, weight: .light))
+                                .scaledFont(26, weight: .light)
 
                             Text("Be the first one to share a photo from this event!")
                                 .scaledFont(15, maxScale: 1.35)
@@ -171,7 +174,7 @@ struct EventPhotosSection: View {
                 } else {
                     HStack(spacing: 18) {
                         Image(systemName: "lock")
-                            .font(.system(size: 24, weight: .light))
+                            .scaledFont(24, weight: .light)
 
                         Text("Register for this event to share photos.")
                             .scaledFont(15, maxScale: 1.35)
@@ -265,6 +268,7 @@ struct EventPhotosSection: View {
     }
 }
 
+// MARK: - EventCalendarSheet
 
 /// EventKit's system editor lets the family choose a calendar and confirm the save.
 struct EventCalendarSheet: UIViewControllerRepresentable {
@@ -303,5 +307,71 @@ struct EventCalendarSheet: UIViewControllerRepresentable {
         func eventEditViewController(_ controller: EKEventEditViewController, didCompleteWith action: EKEventEditViewAction) {
             onFinish(action == .saved)
         }
+    }
+}
+
+// MARK: - HostQuestionRow
+
+/// One family question in the host's inbox: shows the question, and lets the host answer it.
+struct HostQuestionRow: View {
+    let question: EventQuestion
+    let onAnswer: (_ answer: String, _ addToFAQs: Bool) -> Void
+
+    @State private var answer = ""
+    @State private var addToFAQs = true
+
+    private var canSend: Bool { !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: question.isAnswered ? "checkmark.circle.fill" : "questionmark.bubble.fill")
+                    .foregroundStyle(question.isAnswered ? Theme.tabSelected : Color(hex: 0xE5737A))
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(question.text)
+                        .rowTitle()
+                        .multilineTextAlignment(.leading)
+                    Text("\(question.asker) · \(question.date.formatted(.relative(presentation: .named)))")
+                        .rowDetail()
+                }
+            }
+
+            if let reply = question.answer {
+                Text(reply)
+                    .rowDetail()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.lilac, in: .rect(cornerRadius: 16))
+            } else {
+                TextField("Write your answer", text: $answer, axis: .vertical)
+                    .lineLimit(2...5)
+                    .scaledFont(16, maxScale: 1.3)
+                    .gatherField()
+
+                Toggle("Add to this event’s FAQs", isOn: $addToFAQs)
+                    .scaledFont(15, maxScale: 1.3)
+                    .tint(Theme.tabSelected)
+
+                Button("Send answer") {
+                    guard canSend else { return }
+                    onAnswer(answer, addToFAQs)
+                }
+                .buttonStyle(.primaryHomeschool(isDimmed: !canSend))
+            }
+        }
+        .padding(.vertical, 14)
+    }
+}
+
+// MARK: - EventAttendButtonStyle
+
+struct EventAttendButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.scaledFont(17, weight: .semibold, maxScale: 1.25)
+            .foregroundStyle(Color(hex: 0xFFFFFF))
+            .frame(minWidth: 100, minHeight: 46).padding(.horizontal, 16)
+            .background(LinearGradient(colors: [Color(hex: 0x2A2A2D), Color(hex: 0x1B1D1C)], startPoint: .top, endPoint: .bottom), in: Capsule())
+            .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

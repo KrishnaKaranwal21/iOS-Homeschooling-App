@@ -1,12 +1,15 @@
 import Foundation
 
+/// Display text and links derived from an `Event` for the Gather screens.
 extension Event {
+    /// The event's web link when it is an online event and its location is a valid http(s) address.
     var onlineURL: URL? {
         guard mode == .online, let url = URL(string: location.trimmingCharacters(in: .whitespacesAndNewlines)),
               ["https", "http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
         return url
     }
 
+    /// Upper-case feed date such as "TODAY • 10:00 AM" or "TOMORROW • …", relative to `now`.
     func feedDateText(now: Date = .now, calendar: Calendar = .current) -> String {
         let day: String
         if calendar.isDate(start, inSameDayAs: now) {

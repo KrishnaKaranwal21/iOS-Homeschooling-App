@@ -94,13 +94,13 @@ struct ChildSwitcherPopover: View {
 
             Button(action: onAddChild) {
                 HStack(spacing: 12) {
-                    Image(systemName: "plus").font(.system(size: 16, weight: .medium))
+                    Image(systemName: "plus").scaledFont(16, weight: .medium)
                         .foregroundStyle(Theme.accent)
                         .frame(width: 36, height: 36).background(Theme.lilac, in: Circle())
                     Text("Add a child").scaledFont(15, weight: .semibold, maxScale: 1.3)
                         .foregroundStyle(Theme.ink)
                     Spacer(minLength: 4)
-                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                    Image(systemName: "chevron.right").accessibilityHidden(true).scaledFont(11, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
                 }
                 .padding(.horizontal, 10).frame(minHeight: 56).contentShape(Rectangle())
@@ -129,7 +129,7 @@ struct ChildSwitcherPopover: View {
                 }
                 Spacer(minLength: 0)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20, weight: .regular))
+                    .scaledFont(20, weight: .regular)
                     .foregroundStyle(selected ? Theme.accent : Theme.cardBorder)
                     .accessibilityHidden(true)
             }

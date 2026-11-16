@@ -172,7 +172,8 @@ struct GatherEventPoster: View {
             ZStack(alignment: .topLeading) {
                 colors.background
                 VStack(alignment: .leading, spacing: 0) {
-                    // The top line is no longer shown, but it still holds its space so the artwork keeps its layout.
+                    // The top line is no longer shown, but it still holds its space so the artwork keeps its
+                    // layout.
                     Text("Homeschool")
                         .font(.system(size: max(8, size.width * 0.028), weight: .semibold))
                         .hidden()

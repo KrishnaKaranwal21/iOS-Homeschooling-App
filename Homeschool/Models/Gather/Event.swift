@@ -1,0 +1,210 @@
+import SwiftUI
+import UIKit
+
+// MARK: - Event
+
+struct Event: Identifiable, Hashable, Codable {
+    enum Kind: String, CaseIterable, Identifiable, Codable {
+        case gathering = "Gathering"
+        case workshop = "Workshop"
+        var id: String { rawValue }
+    }
+
+    enum Mode: String, CaseIterable, Identifiable, Codable {
+        case inPerson = "In person"
+        case online = "Online"
+        var id: String { rawValue }
+    }
+
+    /// What the host expects of parents and guardians at the event.
+    enum ParentPresence: String, CaseIterable, Identifiable, Codable {
+        case required   = "Parent/guardian required to stay"
+        case optional   = "Parent/guardian optional"
+        case dropOffOnly = "Drop-off only (No parent/guardian)"
+        var id: String { rawValue }
+
+        var shortTitle: String {
+            switch self {
+            case .required:   return "Parent stays"
+            case .optional:   return "Parent optional"
+            case .dropOffOnly: return "Drop-off only"
+            }
+        }
+
+        var detail: String {
+            switch self {
+            case .required:   return "An adult must remain present throughout the session."
+            case .optional:   return "You are welcome to stay or drop off your child."
+            case .dropOffOnly: return "Independent session for learners; drop-off and pick-up only."
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .required:   return "person.2.fill"
+            case .optional:   return "person.crop.circle.badge.questionmark"
+            case .dropOffOnly: return "figure.walk.departure"
+            }
+        }
+    }
+
+    var id = UUID()
+    var title: String
+    /// Art, Nature, Music, Sports or Study. Older values are mapped by `normalizedCategory`.
+    var category: String
+    var kind: Kind = .gathering
+    var start: Date
+    var end: Date
+    var host: String
+    var hostRole = "Parent host"
+    var locality = "Potheri"
+    /// Country of the locality, used when filtering by country.
+    var country = "India"
+    /// First line is the venue, an optional second line is the area or address.
+    var location: String
+    var mode: Mode = .inPerson
+    var ages: String
+    var parentPresence: ParentPresence = .required
+    var about: String
+    /// Questions the host answered ahead of time.
+    var faqs: [EventFAQ] = []
+    /// Price in rupees. `nil` means free.
+    var price: Int? = nil
+    var symbol: String
+    /// Name of an image in the asset catalog. The cover falls back to a colour when it is missing.
+    var coverName: String? = nil
+    /// Photo picked by a parent when hosting.
+    var coverImage: PickedImage? = nil
+    var isRegistered = false
+    /// True when the signed-in parent created this event. The detail page then shows the host's tools.
+    var isHostedByMe = false
+    /// How many families have registered (shown to the host).
+    var registeredCount = 0
+    /// Questions families sent to the host.
+    var questions: [EventQuestion] = []
+    /// A coordinate verified by the host; nil for older catalog events.
+    var venueCoordinate: EventCoordinate? = nil
+    var photos: [PickedImage] = []
+}
+
+// MARK: - Event extensions
+
+extension Event {
+    /// Categories a host can choose from. The Gather page adds "Explore" and "Your events" in front.
+    static let categories = ["Art", "Nature", "Music", "Sports", "Study"]
+
+    static func symbol(for category: String) -> String {
+        switch normalized(category) {
+        case "Art":    return "paintpalette"
+        case "Nature": return "leaf"
+        case "Music":  return "music.note"
+        case "Sports": return "figure.run"
+        default:       return "book"
+        }
+    }
+
+    /// Maps any earlier category (Science, Habit, Coding, Animals, Space, Reading, Others...) onto the five current ones.
+    static func normalized(_ category: String) -> String {
+        switch category {
+        case "Art", "Nature", "Music", "Sports", "Study": return category
+        case "Animals": return "Nature"
+        default: return "Study"
+        }
+    }
+
+    var normalizedCategory: String { Self.normalized(category) }
+
+    /// The host's own answers first, then the basics every family asks about.
+    var allFAQs: [EventFAQ] {
+        var standard: [EventFAQ] = [
+            EventFAQ(question: "Who is this for?",
+                     answer: "This session is planned for \(ages.lowercased() == "all ages" ? "all ages" : ages.lowercased())."),
+            EventFAQ(question: "Can I stay with my child?",
+                     answer: "\(parentPresence.rawValue). \(parentPresence.detail)"),
+            EventFAQ(question: "Can I cancel my place?",
+                     answer: isFree
+                        ? "Yes. Free places can be cancelled any time from your registration."
+                        : "Paid places can’t be cancelled. The \(priceText) fee is non-refundable, even if you can’t attend.")
+        ]
+        standard.append(EventFAQ(question: mode == .online ? "How do we join?" : "Where do we meet?",
+                                 answer: mode == .online
+                                    ? "This is an online session. The host shares the meeting link in the details."
+                                    : location.replacingOccurrences(of: "\n", with: ", ")))
+        return faqs + standard
+    }
+
+    var day: Int { Calendar.current.component(.day, from: start) }
+    var month: String { start.formatted(.dateTime.month(.abbreviated)).uppercased() }
+    var weekday: String { start.formatted(.dateTime.weekday(.abbreviated)).uppercased() }
+    var time: String { start.formatted(date: .omitted, time: .shortened) }
+
+    /// "9 AM" on the hour, "9:30 AM" otherwise.
+    var shortTime: String {
+        Calendar.current.component(.minute, from: start) == 0
+            ? start.formatted(.dateTime.hour(.defaultDigits(amPM: .abbreviated)))
+            : time
+    }
+
+    /// "Thu, 12 Nov · 9 AM"
+    var shortDateText: String {
+        let weekday = start.formatted(.dateTime.weekday(.abbreviated))
+        let date = start.formatted(.dateTime.day().month(.abbreviated))
+        return "\(weekday), \(date) · \(shortTime)"
+    }
+
+    /// Stays the same between launches (ids do not), so bookmarks can be remembered.
+    var storageKey: String { "\(title)|\(Int(start.timeIntervalSince1970))" }
+
+    var isFree: Bool { price == nil }
+
+    /// Counts one family once, even if a registration is submitted again.
+    mutating func updateRegistration(_ registered: Bool) {
+        guard isRegistered != registered else { return }
+        registeredCount = max(0, registeredCount + (registered ? 1 : -1))
+        isRegistered = registered
+    }
+
+    var unansweredCount: Int { questions.filter { !$0.isAnswered }.count }
+
+    /// Unanswered questions first, then the newest answered ones.
+    var sortedQuestions: [EventQuestion] {
+        questions.sorted {
+            if $0.isAnswered != $1.isAnswered { return !$0.isAnswered }
+            return $0.date > $1.date
+        }
+    }
+
+    var priceText: String {
+        guard let price else { return "Free" }
+        return price.formatted(.currency(code: "INR").precision(.fractionLength(0)))
+    }
+
+    var locationLines: (title: String, detail: String?) {
+        let lines = location.split(separator: "\n", maxSplits: 1).map(String.init)
+        return (lines.first ?? location, lines.count > 1 ? lines[1] : nil)
+    }
+}
+
+// MARK: - PickedImage
+
+/// Original photo bytes persist alongside a stable identity; SwiftUI images are rebuilt on demand.
+struct PickedImage: Identifiable, Hashable, Codable {
+    var id = UUID()
+    let data: Data
+
+    init?(data: Data) {
+        guard let image = UIImage(data: data), let jpeg = image.jpegData(compressionQuality: 0.8) else { return nil }
+        self.data = jpeg
+    }
+
+    var image: Image {
+        Image(uiImage: UIImage(data: data) ?? UIImage())
+    }
+}
+
+// MARK: - EventCoordinate
+
+struct EventCoordinate: Hashable, Codable {
+    let latitude: Double
+    let longitude: Double
+}

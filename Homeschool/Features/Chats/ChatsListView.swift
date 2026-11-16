@@ -81,7 +81,7 @@ struct ChatsListView: View {
             NewChatSheet { id in
                 showNewChat = false
                 // Wait for the sheet to close before opening the chat.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openID = id }
+                Task { try? await Task.sleep(for: .milliseconds(350)); openID = id }
             }
         }
         .sheet(isPresented: $showLabelEditor) { LabelEditorSheet(editing: nil) }
@@ -89,7 +89,7 @@ struct ChatsListView: View {
         .sheet(isPresented: $showLocked) {
             LockedChatsView { id in
                 showLocked = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { openID = id }
+                Task { try? await Task.sleep(for: .milliseconds(350)); openID = id }
             }
         }
         .sheet(item: $editingLabel) { label in LabelEditorSheet(editing: label) }
@@ -113,7 +113,7 @@ struct ChatsListView: View {
     private func openPendingChat() {
         guard let id = state.chats.pendingOpenID else { return }
         state.chats.pendingOpenID = nil
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { openID = id }
+        Task { try? await Task.sleep(for: .milliseconds(300)); openID = id }
     }
 
     // MARK: Header
@@ -163,7 +163,7 @@ struct ChatsListView: View {
 
                 Button { showLabelEditor = true } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .medium))
+                        .scaledFont(16, weight: .medium)
                         .foregroundStyle(Theme.secondary)
                         .frame(width: 46, height: 36)
                         .background(Capsule().fill(Theme.field))
@@ -188,7 +188,7 @@ struct ChatsListView: View {
                         .overlay(Circle().stroke(Theme.ink.opacity(0.12), lineWidth: 0.5))
                 }
                 if label.id == ChatLabel.favourites.id {
-                    Image(systemName: "star.fill").font(.system(size: 11))
+                    Image(systemName: "star.fill").scaledFont(11)
                 }
                 Text(label.name)
                     .scaledFont(15, weight: selected ? .semibold : .regular, maxScale: 1.2)
@@ -286,7 +286,7 @@ struct ChatsListView: View {
                             .foregroundStyle(Theme.secondary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.right").accessibilityHidden(true)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.dotInactive)
                 }
@@ -379,7 +379,7 @@ struct ChatsListView: View {
                             .lineLimit(1)
                         if thread.isFavourite {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 11))
+                                .scaledFont(11)
                                 .foregroundStyle(Theme.tabIconInactive)
                         }
                         ForEach(labelColors(for: thread), id: \.self) { color in
@@ -407,12 +407,12 @@ struct ChatsListView: View {
                     HStack(spacing: 6) {
                         if thread.isPinned {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 12))
+                                .scaledFont(12)
                                 .foregroundStyle(Theme.secondary)
                         }
                         if thread.isMuted {
                             Image(systemName: "bell.slash")
-                                .font(.system(size: 14))
+                                .scaledFont(14)
                                 .foregroundStyle(Theme.secondary)
                         }
                         if thread.hasUnread {
@@ -458,7 +458,7 @@ struct ChatsListView: View {
             VStack(spacing: 10) {
                 Spacer()
                 Image(systemName: query.isEmpty ? "tray" : "magnifyingglass")
-                    .font(.system(size: 40))
+                    .scaledFont(40)
                     .foregroundStyle(Theme.tabIconInactive)
                 Text(query.isEmpty ? "Nothing here yet" : "No results for “\(query)”")
                     .sectionTitle()
@@ -528,112 +528,7 @@ struct ChatsListView: View {
     }
 }
 
-// MARK: - Shared pieces
-
-struct ChatAvatar: View {
-    let thread: ChatThread
-    var size: CGFloat = 56
-
-    var body: some View {
-        Text(thread.initials)
-            .font(.system(size: size * 0.34, weight: .bold))
-            .foregroundStyle(Theme.ink)
-            .frame(width: size, height: size)
-            .background(Circle().fill(thread.avatarColor))
-            .accessibilityHidden(true)
-    }
-}
-
-/// One tick when sent, two when delivered, two in the accent colour once read.
-struct ReadTicks: View {
-    let status: MessageStatus
-
-    var body: some View {
-        HStack(spacing: -6) {
-            Image(systemName: "checkmark")
-            if status != .sent { Image(systemName: "checkmark") }
-        }
-        .font(.system(size: 11, weight: .bold))
-        .foregroundStyle(status == .read ? Theme.tabSelected : Theme.secondary)
-        .accessibilityLabel(status == .sent ? "Sent" : (status == .delivered ? "Delivered" : "Read"))
-    }
-}
-
-
-// MARK: - Locked chats
-
-enum ChatAuth {
-    /// Asks for Face ID, Touch ID or the passcode. A phone without any lock has nothing to ask, so it passes.
-    @MainActor static func unlock(reason: String) async -> Bool {
-        let context = LAContext()
-        var error: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return true }
-        return (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) ?? false
-    }
-}
-
-/// The chats hidden with "Chat lock". Swipe a chat to take the lock off.
-struct LockedChatsView: View {
-    let onOpen: (ChatThread.ID) -> Void
-
-    @Environment(AppState.self) private var state
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if state.chats.lockedThreads.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "lock")
-                            .font(.system(size: 36))
-                            .foregroundStyle(Theme.tabIconInactive)
-                        Text("No locked chats")
-                            .scaledFont(18, weight: .bold, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                        Text("Turn on Chat lock in a chat's info to hide it here.")
-                            .scaledFont(15, maxScale: 1.3)
-                            .foregroundStyle(Theme.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(40)
-                } else {
-                    List {
-                        ForEach(state.chats.lockedThreads) { thread in
-                            Button { onOpen(thread.id) } label: {
-                                HStack(spacing: 14) {
-                                    ChatAvatar(thread: thread, size: 52)
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(thread.title)
-                                            .scaledFont(17, weight: .semibold, maxScale: 1.25)
-                                            .foregroundStyle(Theme.ink)
-                                        Text(thread.preview)
-                                            .scaledFont(15, maxScale: 1.25)
-                                            .foregroundStyle(Theme.secondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions {
-                                Button { state.chats.toggleLock(thread.id) } label: {
-                                    Label("Unlock", systemImage: "lock.open")
-                                }
-                                .tint(Theme.tabSelected)
-                            }
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.background)
-            .navigationTitle("Locked chats")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
-        }
-    }
+#Preview("Chats") {
+    ChatsListView()
+        .environment(AppState())
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Cover image
+// MARK: - Event extensions
 
 extension Event {
     /// Colour used when an event has no photo yet.
@@ -14,6 +14,8 @@ extension Event {
         }
     }
 }
+
+// MARK: - EventCover
 
 /// Photo picked by the host, then an image from the asset catalog, then a soft colour with the event symbol.
 /// The caller sets the frame.
@@ -37,7 +39,7 @@ struct EventCover: View {
     }
 }
 
-// MARK: - Small pieces
+// MARK: - GatherPageDots
 
 struct GatherPageDots: View {
     let count: Int
@@ -57,6 +59,8 @@ struct GatherPageDots: View {
     }
 }
 
+// MARK: - GatherInfoRow
+
 struct GatherInfoRow: View {
     let icon: String
     let text: String
@@ -73,6 +77,8 @@ struct GatherInfoRow: View {
         .foregroundStyle(Theme.gatherText)
     }
 }
+
+// MARK: - GatherSegmented
 
 /// Capsule switch with a sliding highlight, e.g. Gathering / Workshop.
 struct GatherSegmented<Value: Hashable>: View {
@@ -93,7 +99,7 @@ struct GatherSegmented<Value: Hashable>: View {
     }
 }
 
-// MARK: - Date and time fields
+// MARK: - GatherDateField
 
 /// Tap to open a calendar. Choosing a day saves it and closes the calendar.
 struct GatherDateField: View {
@@ -126,6 +132,8 @@ struct GatherDateField: View {
     }
 }
 
+// MARK: - GatherTimeField
+
 struct GatherTimeField: View {
     @Binding var date: Date
     @State private var isPresented = false
@@ -151,7 +159,7 @@ struct GatherTimeField: View {
     }
 }
 
-// MARK: - Shapes
+// MARK: - GatherWaveShape
 
 /// Cover photo outline: rounded top corners and a gentle wave along the bottom edge.
 struct GatherWaveShape: Shape {
@@ -180,6 +188,8 @@ struct GatherWaveShape: Shape {
     }
 }
 
+// MARK: - DashedLine
+
 struct DashedLine: Shape {
     let vertical: Bool
 
@@ -196,238 +206,62 @@ struct DashedLine: Shape {
     }
 }
 
-// MARK: - "Your next gathering" ticket
+// MARK: - EventAttendingBadge
 
-struct TicketCard: View {
-    let event: Event
-    let onViewConfirmation: () -> Void
-
-    private let tileColumn: CGFloat = 114
-    private let dashColor = Theme.ink.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
-    fileprivate static let topHeight: CGFloat = 128
-    fileprivate static let cardHeight: CGFloat = 176
+/// "Attending" / "Hosting" pill shown on an event cover.
+/// A white pill with dark text stays readable over any event cover.
+struct EventAttendingBadge: View {
+    var title = "Going"
+    var symbol = "checkmark.circle.fill"
+    var tint = Color(hex: 0x3F9E7E)
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 0) {
-                dateTile
-                    .frame(width: tileColumn, height: Self.topHeight)
-                details
-                    .padding(.top, 20)
-                    .padding(.leading, 20)
-                    .padding(.trailing, 16)
-                Spacer(minLength: 0)
-            }
-            .frame(height: Self.topHeight)
-            .overlay(alignment: .leading) {
-                DashedLine(vertical: true)
-                    .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .frame(width: 1)
-                    .padding(.leading, tileColumn)
-                    .padding(.top, 14)
-            }
-
-            DashedLine(vertical: false)
-                .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                .frame(height: 1)
-
-            HStack {
-                Text("Your place is saved")
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.secondary)
-                Spacer(minLength: 8)
-                Button(action: onViewConfirmation) {
-                    Text("View ticket")
-                        .scaledFont(15, weight: .semibold, maxScale: 1.3)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 9)
-                        .gatherGlass(in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 20)
-            .frame(maxHeight: .infinity)
-        }
-        .frame(height: Self.cardHeight)
-        .background(Theme.pink)
-        .clipShape(.rect(cornerRadius: 28))
-    }
-
-    private var dateTile: some View {
-        VStack(spacing: 2) {
-            Text(event.month)
-                .scaledFont(13, weight: .bold, maxScale: 1.2)
-                .foregroundStyle(warmText)
-            Capsule().fill(Theme.pink).frame(width: 20, height: 4)
-            Text(event.day.formatted(.number.precision(.integerLength(2...))))
-                .scaledFont(36, weight: .heavy, maxScale: 1.2)
-                .foregroundStyle(Theme.ink)
-            Text(event.weekday)
-                .scaledFont(12, maxScale: 1.2)
-                .foregroundStyle(Theme.gatherText)
-        }
-        .frame(width: 72, height: 86)
-        .background(Theme.surface, in: .rect(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-        .rotationEffect(.degrees(-6))
-    }
-
-    private var details: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(event.title)
-                .scaledFont(24, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.6)
-                .foregroundStyle(Theme.ink)
-                .lineLimit(2)
-                .minimumScaleFactor(0.75)
-
-            HStack(spacing: 6) {
-                Image(systemName: "clock.fill")
-                Text(event.time)
-                Rectangle().fill(Theme.ink.opacity(0.35)).frame(width: 1, height: 14).padding(.horizontal, 2)
-                Image(systemName: "mappin.circle.fill")
-                Text(event.locality).lineLimit(1)
-            }
-            .scaledFont(14, maxScale: 1.2)
-            .foregroundStyle(warmText)
-
-            Text("By \(event.host)")
-                .scaledFont(14, maxScale: 1.2)
-                .foregroundStyle(Theme.secondary)
+        HStack(spacing: 6) {
+            Image(systemName: symbol)
+                .foregroundStyle(tint)
+            Text(title)
+                .foregroundStyle(Color(hex: 0x2B2840))
                 .lineLimit(1)
         }
-    }
-}
-
-// MARK: - Shown when there are no registrations yet
-
-struct EmptyTicketCard: View {
-    private let tileColumn: CGFloat = 114
-    private let dashColor = Theme.ink.opacity(0.22)
-    private let warmText = Color(hex: 0x9C4A4B)
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 0) {
-                emblem
-                    .frame(width: tileColumn, height: TicketCard.topHeight)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Nothing booked yet")
-                        .scaledFont(22, weight: .heavy, maxScale: 1.2)
-                        .tracking(-0.5)
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                    Text("Reserve a spot and your ticket will show up here.")
-                        .scaledFont(14, maxScale: 1.2)
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(3)
-                }
-                .padding(.leading, 20)
-                .padding(.trailing, 16)
-                Spacer(minLength: 0)
-            }
-            .frame(height: TicketCard.topHeight)
-            .overlay(alignment: .leading) {
-                DashedLine(vertical: true)
-                    .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .frame(width: 1)
-                    .padding(.leading, tileColumn)
-                    .padding(.top, 14)
-            }
-
-            DashedLine(vertical: false)
-                .stroke(dashColor, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                .frame(height: 1)
-
-            HStack(spacing: 8) {
-                Text("Free spots can be cancelled anytime")
-                    .scaledFont(13, maxScale: 1.3)
-                    .foregroundStyle(Theme.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .frame(maxHeight: .infinity)
-        }
-        .frame(height: TicketCard.cardHeight)
-        .background(Theme.pink)
-        .clipShape(.rect(cornerRadius: 28))
+        .scaledFont(13, weight: .semibold, maxScale: 1.3)
+        .fixedSize()
+        .padding(.horizontal, 11).padding(.vertical, 8)
+        .background(Capsule().fill(Color.white))
+        .overlay(Capsule().stroke(Color(hex: 0xDDD7F5), lineWidth: 1))
+        .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+        .environment(\.colorScheme, .light)
         .accessibilityElement(children: .combine)
     }
+}
 
-    private var emblem: some View {
-        Image(systemName: "ticket.fill")
-            .font(.system(size: 34, weight: .semibold))
-            .foregroundStyle(warmText)
-            .frame(width: 72, height: 86)
-            .background(Theme.surface, in: .rect(cornerRadius: 18))
-            .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
-            .rotationEffect(.degrees(-6))
-            .accessibilityHidden(true)
+// MARK: - EventModeBadge
+
+struct EventModeBadge: View {
+    let mode: Event.Mode
+
+    var body: some View {
+        Label(mode.rawValue, systemImage: mode == .online ? "video.fill" : "mappin")
+            .scaledFont(11, weight: .semibold, maxScale: 1.25)
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Theme.field, in: Capsule())
+            .fixedSize()
     }
 }
 
-// MARK: - "Find your next outing" card
+// MARK: - GatherFeedCategory extensions
 
-struct OutingCard: View {
-    let event: Event
-    var coverHeight: CGFloat = 146
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            EventCover(event: event)
-                .frame(height: coverHeight)
-                .clipShape(.rect(cornerRadius: 20))
-                .overlay(alignment: .topTrailing) {
-                    if event.isHostedByMe {
-                        Label(event.unansweredCount > 0 ? "Hosting · \(event.unansweredCount) new" : "Hosting",
-                              systemImage: "star.fill")
-                            .scaledFont(13, weight: .semibold, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(Theme.pink))
-                            .padding(8)
-                    } else if event.isRegistered {
-                        Label("Registered", systemImage: "checkmark.circle.fill")
-                            .scaledFont(13, weight: .semibold, maxScale: 1.2)
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(Theme.lavender))
-                            .padding(8)
-                    }
-                }
-                .overlay(alignment: .topLeading) {
-                    Label(event.normalizedCategory, systemImage: event.symbol)
-                        .scaledFont(13, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(Theme.ink)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(Theme.surface))
-                        .padding(8)
-                }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(event.title)
-                    .scaledFont(17, weight: .bold, maxScale: 1.2)
-                    .foregroundStyle(Theme.ink)
-                    .lineLimit(1)
-                GatherInfoRow(icon: "calendar", text: event.shortDateText)
-                GatherInfoRow(icon: "person.2.fill", text: event.ages)
-                if coverHeight > 146 {
-                    GatherInfoRow(icon: "mappin.and.ellipse",
-                                  text: event.mode == .online ? "Online" : event.locality)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 12)
+/// Soft category colours remain legible against both Gather backgrounds.
+extension GatherFeedCategory {
+    var iconColor: Color {
+        switch self {
+        case .explore: Color(hex: 0x8262CF)
+        case .yours: Color(hex: 0xAD7390)
+        case .art: Color(hex: 0xB66D88)
+        case .nature: Color(hex: 0x51856D)
+        case .music: Color(hex: 0xB57A49)
+        case .sports: Color(hex: 0x577FA7)
+        case .study: Color(hex: 0x7971AC)
         }
-        .padding(6)
-        .background(Theme.surface, in: .rect(cornerRadius: 26))
-        .roundedStroke(Theme.lilacBorder, cornerRadius: 26, lineWidth: 1)
     }
 }
