@@ -158,9 +158,9 @@ struct EventDetailView: View {
                 if state.missingProfileItems.isEmpty { showHost = true } else { showProfilePrompt = true }
             } label: {
                 Text("Create").scaledFont(12, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Color.adaptive(0xFFFFFF, 0x151517))
+                    .foregroundStyle(Color(hex: 0xFFFFFF))
                     .padding(.horizontal, 18).frame(minHeight: 34)
-                    .background(Color.adaptive(0x7561D2, 0xF2F2F5), in: Capsule())
+                    .background(Color(hex: 0x7561D2), in: Capsule())
             }.buttonStyle(.plain)
         }
         .padding(16).frame(minHeight: 76)
@@ -184,7 +184,7 @@ struct EventDetailView: View {
                 .accessibilityAddTraits(.isHeader)
             HStack(spacing: 14) {
                 Image(systemName: "calendar").font(.system(size: 25, weight: .regular))
-                    .foregroundStyle(Color.adaptive(0xB8497B, 0xEE8BB4)).frame(width: 28)
+                    .foregroundStyle(Color(hex: 0xB8497B)).frame(width: 28)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(current.fullDateText).scaledFont(14, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
                     HStack(spacing: 4) {
@@ -205,7 +205,7 @@ struct EventDetailView: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: current.mode == .online ? "video.fill" : "mappin.and.ellipse")
                     .font(.system(size: 22, weight: .regular))
-                    .foregroundStyle(Color.adaptive(0x27846A, 0x76D4B8)).frame(width: 28)
+                    .foregroundStyle(Color(hex: 0x27846A)).frame(width: 28)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(current.mode == .online ? "Online event" : current.locationLines.title)
                         .scaledFont(14, weight: .medium, maxScale: 1.35).foregroundStyle(Theme.ink)
@@ -611,9 +611,9 @@ private struct HostQuestionRow: View {
 private struct EventAttendButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.scaledFont(17, weight: .semibold, maxScale: 1.25)
-            .foregroundStyle(Color.adaptive(0xFFFFFF, 0x121214))
+            .foregroundStyle(Color(hex: 0xFFFFFF))
             .frame(minWidth: 100, minHeight: 46).padding(.horizontal, 16)
-            .background(LinearGradient(colors: [Color.adaptive(0x2A2A2D, 0xFFFFFF), Color.adaptive(0x1B1D1C, 0xDCDCE1)], startPoint: .top, endPoint: .bottom), in: Capsule())
+            .background(LinearGradient(colors: [Color(hex: 0x2A2A2D), Color(hex: 0x1B1D1C)], startPoint: .top, endPoint: .bottom), in: Capsule())
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
 }

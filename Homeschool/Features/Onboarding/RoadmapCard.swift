@@ -50,7 +50,7 @@ struct RoadmapCard: View {
                 .offset(y: 78)
 
             Circle()
-                .fill(Color.adaptive(0xFFC8C9, 0x482D38))
+                .fill(Color(hex: 0xFFC8C9))
                 .frame(width: 32, height: 32)
                 .overlay(Image(systemName: "arrow.right")
                     .scaledFont(13, weight: .semibold, maxScale: 1.15)

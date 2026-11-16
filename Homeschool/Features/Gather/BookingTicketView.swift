@@ -95,8 +95,8 @@ struct BookingTicketView: View {
             Button { showDownload = true } label: {
                 Label("Download", systemImage: "arrow.down.to.line")
                     .frame(maxWidth: .infinity, minHeight: 52)
-                    .foregroundStyle(Color.adaptive(0xFFFFFF, 0x171719))
-                    .background(Color.adaptive(0x333238, 0xF1F0F4), in: Capsule())
+                    .foregroundStyle(Color(hex: 0xFFFFFF))
+                    .background(Color(hex: 0x333238), in: Capsule())
             }
             .accessibilityIdentifier("ticket.download")
         }
@@ -115,8 +115,8 @@ struct BookingTicketView: View {
             guard let qr = BookingCode.image(for: payload) else { throw TicketExportError.renderFailed }
             qrImage = UIImage(cgImage: qr)
             let renderer = ImageRenderer(content: ticket(booking)
-                .frame(width: 390).padding(20).background(Color(hex: 0x101012))
-                .environment(\.colorScheme, .dark).environment(\.dynamicTypeSize, .large))
+                .frame(width: 390).padding(20).background(Theme.background)
+                .environment(\.colorScheme, .light).environment(\.dynamicTypeSize, .large))
             renderer.scale = 3
             guard let data = renderer.uiImage?.pngData() else { throw TicketExportError.renderFailed }
             ticketData = data

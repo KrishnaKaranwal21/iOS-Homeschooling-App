@@ -275,7 +275,7 @@ struct ChatInfoView: View {
                     .foregroundStyle(Theme.tabSelected)
                     .padding(.horizontal, 10)
                     .frame(height: 24)
-                    .background(Capsule().fill(Color.adaptive(0xEFEDFB, 0x2D273D)))
+                    .background(Capsule().fill(Color(hex: 0xEFEDFB)))
             }
         }
         .padding(.horizontal, 14)

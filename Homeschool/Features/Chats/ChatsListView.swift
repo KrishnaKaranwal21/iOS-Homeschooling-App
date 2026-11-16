@@ -19,8 +19,8 @@ struct ChatsListView: View {
     @State private var showReorder = false
     @State private var showLocked = false
 
-    private let accent = Color.adaptive(0xD9D2FF, 0x3B3059)
-    private let unreadTime = Color.adaptive(0x5B6B2F, 0xC0D788)
+    private let accent = Color(hex: 0xD9D2FF)
+    private let unreadTime = Color(hex: 0x5B6B2F)
 
     private var selectedLabel: ChatLabel { state.chats.selectedLabel }
 
@@ -41,8 +41,8 @@ struct ChatsListView: View {
                 searchField
                 chips
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 6)
+            .padding(.horizontal, TabPageLayout.horizontalInset)
+            .padding(.top, TabPageLayout.topInset)
             .padding(.bottom, 8)
 
             labelStrip
@@ -119,10 +119,7 @@ struct ChatsListView: View {
     // MARK: Header
 
     private var header: some View {
-        HStack {
-            Text("Chats")
-                .pageTitle()
-            Spacer()
+        TabPageHeader(title: "Chats") {
             Button { showNewChat = true } label: {
                 Text("New chat")
                     .scaledFont(15, weight: .semibold, maxScale: 1.2)
@@ -326,7 +323,7 @@ struct ChatsListView: View {
                         Button { state.chats.togglePin(thread.id) } label: {
                             Label(thread.isPinned ? "Unpin" : "Pin", systemImage: thread.isPinned ? "pin.slash" : "pin")
                         }
-                        .tint(Color.adaptive(0xB5AED0, 0x81798F))
+                        .tint(Color(hex: 0xB5AED0))
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive) { deleteTarget = thread.id; isConfirmingDelete = true } label: {
@@ -336,7 +333,7 @@ struct ChatsListView: View {
                             Label(thread.isMuted ? "Unmute" : "Mute",
                                   systemImage: thread.isMuted ? "bell" : "bell.slash")
                         }
-                        .tint(Color.adaptive(0x8E8E93, 0xA4A3AA))
+                        .tint(Color(hex: 0x8E8E93))
                     }
                     .contextMenu {
                         Button { labelsThread = ThreadRef(id: thread.id) } label: {
@@ -524,7 +521,7 @@ struct ChatsListView: View {
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.adaptive(0xE6E1FF, 0x30283F), in: .rect(cornerRadius: 28))
+            .background(Color(hex: 0xE6E1FF), in: .rect(cornerRadius: 28))
             .padding(.horizontal, 18)
             .padding(.top, 12)
         }

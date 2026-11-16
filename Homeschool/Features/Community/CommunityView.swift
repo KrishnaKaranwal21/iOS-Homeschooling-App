@@ -10,7 +10,7 @@ struct CommunityView: View {
     @Environment(AppState.self) private var state
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var isWide: Bool { sizeClass == .regular }
-    private var pageInset: CGFloat { isWide ? 24 : 20 }
+    private var pageInset: CGFloat { TabPageLayout.horizontalInset }
     @State private var query = ""
     @State private var filter: CommunityFilter = .nearby
     @State private var showLocationPicker = false
@@ -108,14 +108,14 @@ struct CommunityView: View {
                     .padding(.horizontal, pageInset)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, TabPageLayout.topInset)
             .padding(.bottom, 24)
         }
         .scrollTitleBar("Community")
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .navigationTitle("Community")
-        .toolbarVisibility(isWide ? .visible : .hidden, for: .navigationBar)
+        .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Parent.self) { ConnectView(parent: $0) }
         .sheet(isPresented: $showLocationPicker) {
@@ -126,13 +126,7 @@ struct CommunityView: View {
     // MARK: Top of the page
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text("Community")
-                .pageTitle()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Spacer(minLength: 8)
-
+        TabPageHeader(title: "Community") {
             NavigationLink { NotificationsView() } label: { bellIcon }
                 .buttonStyle(.plain)
         }

@@ -78,8 +78,8 @@ private struct ProgressLearningPage: View {
                                 .padding(.top, -4)
                             rangeTotals
                         }
-                        .padding(.horizontal, 22)
-                        .padding(.top, 12)
+                        .padding(.horizontal, TabPageLayout.horizontalInset)
+                        .padding(.top, TabPageLayout.topInset)
                         .padding(.bottom, 24)
 
                         VStack(alignment: .leading, spacing: 28) {
@@ -136,9 +136,7 @@ private struct ProgressLearningPage: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            Text("Progress").pageTitle()
-            Spacer(minLength: 0)
+        TabPageHeader(title: "Progress") {
             ChildSwitcherMenu(onAddChild: onAddChild) {
                 HStack(spacing: 8) {
                     AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(), color: Theme.lavender, size: 27)
@@ -369,7 +367,7 @@ private struct ProgressLearningPage: View {
                 dayStatistic("\(detail.completed.count) / \(detail.activities.count)", caption: "Planned tasks done")
                 dayStatistic(LearningProgress.duration(detail.remainingMinutes), caption: "Left to explore")
             }
-            Divider().overlay(Color.adaptive(0xEEEEEE, 0x303033))
+            Divider().overlay(Color(hex: 0xEEEEEE))
         }
     }
 
@@ -431,7 +429,7 @@ private struct ProgressLearningPage: View {
 }
 
 enum ProgressPalette {
-    static let background = Color.adaptive(0xE6DEFF, 0x19151F)
-    static let purple = Color.adaptive(0x4430A5, 0xBBA4FF)
-    static let logged = Color.adaptive(0xA99BC9, 0x75668F)
+    static let background = Color(hex: 0xE6DEFF)
+    static let purple = Color(hex: 0x4430A5)
+    static let logged = Color(hex: 0xA99BC9)
 }

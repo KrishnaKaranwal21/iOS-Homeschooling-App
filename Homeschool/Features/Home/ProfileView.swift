@@ -4,7 +4,7 @@ import UserNotifications
 /// Which page of the profile is shown. `hub` is the main Profile page: a short list of buttons,
 /// each opening its own page, like most apps.
 enum ProfilePage {
-    case hub, parent, children, appearance, notifications, privacy, help, about, account
+    case hub, parent, children, notifications, privacy, help, about, account
 }
 
 /// The family's profile. The main page is a small menu. Details live one tap away.
@@ -51,7 +51,6 @@ struct ProfileView: View {
                 case .hub:           hubContent
                 case .parent:        parentTab
                 case .children:      childrenTab
-                case .appearance:    AppearanceSettingsView()
                 case .notifications: SettingsTab(section: .notifications, showLocationPicker: $showLocationPicker)
                 case .privacy:       SettingsTab(section: .privacy, showLocationPicker: $showLocationPicker)
                 case .help:          SettingsTab(section: .help, showLocationPicker: $showLocationPicker)
@@ -104,7 +103,6 @@ struct ProfileView: View {
         case .hub: "Profile"
         case .parent: "Your profile"
         case .children: "Children"
-        case .appearance: "Appearance"
         case .notifications: "Notifications"
         case .privacy: "Privacy"
         case .help: "Help"
@@ -188,8 +186,6 @@ struct ProfileView: View {
             }
 
             menuGroup {
-                menuRow(.appearance, "circle.lefthalf.filled", "Appearance", "System, light or dark")
-                ProfileDivider()
                 menuRow(.notifications, "bell", "Notifications", "Chats, requests and reminders")
                 ProfileDivider()
                 menuRow(.privacy, "lock", "Privacy", "Location and who can find you")
@@ -270,7 +266,7 @@ struct ProfileView: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.adaptive(0xFFEBD9, 0x3B2C23), in: .rect(cornerRadius: 22))
+                    .background(Color(hex: 0xFFEBD9), in: .rect(cornerRadius: 22))
                     .accessibilityElement(children: .combine)
                 }
             }

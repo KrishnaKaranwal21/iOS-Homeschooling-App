@@ -204,7 +204,7 @@ struct TicketCard: View {
 
     private let tileColumn: CGFloat = 114
     private let dashColor = Theme.ink.opacity(0.22)
-    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
+    private let warmText = Color(hex: 0x9C4A4B)
     fileprivate static let topHeight: CGFloat = 128
     fileprivate static let cardHeight: CGFloat = 176
 
@@ -306,7 +306,7 @@ struct TicketCard: View {
 struct EmptyTicketCard: View {
     private let tileColumn: CGFloat = 114
     private let dashColor = Theme.ink.opacity(0.22)
-    private let warmText = Color.adaptive(0x9C4A4B, 0xF0ADAA)
+    private let warmText = Color(hex: 0x9C4A4B)
 
     var body: some View {
         VStack(spacing: 0) {

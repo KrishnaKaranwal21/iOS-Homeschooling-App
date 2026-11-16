@@ -64,22 +64,19 @@ struct GatherView: View {
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top, spacing: 0) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    Text("Gather").pageTitle().fixedSize()
-                    Spacer(minLength: 8)
+                TabPageHeader(title: "Gather") {
                     likedEventsButton
                     hostEventButton
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Gather").pageTitle()
-                        Spacer()
+                    TabPageHeader(title: "Gather") {
                         likedEventsButton
                     }
                     hostEventButton.frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
+            .padding(.horizontal, TabPageLayout.horizontalInset)
+            .padding(.top, TabPageLayout.topInset).padding(.bottom, 12)
             .background(Theme.background)
         }
         .toolbarVisibility(.hidden, for: .navigationBar)
@@ -188,7 +185,7 @@ struct GatherView: View {
                             .foregroundStyle(selected ? Theme.ink : Theme.secondary)
                             .padding(.horizontal, 16)
                             .frame(height: 36)
-                            .background(Capsule().fill(selected ? Color.adaptive(0xD9D2FF, 0x3B3059) : Theme.field))
+                            .background(Capsule().fill(selected ? Color(hex: 0xD9D2FF) : Theme.field))
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
