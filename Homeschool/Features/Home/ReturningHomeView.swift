@@ -56,7 +56,13 @@ struct ReturningHomeView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HomePageHeader(dateText: today.formatted(.dateTime.weekday(.wide).month(.wide).day()),
                                    onAddChild: { showAddChild = true })
-                    weekCard.padding(.top, 64)
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Your week")
+                            .scaledFont(21, weight: .heavy, maxScale: 1.2).tracking(-0.4)
+                            .accessibilityAddTraits(.isHeader)
+                        weekCard
+                    }
+                    .padding(.top, 26)
                     todoHeading.padding(.top, Theme.Spacing.l)
                     checklist.padding(.top, Theme.Spacing.m)
                 }
@@ -150,9 +156,6 @@ struct ReturningHomeView: View {
                 .lineLimit(1).minimumScaleFactor(0.75)
                 .padding(.horizontal, 12).padding(.vertical, 5)
                 .background(Theme.surface, in: Capsule())
-            Text("Your chosen rhythm")
-                .scaledFont(21, weight: .heavy, maxScale: 1.2).tracking(-0.4)
-                .padding(.top, 2)
             if plan.days.isEmpty {
                 Text("A little room to find your rhythm.").bodyText().padding(.vertical, 12)
             } else {
