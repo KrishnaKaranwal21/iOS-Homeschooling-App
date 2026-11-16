@@ -429,6 +429,15 @@ final class AppState {
         selectedChildID = newChild.id
     }
 
+    /// Removes a child and everything saved for them. The last remaining child can't be removed.
+    func removeChild(_ id: Child.ID) {
+        guard children.count > 1, children.contains(where: { $0.id == id }) else { return }
+        let key = id.uuidString
+        weeklyPlans = weeklyPlans.filter { k, _ in k != key && !k.hasPrefix("history|\(key)|") }
+        children.removeAll { $0.id == id }
+        if selectedChildID == id, let first = children.first { selectedChildID = first.id }
+    }
+
     /// Switches a child's NIOS level. Subjects depend on the level, so they are cleared and chosen again.
     @discardableResult
     // Changes a child level and clears level-dependent subject choices before saving the profile.

@@ -108,6 +108,7 @@ private struct ProgressLearningPage: View {
                 }
                 .scrollIndicators(.hidden)
                 .background(ProgressPalette.background.ignoresSafeArea())
+                .scrollTitleBar("Progress")
                 .onChange(of: expandedSubjectID) { _, subjectID in
                     guard let subjectID else { return }
                     withAnimation(reduceMotion ? nil : selectionMotion) {

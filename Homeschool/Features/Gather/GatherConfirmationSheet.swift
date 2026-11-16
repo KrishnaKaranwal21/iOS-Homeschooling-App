@@ -112,7 +112,7 @@ struct GatherConfirmationSheet: View {
                 .frame(maxWidth: 680).frame(maxWidth: .infinity)
             }
             .background(Theme.background.ignoresSafeArea())
-            .safeAreaInset(edge: .top, spacing: 0) { header }
+            .scrollBlurHeader { header }
             .safeAreaInset(edge: .bottom, spacing: 0) { goingBar }
             .toolbarVisibility(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showHost) { HostEventView().toolbarVisibility(.visible, for: .navigationBar) }
@@ -153,7 +153,6 @@ struct GatherConfirmationSheet: View {
             Spacer()
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(Theme.background.opacity(0.97))
     }
 
     private var organizerSuggestion: some View {

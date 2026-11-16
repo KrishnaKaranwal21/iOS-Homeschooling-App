@@ -41,7 +41,7 @@ struct BookingTicketView: View {
             LinearGradient(colors: [Theme.field, Theme.background, Theme.background], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
         }
-        .safeAreaInset(edge: .top, spacing: 0) { header }
+        .scrollBlurHeader { header }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if registration != nil && current.isRegistered { exportActions }
         }
@@ -77,7 +77,6 @@ struct BookingTicketView: View {
             }
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
-        .background(Theme.field.opacity(0.95))
     }
 
     private func ticket(_ booking: Registration) -> some View {

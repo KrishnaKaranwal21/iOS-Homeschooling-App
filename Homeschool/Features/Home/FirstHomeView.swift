@@ -68,6 +68,7 @@ struct FirstHomeView: View {
                         page(.regular)
                     }
                     .scrollIndicators(.hidden)
+                    .scrollTitleBar("Home")
                 }
             }
         }

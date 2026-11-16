@@ -64,6 +64,7 @@ struct ReturningHomeView: View {
                 .padding(.top, TabPageLayout.topInset).padding(.bottom, 24)
                 .frame(maxWidth: 650).frame(maxWidth: .infinity)
             }
+            .scrollTitleBar("Home")
             .onChange(of: showTaskEditor) { _, showing in
                 guard !showing, let addedActivityID else { return }
                 withAnimation(motion) { scrollProxy.scrollTo(addedActivityID, anchor: .center) }
