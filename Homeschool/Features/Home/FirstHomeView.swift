@@ -89,8 +89,7 @@ struct FirstHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HomePageHeader(dateText: dateText, onAddChild: { showAddChild = true })
-                firstWeekCard(.regular)
-                    .padding(.top, 80)
+                firstWeekSection(.regular)
                 wideExplore.padding(.top, 28)
             }
             .padding(.horizontal, TabPageLayout.horizontalInset)
@@ -118,8 +117,7 @@ struct FirstHomeView: View {
         let compact = density == .compact
         return VStack(alignment: .leading, spacing: 0) {
             HomePageHeader(dateText: dateText, onAddChild: { showAddChild = true })
-            firstWeekCard(density)
-                .padding(.top, 64)
+            firstWeekSection(density)
             exploreSection(density)
                 .padding(.top, compact ? 14 : 18)
             Spacer(minLength: 0)
@@ -132,6 +130,17 @@ struct FirstHomeView: View {
 
     // MARK: First week card
 
+    private func firstWeekSection(_ density: Density) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Your week")
+                .scaledFont(21, weight: .heavy, maxScale: 1.2).tracking(-0.4)
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            firstWeekCard(density)
+        }
+        .padding(.top, isWide ? 42 : 26)
+    }
+
     private func firstWeekCard(_ density: Density) -> some View {
         let compact = density == .compact
         return VStack(alignment: .leading, spacing: isWide ? 16 : (compact ? 6 : 8)) {
@@ -142,12 +151,6 @@ struct FirstHomeView: View {
                 .padding(.horizontal, 12)
                 .frame(height: 26)
                 .background(Capsule().fill(Theme.surface))
-
-            Text("Your chosen rhythm")
-                .scaledFont(21, weight: .heavy, maxScale: 1.2)
-                .tracking(-0.4)
-                .foregroundStyle(Theme.ink)
-                .padding(.top, 2)
 
             rhythmRow(compact: compact)
 
