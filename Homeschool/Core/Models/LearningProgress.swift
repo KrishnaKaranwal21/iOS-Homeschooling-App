@@ -6,16 +6,17 @@ struct LearningProgress {
     let plan: WeeklyPlan
     let subjects: [SubjectLearningProgress]
 
-    init(plan: WeeklyPlan, selectedSubjects: [String]) {
+    init(plan: WeeklyPlan, selectedSubjects: [String], creditedActivities: [WeekActivity]? = nil) {
         self.plan = plan
         var names: [String] = []
         var keys: Set<String> = []
-        for name in selectedSubjects + plan.activities.map(\.subject) {
+        for name in selectedSubjects + plan.activities.map(\.subject) + (creditedActivities ?? []).map(\.subject) {
             if keys.insert(Self.subjectKey(name)).inserted { names.append(name) }
         }
         subjects = names.map { name in
             let activities = plan.activities.filter { Self.subjectKey($0.subject) == Self.subjectKey(name) }
-            return SubjectLearningProgress(name: name, activities: activities)
+            return SubjectLearningProgress(name: name, activities: activities,
+                creditedActivities: creditedActivities?.filter { Self.subjectKey($0.subject) == Self.subjectKey(name) })
         }
     }
 
@@ -32,6 +33,15 @@ struct LearningProgress {
 
     static func fraction(_ value: Int, of total: Int) -> Double {
         total > 0 ? min(1, max(0, Double(value) / Double(total))) : 0
+    }
+
+    /// Reserve 100% for a nonempty plan with every occurrence complete, including short remaining tasks.
+    static func completionPercentage(for activities: [WeekActivity]) -> Int {
+        guard !activities.isEmpty else { return 0 }
+        if activities.allSatisfy(\.isDone) { return 100 }
+        let planned = activities.reduce(0) { $0 + $1.minutes }
+        let completed = activities.filter(\.isDone).reduce(0) { $0 + $1.minutes }
+        return min(99, Int((fraction(completed, of: planned) * 100).rounded()))
     }
 
     static func duration(_ minutes: Int) -> String {
@@ -67,11 +77,14 @@ struct DayLearningProgress {
 struct SubjectLearningProgress: Identifiable {
     let name: String
     let activities: [WeekActivity]
+    var creditedActivities: [WeekActivity]? = nil
     var id: String { LearningProgress.subjectKey(name) }
     var completedCount: Int { activities.filter(\.isDone).count }
     var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
     var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
     var fraction: Double { LearningProgress.fraction(loggedMinutes, of: plannedMinutes) }
+    var creditedMinutes: Int { (creditedActivities ?? activities.filter(\.isDone)).reduce(0) { $0 + $1.minutes } }
+    var completionPercentage: Int { LearningProgress.completionPercentage(for: activities) }
 }
 
 enum ProgressRange: String, Identifiable, CaseIterable {
@@ -84,6 +97,7 @@ struct ProgressTimeline {
     let interval: DateInterval
     let buckets: [ProgressChartBucket]
     let activities: [WeekActivity]
+    let creditedActivities: [WeekActivity]
 
     init(plan: WeeklyPlan, range: ProgressRange, selectedDate: Date, calendar: Calendar = .current) {
         self.init(plans: [plan], range: range, selectedDate: selectedDate, calendar: calendar)
@@ -110,14 +124,21 @@ struct ProgressTimeline {
         var seenWeeks: Set<Date> = []
         let weeks = plans.filter { seenWeeks.insert(calendar.startOfDay(for: $0.weekStart)).inserted }
         var seen: Set<WeekActivity.ID> = []
-        let included = weeks.flatMap(\.activities).filter {
-            $0.date >= start && $0.date < end && seen.insert($0.id).inserted
-        }.sorted { $0.date < $1.date }
+        let all = weeks.flatMap(\.activities).filter { seen.insert($0.id).inserted }
+        let included = all.filter { $0.date >= start && $0.date < end }.sorted { $0.date < $1.date }
+        let credited = all.filter {
+            guard let date = $0.creditDate else { return false }
+            return date >= start && date < end
+        }
         activities = included
+        creditedActivities = credited
         if range == .day {
-            buckets = included.enumerated().map { index, activity in
+            let extra = credited.filter { activity in !included.contains { $0.id == activity.id } }
+            buckets = (included + extra).enumerated().map { index, activity in
                 ProgressChartBucket(id: activity.id.uuidString, date: start,
-                                    label: "\(index + 1)", title: activity.title, activities: [activity])
+                                    label: "\(index + 1)", title: activity.title,
+                                    activities: included.filter { $0.id == activity.id },
+                                    creditedActivities: credited.filter { $0.id == activity.id })
             }
         } else {
             let count = calendar.dateComponents([.day], from: start, to: end).day ?? 0
@@ -127,15 +148,18 @@ struct ProgressTimeline {
                 let label = range == .week ? WeeklyPlan.dayNames[weekday] : "\(calendar.component(.day, from: date))"
                 return ProgressChartBucket(id: "day-\(date.timeIntervalSince1970)", date: date,
                                            label: label, title: date.formatted(.dateTime.weekday(.wide).day().month()),
-                                           activities: included.filter { calendar.isDate($0.date, inSameDayAs: date) })
+                                           activities: included.filter { calendar.isDate($0.date, inSameDayAs: date) },
+                                           creditedActivities: credited.filter { calendar.isDate($0.creditDate!, inSameDayAs: date) })
             }
         }
     }
 
     var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
-    var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
+    var loggedMinutes: Int { creditedActivities.reduce(0) { $0 + $1.minutes } }
     var completedCount: Int { activities.filter(\.isDone).count }
-    var fraction: Double { LearningProgress.fraction(loggedMinutes, of: plannedMinutes) }
+    var completedPlannedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
+    var fraction: Double { LearningProgress.fraction(completedPlannedMinutes, of: plannedMinutes) }
+    var completionPercentage: Int { LearningProgress.completionPercentage(for: activities) }
 }
 
 struct ProgressChartBucket: Identifiable {
@@ -144,7 +168,8 @@ struct ProgressChartBucket: Identifiable {
     let label: String
     let title: String
     let activities: [WeekActivity]
+    var creditedActivities: [WeekActivity]? = nil
     var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
-    var loggedMinutes: Int { activities.filter(\.isDone).reduce(0) { $0 + $1.minutes } }
+    var loggedMinutes: Int { (creditedActivities ?? activities.filter(\.isDone)).reduce(0) { $0 + $1.minutes } }
     var isComplete: Bool { !activities.isEmpty && activities.allSatisfy(\.isDone) }
 }

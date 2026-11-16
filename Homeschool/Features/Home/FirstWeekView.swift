@@ -15,6 +15,23 @@ struct FirstWeekView: View {
     }
 }
 
+/// The shared native planner opens from Home and Progress while the first-week preview remains available during setup.
+struct DayPlannerSheet: View {
+    @Environment(AppState.self) private var state
+    var initialDay: String? = nil
+    var onSelectDate: (Date) -> Void = { _ in }
+
+    var body: some View {
+        WeekPlanPage(child: state.child, savedPlan: state.weeklyPlans[state.child.id.uuidString],
+                     initialDay: initialDay, backTitle: "", onAddChild: {},
+                     isSheet: true, onSelectDate: onSelectDate)
+            .id(state.child.id)
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationCornerRadius(32)
+    }
+}
+
 private struct WeekPlanPage: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
@@ -22,10 +39,16 @@ private struct WeekPlanPage: View {
     let child: Child
     let backTitle: String
     let onAddChild: () -> Void
+    let isSheet: Bool
+    let onSelectDate: (Date) -> Void
     @State private var plan: WeeklyPlan
     @State private var selectedDay: String
-    @State private var showTask = false
-    @State private var editingActivity: WeekActivity?
+    private struct TaskEditorRequest: Identifiable {
+        let id = UUID()
+        let activity: WeekActivity
+        let isEditing: Bool
+    }
+    @State private var taskEditor: TaskEditorRequest?
     @State private var showTimes = false
     @State private var saved = false
     @State private var showCompleted = false
@@ -34,10 +57,13 @@ private struct WeekPlanPage: View {
     @State private var completionFeedback = 0
     @State private var wrapUpRequest: DayLearningSummary?
 
-    init(child: Child, savedPlan: WeeklyPlan?, initialDay: String?, backTitle: String, onAddChild: @escaping () -> Void) {
+    init(child: Child, savedPlan: WeeklyPlan?, initialDay: String?, backTitle: String, onAddChild: @escaping () -> Void,
+         isSheet: Bool = false, onSelectDate: @escaping (Date) -> Void = { _ in }) {
         self.child = child
         self.backTitle = backTitle
         self.onAddChild = onAddChild
+        self.isSheet = isSheet
+        self.onSelectDate = onSelectDate
         let plan = savedPlan ?? .firstWeek(for: child)
         _plan = State(initialValue: plan)
         _selectedDay = State(initialValue: initialDay.flatMap { WeeklyPlan.dayNames.contains($0) ? $0 : nil } ?? plan.days.first ?? "Mon")
@@ -53,6 +79,12 @@ private struct WeekPlanPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                if isSheet {
+                    plannerHeader
+                    plannerIntro
+                    rhythm.padding(12)
+                        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
+                } else {
                 header
                 Text("YOUR WEEK")
                     .scaledFont(11, weight: .semibold, maxScale: 1.2)
@@ -76,6 +108,7 @@ private struct WeekPlanPage: View {
 
                 Text("Your chosen rhythm").sectionTitle()
                 rhythm
+                }
                 dayHeading
 
                 if remaining.isEmpty { dayEmptyState }
@@ -94,7 +127,7 @@ private struct WeekPlanPage: View {
                 }
             }
             .padding(.horizontal, 20)
-            .padding(.top, 8)
+            .padding(.top, isSheet ? 22 : 8)
             .padding(.bottom, 8)
         }
         .scrollIndicators(.hidden)
@@ -102,10 +135,9 @@ private struct WeekPlanPage: View {
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
-        .sheet(isPresented: $showTask) {
-            WeekTaskSheet(activity: editingActivity ?? WeekActivity(date: plan.date(for: selectedDay)),
-                          week: plan, isEditing: editingActivity != nil) { activity in
-                if let index = plan.activities.firstIndex(where: { $0.id == activity.id }), editingActivity != nil {
+        .sheet(item: $taskEditor) { request in
+            WeekTaskSheet(activity: request.activity, week: plan, isEditing: request.isEditing) { activity in
+                if let index = plan.activities.firstIndex(where: { $0.id == activity.id }), request.isEditing {
                     plan.activities[index] = activity
                     let day = plan.day(for: activity.date)
                     if !plan.days.contains(day) {
@@ -116,7 +148,7 @@ private struct WeekPlanPage: View {
                 }
                 selectedDay = plan.day(for: activity.date)
             }
-            .presentationDetents([.fraction(0.82), .large])
+            .presentationDetents(isSheet ? [.large] : [.fraction(0.82), .large])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
         }
@@ -140,6 +172,7 @@ private struct WeekPlanPage: View {
         .onChange(of: selectedDay) { _, _ in
             wrapUpRequest = nil
             showCompleted = false
+            onSelectDate(plan.date(for: selectedDay))
         }
         .task(id: wrapUpRequest?.id) {
             guard let summary = wrapUpRequest else { return }
@@ -149,6 +182,41 @@ private struct WeekPlanPage: View {
             withAnimation(.easeOut(duration: 0.22)) { state.dailyWrapUp = summary }
         }
         .sensoryFeedback(.success, trigger: completionFeedback)
+        .sensoryFeedback(.selection, trigger: selectedDay)
+    }
+
+    private var plannerHeader: some View {
+        HStack(spacing: 12) {
+            Label("PLAN YOUR DAY", systemImage: "pencil.and.outline")
+                .scaledFont(11, weight: .semibold, maxScale: 1.25)
+                .tracking(1).foregroundStyle(WeekStyle.purple)
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark").font(.system(size: 16, weight: .medium))
+                    .frame(width: 44, height: 44)
+                    .gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.4))
+            }
+            .buttonStyle(.plain).accessibilityLabel("Close day planner")
+        }
+    }
+
+    private var plannerIntro: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(WeeklyPlan.fullDayNames[dayIndex]),\nyour way.")
+                .scaledFont(32, weight: .heavy, maxScale: 1.2).tracking(-1)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            HStack(spacing: 6) {
+                Text(child.displayName)
+                Text("·")
+                Text(plan.date(for: selectedDay).formatted(.dateTime.day().month(.abbreviated)))
+                Spacer(minLength: 0)
+                Label(LearningProgress.duration(dailyMinutes), systemImage: "clock")
+                    .foregroundStyle(WeekStyle.purple)
+            }
+            .scaledFont(13, weight: .medium, maxScale: 1.25).foregroundStyle(Theme.secondary)
+        }
+        .padding(.bottom, 8)
     }
 
     private var header: some View {
@@ -174,6 +242,7 @@ private struct WeekPlanPage: View {
     }
 
     private var rhythm: some View {
+        ScrollViewReader { proxy in
         ScrollView(.horizontal) {
             HStack(spacing: 10) {
                 ForEach(Array(plan.days.enumerated()), id: \.element) { index, day in
@@ -194,6 +263,13 @@ private struct WeekPlanPage: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: day)!]), \(LearningProgress.duration(plan.minutes(on: day))) planned")
                     .accessibilityAddTraits(day == selectedDay ? .isSelected : [])
+                    .id(day)
+                }
+                AddLearningDayButton(days: plan.days) { day in
+                    guard let date = state.addLearningDay(day, for: child.id),
+                          let updated = state.weeklyPlans[child.id.uuidString] else { return }
+                    plan = updated
+                    selectedDay = plan.day(for: date)
                 }
             }
             .padding(.horizontal, 5)
@@ -201,12 +277,17 @@ private struct WeekPlanPage: View {
         .scrollIndicators(.hidden)
         .contentMargins(.trailing, 5)
         .padding(.horizontal, -5)
+        .onAppear { proxy.scrollTo(selectedDay, anchor: .center) }
+        .onChange(of: selectedDay) { _, day in
+            withAnimation(reduceMotion ? nil : rowAnimation) { proxy.scrollTo(day, anchor: .center) }
+        }
+        }
     }
 
     private var dayHeading: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Text(WeeklyPlan.fullDayNames[dayIndex]).sectionTitle()
+                Text(isSheet ? "Your activities" : WeeklyPlan.fullDayNames[dayIndex]).sectionTitle()
                 Spacer()
                 Button { showTimes = true } label: {
                     Label(plan.startTimes[selectedDay] == nil ? "Set times" : "Edit times", systemImage: "clock")
@@ -222,10 +303,11 @@ private struct WeekPlanPage: View {
     }
 
     private func activityRow(_ activity: WeekActivity) -> some View {
-        HStack(spacing: 0) {
+        let subjectIndex = child.subjectNames.firstIndex { LearningProgress.subjectKey($0) == LearningProgress.subjectKey(activity.subject) } ?? 0
+        let palette = SubjectCardPalette.all[subjectIndex % SubjectCardPalette.all.count]
+        return HStack(spacing: 0) {
             Button {
-                editingActivity = activity
-                showTask = true
+                taskEditor = TaskEditorRequest(activity: activity, isEditing: true)
             } label: {
                 HStack(spacing: 10) {
                     Text("\(activity.minutes) min")
@@ -251,6 +333,20 @@ private struct WeekPlanPage: View {
             .buttonStyle(.plain)
             .accessibilityHint("Edit task")
 
+            if isSheet {
+                Menu {
+                    Button { taskEditor = TaskEditorRequest(activity: activity, isEditing: true) } label: {
+                        Label("Edit activity", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) { remove(activity) } label: {
+                        Label("Remove from this day", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(palette.ink).frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Options for \(activity.title)")
+            } else {
             Button { complete(activity) } label: {
                 Image(systemName: "checkmark")
                     .font(.system(size: 16, weight: .semibold))
@@ -275,11 +371,12 @@ private struct WeekPlanPage: View {
             .buttonStyle(.plain)
             .accessibilityLabel("Remove \(activity.title) for this day")
             .accessibilityHint("Other days stay the same. You can undo this removal.")
+            }
         }
-        .padding(.leading, 11).padding(.trailing, 5).padding(.vertical, 3)
+        .padding(.leading, isSheet ? 14 : 11).padding(.trailing, 5).padding(.vertical, isSheet ? 12 : 3)
         .frame(minHeight: 52)
-        .background(Theme.surface, in: .rect(cornerRadius: 11))
-        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(WeekStyle.border, lineWidth: 0.8))
+        .background(isSheet ? palette.paper : Theme.surface, in: .rect(cornerRadius: isSheet ? 20 : 11))
+        .overlay(RoundedRectangle(cornerRadius: isSheet ? 20 : 11).strokeBorder(isSheet ? Theme.surface : WeekStyle.border, lineWidth: 0.8))
     }
 
     private var footer: some View {
@@ -299,11 +396,20 @@ private struct WeekPlanPage: View {
                 .background(WeekStyle.field, in: .rect(cornerRadius: 14))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if isSheet {
+                Button {
+                    taskEditor = TaskEditorRequest(activity: WeekActivity(date: plan.date(for: selectedDay)), isEditing: false)
+                } label: {
+                    Label("Add an activity", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.primaryHomeschool)
+                .accessibilityIdentifier("planner.addActivity")
+            } else {
             HStack {
                 Spacer()
                 Button {
-                    editingActivity = nil
-                    showTask = true
+                    taskEditor = TaskEditorRequest(activity: WeekActivity(date: plan.date(for: selectedDay)), isEditing: false)
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .medium))
@@ -332,6 +438,7 @@ private struct WeekPlanPage: View {
                     .background(Theme.buttonFill, in: Capsule())
             }
             .buttonStyle(.plain)
+            }
             Text("Changes save automatically. Adjust anytime.")
                 .scaledFont(11, maxScale: 1.2).foregroundStyle(WeekStyle.secondary)
         }
@@ -398,7 +505,7 @@ private struct WeekPlanPage: View {
                         Button {
                             withAnimation(rowAnimation) {
                                 if let index = plan.activities.firstIndex(where: { $0.id == activity.id }) {
-                                    plan.activities[index].isDone = false
+                                    plan.activities[index].setCompleted(false)
                                     wrapUpRequest = nil
                                 }
                             }
@@ -430,7 +537,7 @@ private struct WeekPlanPage: View {
         withAnimation(rowAnimation) {
             removedIndex = index
             removedActivity = plan.removeForDay(activity.id)
-            requestWrapUpIfFinished()
+            if isSheet { wrapUpRequest = nil } else { requestWrapUpIfFinished() }
         }
     }
 
@@ -495,5 +602,61 @@ private struct DayStartTimeSheet: View {
         }
         .padding(24)
         .background(Theme.background)
+    }
+}
+
+/// Only unused weekdays are offered, so a seven-day routine never shows an extra add tile.
+struct AddLearningDayButton: View {
+    let days: [String]
+    let onSelect: (String) -> Void
+    private var available: [String] { WeeklyPlan.dayNames.filter { !days.contains($0) } }
+
+    var body: some View {
+        if !available.isEmpty {
+            Menu {
+                ForEach(available, id: \.self) { day in
+                    Button(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: day)!]) { onSelect(day) }
+                }
+            } label: {
+                VStack(spacing: 7) {
+                    Image(systemName: "plus").font(.system(size: 22, weight: .medium))
+                    Text("Add day").scaledFont(11, weight: .semibold, maxScale: 1.25)
+                }
+                .foregroundStyle(WeekStyle.purple)
+                .frame(width: 74, height: 76)
+                .background(Theme.surface.opacity(0.6), in: .rect(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(WeekStyle.purple.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Add a learning day")
+            .accessibilityIdentifier("week.addDay")
+        }
+    }
+}
+
+struct ActivityRemovalNotice: View {
+    let activity: WeekActivity
+    let onUndo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.uturn.backward.circle").font(.system(size: 21))
+                .foregroundStyle(WeekStyle.purple)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Removed from \(activity.date.formatted(.dateTime.weekday(.wide)))")
+                    .scaledFont(12, weight: .semibold, maxScale: 1.25)
+                Text(activity.title).scaledFont(11, maxScale: 1.25)
+                    .foregroundStyle(Theme.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Button("Undo", action: onUndo)
+                .scaledFont(14, weight: .semibold, maxScale: 1.25)
+                .foregroundStyle(WeekStyle.purple).frame(minWidth: 44, minHeight: 44)
+                .accessibilityIdentifier("home.undoRemoval")
+        }
+        .padding(.horizontal, 14).padding(.vertical, 5)
+        .gatherGlass(in: RoundedRectangle(cornerRadius: 20), tint: Theme.lilac.opacity(0.6))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }

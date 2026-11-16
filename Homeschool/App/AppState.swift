@@ -78,7 +78,18 @@ final class AppState {
         didSet { storedWeeklyPlans = Self.encode(weeklyPlans) }
     }
 
-    // Saves FirstWeekView or Progress edits under the child UUID and asynchronously resynchronises that child learning reminders.
+    /// An added day becomes part of this child's routine; its activities are planned separately.
+    @discardableResult
+    func addLearningDay(_ day: String, for childID: Child.ID) -> Date? {
+        guard let index = children.firstIndex(where: { $0.id == childID }) else { return nil }
+        var plan = weeklyPlans[childID.uuidString] ?? .firstWeek(for: children[index])
+        guard plan.includeLearningDay(day) else { return nil }
+        children[index].learningDays.insert(day)
+        saveWeek(plan, for: childID)
+        return plan.date(for: day)
+    }
+
+    // Saves shared planner edits and asynchronously resynchronises that child's learning reminders.
     func saveWeek(_ plan: WeeklyPlan, for childID: Child.ID) {
         // Stores First Week or Progress edits under the same child key that Progress later reads to rebuild its chart and totals.
         weeklyPlans[childID.uuidString] = plan
@@ -118,7 +129,7 @@ final class AppState {
         let keys = [childKey] + weeklyPlans.keys.filter { $0.hasPrefix("history|\(childKey)|") }.sorted()
         for key in keys {
             guard var plan = weeklyPlans[key], let index = plan.activities.firstIndex(where: { $0.id == id }) else { continue }
-            plan.activities[index].isDone.toggle()
+            plan.activities[index].setCompleted(!plan.activities[index].isDone)
             if key == childKey { saveWeek(plan, for: childID) }
             else { weeklyPlans[key] = plan }
             return plan

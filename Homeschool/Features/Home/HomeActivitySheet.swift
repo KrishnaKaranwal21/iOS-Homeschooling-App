@@ -77,9 +77,9 @@ struct HomeActivitySheet: View {
                 .accessibilityIdentifier("home.activity.complete")
 
                 Button { confirmDelete = true } label: {
-                    Label("Delete task", systemImage: "trash")
+                    Label("Remove from this day", systemImage: "trash")
                         .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                        .foregroundStyle(Theme.warmText)
+                        .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .contentShape(Rectangle())
                 }
@@ -88,14 +88,14 @@ struct HomeActivitySheet: View {
             .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 10)
             .background(Theme.background)
         }
-        .confirmationDialog("Delete this task?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete task", role: .destructive) {
+        .confirmationDialog("Remove this activity?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Remove from this day", role: .destructive) {
                 onDelete()
                 dismiss()
             }
             Button("Keep task", role: .cancel) {}
         } message: {
-            Text("“\(activity.title)” will be removed from this day.")
+            Text("“\(activity.title)” will be removed from this day. Repeats on other days stay. You can undo this removal on Home.")
         }
         .foregroundStyle(Theme.ink).background(Theme.background).buttonStyle(.plain)
     }

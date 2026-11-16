@@ -13,6 +13,16 @@ struct WeekActivity: Identifiable, Codable, Equatable {
     var smallSteps = ""
     var notes = ""
     var isDone = false
+    var completedAt: Date? = nil
+
+    /// Older saves have no completion timestamp; retain their original scheduled-day credit.
+    var creditDate: Date? { isDone ? (completedAt ?? date) : nil }
+
+    mutating func setCompleted(_ completed: Bool, at date: Date = .now) {
+        if completed && !isDone { completedAt = date }
+        if !completed { completedAt = nil }
+        isDone = completed
+    }
 }
 
 enum ActivityRepeat: String, Codable, CaseIterable {
@@ -77,7 +87,7 @@ struct WeeklyPlan: Codable, Equatable {
     @discardableResult
     mutating func complete(_ id: WeekActivity.ID) -> Bool {
         guard let index = activities.firstIndex(where: { $0.id == id }), !activities[index].isDone else { return false }
-        activities[index].isDone = true
+        activities[index].setCompleted(true)
         return true
     }
 
@@ -94,6 +104,14 @@ struct WeeklyPlan: Codable, Equatable {
 
     var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
 
+    /// Adding a learning day leaves existing tasks and completion untouched.
+    @discardableResult
+    mutating func includeLearningDay(_ day: String) -> Bool {
+        guard Self.dayNames.contains(day), !days.contains(day) else { return false }
+        days = Self.dayNames.filter { days.contains($0) || $0 == day }
+        return true
+    }
+
     mutating func add(_ activity: WeekActivity) {
         var dates = [activity.date]
         if activity.repeatRule != .never {
@@ -108,6 +126,7 @@ struct WeeklyPlan: Codable, Equatable {
             var copy = activity
             copy.id = UUID()
             copy.date = date
+            copy.setCompleted(false)
             activities.append(copy)
             let day = day(for: date)
             if !days.contains(day) { days.append(day) }
