@@ -145,7 +145,7 @@ private struct ProgressLearningPage: View {
     private var controls: some View {
         HStack(alignment: .center, spacing: 12) {
             Picker("Progress range", selection: $range.animation(selectionMotion)) {
-                ForEach(ProgressRange.allCases) { option in
+                ForEach([ProgressRange.week, .month]) { option in
                     Text(option.rawValue).tag(option)
                 }
             }
@@ -186,9 +186,9 @@ private struct ProgressLearningPage: View {
         let endDate = Calendar.current.date(byAdding: .day, value: -1, to: timeline.interval.end)!
         let end = endDate.formatted(.dateTime.day().month(.abbreviated))
         if Calendar.current.component(.month, from: startDate) == Calendar.current.component(.month, from: endDate) {
-            return "\(startDate.formatted(.dateTime.day()))–\(end)"
+            return "\(startDate.formatted(.dateTime.day())) to \(end)"
         }
-        return "\(startDate.formatted(.dateTime.day().month(.abbreviated))) – \(end)"
+        return "\(startDate.formatted(.dateTime.day().month(.abbreviated))) to \(end)"
     }
 
     private func learningChart(height: CGFloat) -> some View {

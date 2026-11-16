@@ -616,6 +616,7 @@ private struct ParentEditSheet: View {
     @State private var name = ""
     @State private var mobile = ""
     @State private var loaded = false
+    @State private var saveFailed = false
 
     var body: some View {
         NavigationStack {
@@ -637,7 +638,10 @@ private struct ParentEditSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        state.updateAccount(name: name, mobile: mobile)
+                        guard state.updateAccount(name: name, mobile: mobile) else {
+                            saveFailed = true
+                            return
+                        }
                         dismiss()
                     }
                 }
@@ -647,6 +651,11 @@ private struct ParentEditSheet: View {
                 loaded = true
                 name = state.account?.name ?? ""
                 mobile = state.account?.mobile ?? ""
+            }
+            .alert("Couldn’t save your details", isPresented: $saveFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your signed-in account couldn’t be restored. Your entries are still here. Please sign in again to save them.")
             }
         }
         .presentationDetents([.medium, .large])

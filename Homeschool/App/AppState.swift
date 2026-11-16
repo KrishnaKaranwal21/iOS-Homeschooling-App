@@ -223,6 +223,23 @@ final class AppState {
     init() {
         // Checks whether a previous session completed setup and reached the main app.
         if storedStage == "main" {
+            if account == nil, let recovered = AccountStore.recoverLegacySession() {
+                account = recovered
+                let key = AccountStore.normalized(recovered.email)
+                // Keep content created while the older build had lost its account selection.
+                if LocalArchive.load([Event].self, category: "events", account: key) == nil,
+                   let legacy = LocalArchive.load([Event].self, category: "events", account: "local-family") {
+                    LocalArchive.save(legacy, category: "events", account: key)
+                }
+                if LocalArchive.load([ChatThread].self, category: "chats", account: key) == nil,
+                   let legacy = LocalArchive.load([ChatThread].self, category: "chats", account: "local-family") {
+                    LocalArchive.save(legacy, category: "chats", account: key)
+                }
+                if bookingsByAccount[key] == nil, let legacy = bookingsByAccount["local-family"] {
+                    bookingsByAccount[key] = legacy
+                }
+                chats.reload(withSamples: false, account: key)
+            }
             // Restores the main launch stage instead of showing onboarding again.
             stage = .main
             isReturningSession = true
@@ -307,17 +324,19 @@ final class AppState {
     }
 
     // Trims and saves the active parent name and mobile number, then updates observable account data.
-    func updateAccount(name: String, mobile: String) {
+    @discardableResult
+    func updateAccount(name: String, mobile: String) -> Bool {
         // Stops if there is no signed-in parent account to edit and otherwise creates a mutable copy.
-        guard var current = account else { return }
+        guard var current = account ?? AccountStore.current else { return false }
         // Removes surrounding whitespace before storing the parent name.
-        current.name = name.trimmingCharacters(in: .whitespaces)
+        current.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         // Removes surrounding whitespace before storing the parent contact number.
-        current.mobile = mobile.trimmingCharacters(in: .whitespaces)
+        current.mobile = mobile.trimmingCharacters(in: .whitespacesAndNewlines)
         // Writes the updated parent account to the local account store.
         AccountStore.update(current)
         // Replaces the observed account so dependent profile and community views refresh.
         account = current
+        return true
     }
 
     /// Saves what other parents see on the community profile.
