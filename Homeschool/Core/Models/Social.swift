@@ -26,6 +26,9 @@ struct Parent: Identifiable, Hashable {
     var note = "Happy to share."
     /// The area they live in, such as "Potheri". Only the area is ever shown, never a distance.
     var place = ""
+    /// The city the area belongs to, such as "Chennai". Used so searching or choosing a city finds people.
+    var city = "Chennai"
+    var country = "India"
 
     var firstName: String { name.components(separatedBy: " ")[0] }
 
@@ -33,7 +36,7 @@ struct Parent: Identifiable, Hashable {
     var photoName: String { "Parent-\(firstName)" }
 
     var searchText: String {
-        ([name, role, tags, about, place] + interests + lookingFor).joined(separator: " ")
+        ([name, role, tags, about, place, city] + interests + lookingFor).joined(separator: " ")
     }
 }
 

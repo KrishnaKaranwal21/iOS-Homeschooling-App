@@ -97,9 +97,11 @@ struct WeekTaskSheet: View {
             Text("ACTIVITY")
                 .scaledFont(11, weight: .semibold, maxScale: 1.2)
                 .foregroundStyle(WeekStyle.secondary).tracking(0.5)
-            TextField("Explore Python\ndata types", text: $activity.title, axis: .vertical)
+            // A single-line placeholder that grows as the name wraps, so the cursor sits on the same line as the hint.
+            TextField("Explore Python data types", text: $activity.title, axis: .vertical)
                 .scaledFont(28, weight: .bold, maxScale: 1.2)
-                .lineLimit(2...4)
+                .lineLimit(1...4)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel("Activity name")
             Menu {
                 Picker("Subject", selection: $activity.subject) {
