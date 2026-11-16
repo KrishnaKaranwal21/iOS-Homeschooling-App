@@ -100,72 +100,171 @@ struct EventLocationSection: View {
     }
 }
 
+
 struct EventPhotosSection: View {
     let event: Event
+
     @Environment(AppState.self) private var state
     @State private var selectedPhoto: PhotosPickerItem?
     @State private var preview: PickedImage?
     @State private var errorMessage: String?
-    private var photos: [PickedImage] { state.events.first { $0.id == event.id }?.photos ?? event.photos }
+
+    private var currentEvent: Event {
+        state.events.first { $0.id == event.id } ?? event
+    }
+
+    private var photos: [PickedImage] {
+        currentEvent.photos
+    }
+
+    private var canAddPhotos: Bool {
+        currentEvent.isRegistered || currentEvent.isHostedByMe
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack {
-                Text("Photos").scaledFont(23, weight: .bold, maxScale: 1.3).foregroundStyle(Theme.ink)
+                Text("Photos")
+                    .scaledFont(23, weight: .bold, maxScale: 1.3)
+                    .foregroundStyle(Theme.ink)
+
                 Spacer()
-                if !photos.isEmpty {
+
+                if canAddPhotos && !photos.isEmpty {
                     PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                        Image(systemName: "plus").frame(width: 44, height: 44)
-                    }.foregroundStyle(Theme.accent).accessibilityLabel("Add an event photo")
+                        Image(systemName: "plus")
+                            .frame(width: 44, height: 44)
+                    }
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityLabel("Add an event photo")
                 }
             }
+
             if photos.isEmpty {
-                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                if canAddPhotos {
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        HStack(spacing: 18) {
+                            Image(systemName: "camera")
+                                .font(.system(size: 26, weight: .light))
+
+                            Text("Be the first one to share a photo from this event!")
+                                .scaledFont(15, maxScale: 1.35)
+                                .multilineTextAlignment(.leading)
+
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(Theme.secondary)
+                        .padding(22)
+                        .frame(maxWidth: .infinity, minHeight: 100)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 23)
+                                .strokeBorder(
+                                    Theme.cardBorder,
+                                    style: StrokeStyle(
+                                        lineWidth: 1.2,
+                                        dash: [9, 7]
+                                    )
+                                )
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
                     HStack(spacing: 18) {
-                        Image(systemName: "camera").font(.system(size: 26, weight: .light))
-                        Text("Be the first one to share a photo from this event!")
-                            .scaledFont(15, maxScale: 1.35).multilineTextAlignment(.leading)
+                        Image(systemName: "lock")
+                            .font(.system(size: 24, weight: .light))
+
+                        Text("Register for this event to share photos.")
+                            .scaledFont(15, maxScale: 1.35)
+                            .multilineTextAlignment(.leading)
+
                         Spacer(minLength: 0)
                     }
-                    .foregroundStyle(Theme.secondary).padding(22).frame(maxWidth: .infinity, minHeight: 100)
-                    .overlay(RoundedRectangle(cornerRadius: 23).strokeBorder(Theme.cardBorder, style: StrokeStyle(lineWidth: 1.2, dash: [9, 7])))
-                }.buttonStyle(.plain)
+                    .foregroundStyle(Theme.secondary)
+                    .padding(22)
+                    .frame(maxWidth: .infinity, minHeight: 100)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 23)
+                            .strokeBorder(
+                                Theme.cardBorder,
+                                style: StrokeStyle(
+                                    lineWidth: 1.2,
+                                    dash: [9, 7]
+                                )
+                            )
+                    }
+                }
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: 12) {
                         ForEach(photos) { photo in
-                            Button { preview = photo } label: {
-                                photo.image.resizable().scaledToFill().frame(width: 150, height: 115)
+                            Button {
+                                preview = photo
+                            } label: {
+                                photo.image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 150, height: 115)
                                     .clipShape(.rect(cornerRadius: 18))
-                            }.buttonStyle(.plain).accessibilityLabel("View event photo")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("View event photo")
                         }
                     }
-                }.scrollIndicators(.hidden)
+                }
+                .scrollIndicators(.hidden)
             }
-            if let errorMessage { Text(errorMessage).font(.caption).foregroundStyle(Theme.secondary) }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(Theme.secondary)
+            }
         }
         .padding(.top, 12)
         .task(id: selectedPhoto) {
             guard let selectedPhoto else { return }
+
             do {
                 guard let image = try await selectedPhoto.loadTransferable(type: Data.self) else {
                     errorMessage = "This photo couldn’t be loaded. Try another image."
                     return
                 }
-                guard !Task.isCancelled, let index = state.events.firstIndex(where: { $0.id == event.id }) else { return }
-                if let photo = PickedImage(data: image) { state.events[index].photos.append(photo) }
+
+                guard !Task.isCancelled,
+                      canAddPhotos,
+                      let index = state.events.firstIndex(where: { $0.id == event.id })
+                else { return }
+
+                if let photo = PickedImage(data: image) {
+                    state.events[index].photos.append(photo)
+                }
+
                 errorMessage = nil
-            } catch { errorMessage = "This photo couldn’t be loaded. Try another image." }
+            } catch {
+                errorMessage = "This photo couldn’t be loaded. Try another image."
+            }
         }
         .fullScreenCover(item: $preview) { photo in
             NavigationStack {
-                photo.image.resizable().scaledToFit().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Theme.background).navigationTitle("Event photo").navigationBarTitleDisplayMode(.inline)
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { preview = nil } } }
+                photo.image
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.background)
+                    .navigationTitle("Event photo")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                preview = nil
+                            }
+                        }
+                    }
             }
         }
     }
 }
+
 
 /// EventKit's system editor lets the family choose a calendar and confirm the save.
 struct EventCalendarSheet: UIViewControllerRepresentable {
