@@ -89,7 +89,9 @@ enum AccountStore {
         select(nil)
     }
 
-    static func normalized(_ email: String) -> String {
+    /// Pure string clean-up with no shared state, so it is safe to call from any isolation context.
+    /// (The project defaults every type to the main actor, which made this helper main-actor-only.)
+    nonisolated static func normalized(_ email: String) -> String {
         email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 

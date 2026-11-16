@@ -13,6 +13,23 @@ struct WeekActivity: Identifiable, Codable, Equatable {
     var smallSteps = ""
     var notes = ""
     var isDone = false
+    var completedAt: Date? = nil
+
+    /// Older saves have no completion timestamp; retain their original scheduled-day credit.
+    var creditDate: Date? { isDone ? (completedAt ?? date) : nil }
+
+    /// A pending task the planner generated and the family has not customised. These follow the child's profile;
+    /// completed and hand-made tasks never do.
+    var isAutoPlanned: Bool {
+        !isDone && time == nil && smallSteps.isEmpty && notes.isEmpty && !reminder
+            && TaskIdeas.isStock(title: title, subject: subject)
+    }
+
+    mutating func setCompleted(_ completed: Bool, at date: Date = .now) {
+        if completed && !isDone { completedAt = date }
+        if !completed { completedAt = nil }
+        isDone = completed
+    }
 }
 
 enum ActivityRepeat: String, Codable, CaseIterable {
@@ -77,7 +94,7 @@ struct WeeklyPlan: Codable, Equatable {
     @discardableResult
     mutating func complete(_ id: WeekActivity.ID) -> Bool {
         guard let index = activities.firstIndex(where: { $0.id == id }), !activities[index].isDone else { return false }
-        activities[index].isDone = true
+        activities[index].setCompleted(true)
         return true
     }
 
@@ -94,6 +111,14 @@ struct WeeklyPlan: Codable, Equatable {
 
     var plannedMinutes: Int { activities.reduce(0) { $0 + $1.minutes } }
 
+    /// Adding a learning day leaves existing tasks and completion untouched.
+    @discardableResult
+    mutating func includeLearningDay(_ day: String) -> Bool {
+        guard Self.dayNames.contains(day), !days.contains(day) else { return false }
+        days = Self.dayNames.filter { days.contains($0) || $0 == day }
+        return true
+    }
+
     mutating func add(_ activity: WeekActivity) {
         var dates = [activity.date]
         if activity.repeatRule != .never {
@@ -108,6 +133,7 @@ struct WeeklyPlan: Codable, Equatable {
             var copy = activity
             copy.id = UUID()
             copy.date = date
+            copy.setCompleted(false)
             activities.append(copy)
             let day = day(for: date)
             if !days.contains(day) { days.append(day) }
@@ -122,29 +148,67 @@ struct WeeklyPlan: Codable, Equatable {
         let start = calendar.date(byAdding: .day, value: -mondayOffset, to: today)!
         let days = dayNames.filter { child.learningDays.contains($0) }
         var plan = WeeklyPlan(weekStart: start, days: days, hoursPerDay: child.hoursPerDay, activities: [])
-        let subjects = child.subjectNames.isEmpty
-            ? ["Maths", "English", "Science", "Computer skills", "Art & craft"] : child.subjectNames
-        let ideas = [
-            "maths": "Fractions in practice", "mathematics": "Fractions in practice",
-            "english": "Explain an idea", "science": "Observe and predict",
-            "computer skills": "Explore Python data types", "coding": "Explore Python data types",
-            "art & craft": "Create a repeating pattern", "art": "Create a repeating pattern"
-        ]
-        for day in days {
-            let total = child.hoursPerDay * 60
-            let count = min(subjects.count, max(1, total / 15))
-            let chosen = Array(subjects.prefix(count))
-            let weights = chosen.indices.map { $0 == 0 ? 4 : 3 }
-            let weightTotal = weights.reduce(0, +)
-            var remaining = total
+        plan.activities = generatedActivities(for: child, days: days, in: plan, keeping: [], reusing: [])
+        return plan
+    }
+
+    /// Starter tasks built only from the subjects the family chose: one task per subject on every learning day,
+    /// sharing the child's hours per day. Task titles rotate through each subject's ideas.
+    /// `kept` are activities that stay (completed or hand-made); they use up time and subjects first.
+    /// `reusing` lets regenerated tasks keep their old IDs so an unchanged plan stays equal to the saved one.
+    fileprivate static func generatedActivities(for child: Child, days: [String], in plan: WeeklyPlan,
+                                                keeping kept: [WeekActivity],
+                                                reusing old: [WeekActivity]) -> [WeekActivity] {
+        let calendar = Calendar.current
+        let subjects = child.subjectNames
+        guard !subjects.isEmpty, !days.isEmpty else { return [] }
+        let total = child.hoursPerDay * 60
+        let week = calendar.component(.weekOfYear, from: plan.weekStart)
+        var result: [WeekActivity] = []
+        for (position, day) in days.enumerated() {
+            let date = plan.date(for: day)
+            let dayKept = kept.filter { calendar.isDate($0.date, inSameDayAs: date) }
+            let usedKeys = Set(dayKept.map { LearningProgress.subjectKey($0.subject) })
+            let budget = total - dayKept.reduce(0) { $0 + $1.minutes }
+            guard budget >= 10 else { continue }
+            // Every chosen subject gets a task on every learning day; the title rotates so days differ.
+            let chosen = subjects.filter { !usedKeys.contains(LearningProgress.subjectKey($0)) }
+            guard !chosen.isEmpty else { continue }
+            let base = max(5, (budget / chosen.count / 5) * 5)
+            var remaining = budget
             for (index, subject) in chosen.enumerated() {
-                let minutes = index == chosen.count - 1 ? remaining : max(5, (total * weights[index] / weightTotal / 5) * 5)
+                let minutes = index == chosen.count - 1 ? max(5, remaining) : base
                 remaining -= minutes
-                plan.activities.append(WeekActivity(
-                    title: ideas[subject.lowercased()] ?? "Explore \(subject.lowercased())",
-                    subject: subject, date: plan.date(for: day), minutes: minutes,
-                    helpMinutes: min(15, minutes)))
+                var activity = WeekActivity(
+                    title: TaskIdeas.title(for: subject, level: child.level, slot: week + position + index),
+                    subject: subject, date: date, minutes: minutes, helpMinutes: min(15, minutes))
+                if let previous = old.first(where: {
+                    calendar.isDate($0.date, inSameDayAs: date)
+                        && LearningProgress.subjectKey($0.subject) == LearningProgress.subjectKey(subject)
+                }) {
+                    activity.id = previous.id
+                }
+                result.append(activity)
             }
+        }
+        return result
+    }
+
+    /// Brings this week in line with an edited child profile (learning days, hours per day, subjects).
+    /// Completed tasks and tasks the family wrote themselves stay; auto-planned pending tasks are rebuilt
+    /// from the child's current subjects. Running it twice gives the same plan.
+    func reconciled(with child: Child) -> WeeklyPlan {
+        var plan = self
+        let wanted = Self.dayNames.filter { child.learningDays.contains($0) }
+        let stock = activities.filter(\.isAutoPlanned)
+        let kept = activities.filter { !$0.isAutoPlanned }
+        plan.hoursPerDay = child.hoursPerDay
+        plan.activities = kept
+        let generated = Self.generatedActivities(for: child, days: wanted, in: plan, keeping: kept, reusing: stock)
+        plan.activities = kept + generated
+        let calendar = Calendar.current
+        plan.days = Self.dayNames.filter { name in
+            wanted.contains(name) || plan.activities.contains { calendar.isDate($0.date, inSameDayAs: plan.date(for: name)) }
         }
         return plan
     }

@@ -22,6 +22,7 @@ private struct ProgressLearningPage: View {
     @State private var selectedDate: Date
     @State private var range: ProgressRange = .week
     @State private var selectedBucketID: String?
+    @State private var showPlanner = false
 
     init(child: Child, onAddChild: @escaping () -> Void) {
         self.child = child
@@ -34,7 +35,8 @@ private struct ProgressLearningPage: View {
     private var progress: LearningProgress {
         var scoped = plan
         if range != .day { scoped.activities = timeline.activities }
-        return LearningProgress(plan: scoped, selectedSubjects: child.subjectNames)
+        return LearningProgress(plan: scoped, selectedSubjects: child.subjectNames,
+                                creditedActivities: timeline.creditedActivities)
     }
     private var selectedDay: String { plan.day(for: selectedDate) }
     private var day: DayLearningProgress {
@@ -50,6 +52,9 @@ private struct ProgressLearningPage: View {
     private var detail: DayLearningProgress {
         DayLearningProgress(name: selectedDay, date: selectedDate,
                             activities: isRangeOverview ? timeline.activities : day.activities)
+    }
+    private var detailCreditedMinutes: Int {
+        isRangeOverview ? timeline.loggedMinutes : (selectedBucket?.loggedMinutes ?? 0)
     }
     private var selectedDateIsInPlan: Bool {
         selectedDate >= Calendar.current.startOfDay(for: plan.weekStart)
@@ -113,6 +118,9 @@ private struct ProgressLearningPage: View {
         }
         .foregroundStyle(Theme.ink)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(isPresented: $showPlanner) {
+            DayPlannerSheet(initialDay: selectedDay) { selectedDate = $0 }
+        }
         .sensoryFeedback(.success, trigger: completionFeedback)
         .sensoryFeedback(.selection, trigger: selectedBucketID)
         .onAppear {
@@ -121,6 +129,12 @@ private struct ProgressLearningPage: View {
             selectedBucketID = nil
         }
         .onChange(of: range) { _, _ in
+            expandedSubjectID = nil
+            selectedBucketID = nil
+        }
+        // Editing the child's days, hours or subjects refreshes the fallback plan used before a week is saved.
+        .onChange(of: child) { _, updated in
+            generatedPlan = .firstWeek(for: updated)
             expandedSubjectID = nil
             selectedBucketID = nil
         }
@@ -198,7 +212,7 @@ private struct ProgressLearningPage: View {
                     .scaledFont(9, weight: .semibold, maxScale: 1.15).tracking(1.2)
                     .lineLimit(1).minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
-                legend("Logged", color: ProgressPalette.logged)
+                legend("Credited", color: ProgressPalette.logged)
                 legend("Planned", color: Theme.surface.opacity(0.65))
             }
             .foregroundStyle(ProgressPalette.purple)
@@ -231,7 +245,7 @@ private struct ProgressLearningPage: View {
     }
 
     private var chartMaximum: Int {
-        let largest = timeline.buckets.map(\.plannedMinutes).max() ?? 0
+        let largest = timeline.buckets.map { max($0.plannedMinutes, $0.loggedMinutes) }.max() ?? 0
         return max(60, Int(ceil(Double(largest) / 60)) * 60)
     }
 
@@ -255,24 +269,26 @@ private struct ProgressLearningPage: View {
         } label: {
             VStack(spacing: 10) {
                 Group {
-                    if bucket.plannedMinutes > 0 {
-                        Capsule().fill(Theme.surface.opacity(isSelected ? 0.72 : 0.42))
-                            .frame(height: max(4, plannedHeight))
-                            .overlay(alignment: .bottom) {
-                                if bucket.loggedMinutes > 0 {
-                                    Rectangle()
-                                        .fill(isSelected ? ProgressPalette.purple : ProgressPalette.logged)
-                                        .frame(height: min(max(4, plannedHeight), max(1, loggedHeight)))
-                                        .overlay(alignment: .top) {
-                                            if bucket.isComplete && loggedHeight >= 24 && range != .month {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.background)
-                                                    .padding(.top, 10)
-                                            }
+                    if bucket.plannedMinutes > 0 || bucket.loggedMinutes > 0 {
+                        ZStack(alignment: .bottom) {
+                            Capsule().fill(Theme.surface.opacity(isSelected ? 0.72 : 0.42))
+                                .frame(height: bucket.plannedMinutes > 0 ? max(1, plannedHeight) : 0)
+                            if bucket.loggedMinutes > 0 {
+                                Rectangle()
+                                    .fill(isSelected ? ProgressPalette.purple : ProgressPalette.logged)
+                                    .frame(height: max(1, loggedHeight))
+                                    .overlay(alignment: .top) {
+                                        if bucket.isComplete && loggedHeight >= plannedHeight && loggedHeight >= 24 && range != .month {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundStyle(Theme.background)
+                                                .padding(.top, 10)
                                         }
-                                }
+                                    }
                             }
-                            .clipShape(Capsule())
+                        }
+                        .frame(height: max(1, max(plannedHeight, loggedHeight)))
+                        .clipShape(Capsule())
                     } else {
                         Capsule().fill(ProgressPalette.purple.opacity(isSelected ? 0.7 : 0.2)).frame(height: 3)
                     }
@@ -290,7 +306,7 @@ private struct ProgressLearningPage: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(bucket.title), \(LearningProgress.duration(bucket.loggedMinutes)) logged, \(LearningProgress.duration(bucket.plannedMinutes)) planned")
+        .accessibilityLabel("\(bucket.title), \(LearningProgress.duration(bucket.loggedMinutes)) credited, \(LearningProgress.duration(bucket.plannedMinutes)) planned")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("progress.bar.\(index)")
     }
@@ -303,15 +319,14 @@ private struct ProgressLearningPage: View {
     }
 
     private var rangeTotals: some View {
-        let percentage = Int((timeline.fraction * 100).rounded())
-        return HStack(alignment: .top, spacing: 0) {
-            statistic(LearningProgress.duration(timeline.loggedMinutes), caption: "Logged this \(range.rawValue.lowercased())")
+        HStack(alignment: .top, spacing: 0) {
+            statistic(LearningProgress.duration(timeline.loggedMinutes), caption: "Credited this \(range.rawValue.lowercased())")
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
             statistic(LearningProgress.duration(timeline.plannedMinutes),
                       caption: range == .day ? "Daily goal" : "Planned this \(range.rawValue.lowercased())")
                 .padding(.leading, 13)
             Rectangle().fill(ProgressPalette.purple.opacity(0.12)).frame(width: 1, height: 39)
-            statistic("\(percentage)%", caption: "Completed")
+            statistic("\(timeline.completionPercentage)%", caption: "Plan complete")
                 .padding(.leading, 13)
         }
         .accessibilityIdentifier("progress.rangeTotals")
@@ -333,20 +348,18 @@ private struct ProgressLearningPage: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text(LearningProgress.duration(detail.loggedMinutes))
+                    Text(LearningProgress.duration(detailCreditedMinutes))
                         .scaledFont(46, weight: .heavy, maxScale: 1.15)
                         .tracking(-2).lineLimit(1).minimumScaleFactor(0.6)
                         .contentTransition(.numericText())
-                    Text(isRangeOverview ? "Learning · This \(range.rawValue.lowercased())" : "Learning · \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")
+                    Text(isRangeOverview ? "Credited · This \(range.rawValue.lowercased())" : "Credited · \(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: selectedDay)!])")
                         .scaledFont(15, weight: .medium, maxScale: 1.25)
                     Text(isRangeOverview ? rangeLabel : day.date.formatted(.dateTime.day().month(.wide)))
                         .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.muted)
                 }
                 Spacer(minLength: 0)
                 if selectedDateIsInPlan {
-                    NavigationLink {
-                        FirstWeekView(initialDay: selectedDay, backTitle: "Progress")
-                    } label: {
+                    Button { showPlanner = true } label: {
                         Label("Plan", systemImage: "plus")
                             .scaledFont(14, weight: .medium, maxScale: 1.2)
                             .padding(.horizontal, 16).frame(height: 44)
@@ -358,7 +371,7 @@ private struct ProgressLearningPage: View {
             }
             HStack(alignment: .top, spacing: 10) {
                 dayStatistic(LearningProgress.duration(detail.plannedMinutes), caption: "Planned")
-                dayStatistic("\(detail.completed.count) / \(detail.activities.count)", caption: "Activities")
+                dayStatistic("\(detail.completed.count) / \(detail.activities.count)", caption: "Planned tasks done")
                 dayStatistic(LearningProgress.duration(detail.remainingMinutes), caption: "Left to explore")
             }
             Divider().overlay(Color.adaptive(0xEEEEEE, 0x303033))
@@ -395,7 +408,7 @@ private struct ProgressLearningPage: View {
                     isExpanded: Binding(
                         get: { expandedSubjectID == subject.id },
                         set: { expandedSubjectID = $0 ? subject.id : nil }),
-                    onToggleActivity: toggleActivity)
+                    onToggleActivity: toggleActivity, onPlan: { showPlanner = true })
                     .id(subject.id)
             }
             if progress.subjects.isEmpty {

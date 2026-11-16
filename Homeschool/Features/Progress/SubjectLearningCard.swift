@@ -10,12 +10,14 @@ struct SubjectLearningCard: View {
     let allowsPlanning: Bool
     @Binding var isExpanded: Bool
     let onToggleActivity: (WeekActivity) -> Void
+    let onPlan: () -> Void
     @State private var showWholeWeek: Bool
     @State private var expandedActivityID: WeekActivity.ID?
 
     init(subject: SubjectLearningProgress, index: Int, selectedDate: Date,
          overviewTitle: String = "Whole week", allowsPlanning: Bool = true,
-         isExpanded: Binding<Bool>, onToggleActivity: @escaping (WeekActivity) -> Void) {
+         isExpanded: Binding<Bool>, onToggleActivity: @escaping (WeekActivity) -> Void,
+         onPlan: @escaping () -> Void) {
         self.subject = subject
         self.index = index
         self.selectedDate = selectedDate
@@ -23,13 +25,14 @@ struct SubjectLearningCard: View {
         self.allowsPlanning = allowsPlanning
         _isExpanded = isExpanded
         self.onToggleActivity = onToggleActivity
+        self.onPlan = onPlan
         _showWholeWeek = State(initialValue: !subject.activities.contains {
             Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
         })
     }
 
     private var palette: SubjectCardPalette { .all[index % SubjectCardPalette.all.count] }
-    private var percent: Int { Int((subject.fraction * 100).rounded()) }
+    private var percent: Int { subject.completionPercentage }
     private var finished: Bool { !subject.activities.isEmpty && subject.completedCount == subject.activities.count }
     private var today: [WeekActivity] {
         subject.activities.filter { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
@@ -84,7 +87,7 @@ struct SubjectLearningCard: View {
                             .frame(width: 32, height: 32)
                             .background(Theme.surface.opacity(0.85), in: .rect(cornerRadius: 10))
                             .rotationEffect(.degrees(reduceMotion || isExpanded ? 0 : -6))
-                        Text(finished ? "WEEK, WELL EXPLORED" : "A LITTLE MORE DISCOVERY")
+                        Text(finished ? (overviewTitle == "Whole month" ? "MONTH, WELL EXPLORED" : "WEEK, WELL EXPLORED") : "A LITTLE MORE DISCOVERY")
                             .scaledFont(8, weight: .bold, maxScale: 1.2)
                             .tracking(1.1).multilineTextAlignment(.leading)
                     }
@@ -127,7 +130,7 @@ struct SubjectLearningCard: View {
             .background(Theme.surface.opacity(0.58), in: .rect(cornerRadius: 15))
 
             HStack {
-                Text("\(LearningProgress.duration(subject.loggedMinutes)) logged")
+                Text("\(LearningProgress.duration(subject.creditedMinutes)) credited")
                     .scaledFont(11, weight: .medium, maxScale: 1.25)
                 Spacer(minLength: 0)
                 Text(isExpanded ? "Tuck away" : "Pick this card")
@@ -193,10 +196,8 @@ struct SubjectLearningCard: View {
                     activityRow(activity)
                 }
             }
-            if allowsPlanning { NavigationLink {
-                FirstWeekView(initialDay: WeeklyPlan.dayNames[(Calendar.current.component(.weekday, from: selectedDate) + 5) % 7], backTitle: "Progress")
-            } label: {
-                Label(subject.activities.isEmpty ? "Plan a little learning" : "Adjust the weekly plan", systemImage: "plus")
+            if allowsPlanning { Button(action: onPlan) {
+                Label(subject.activities.isEmpty ? "Plan a little learning" : "Adjust the plan", systemImage: "plus")
                     .scaledFont(12, weight: .semibold, maxScale: 1.25)
                     .foregroundStyle(palette.ink)
                     .frame(maxWidth: .infinity, minHeight: 44)

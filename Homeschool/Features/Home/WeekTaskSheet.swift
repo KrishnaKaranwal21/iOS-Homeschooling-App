@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WeekTaskSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var state
     let week: WeeklyPlan
     let isEditing: Bool
     let onSave: (WeekActivity) -> Void
@@ -20,8 +21,6 @@ struct WeekTaskSheet: View {
         var id: String { rawValue }
     }
 
-    private let subjects = ["Coding", "Maths", "English", "Science", "Computer skills", "Art & craft", "Reading", "Life skills"]
-
     init(activity: WeekActivity, week: WeeklyPlan, isEditing: Bool, onSave: @escaping (WeekActivity) -> Void) {
         self.week = week
         self.isEditing = isEditing
@@ -34,7 +33,14 @@ struct WeekTaskSheet: View {
     }
 
     private var title: String { activity.title.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var subjectOptions: [String] { Array(Set(subjects + week.activities.map(\.subject))).sorted() }
+    /// Only the subjects this child is studying, plus the task's own subject when an older task uses another one.
+    private var childSubjects: [String] { state.child.subjectNames }
+    private var subjectOptions: [String] {
+        var options = childSubjects
+        let current = activity.subject.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !current.isEmpty, isEditing, !options.contains(current) { options.append(current) }
+        return options
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,6 +96,12 @@ struct WeekTaskSheet: View {
         .onChange(of: activity.minutes) { _, minutes in
             activity.helpMinutes = min(activity.helpMinutes, minutes)
         }
+        .onAppear {
+            // New tasks start on one of the child's own subjects instead of a generic default.
+            guard !isEditing, !childSubjects.isEmpty, !childSubjects.contains(activity.subject) else { return }
+            let key = LearningProgress.subjectKey(activity.subject)
+            activity.subject = childSubjects.first { LearningProgress.subjectKey($0) == key } ?? childSubjects[0]
+        }
     }
 
     private var activityCard: some View {
@@ -98,7 +110,7 @@ struct WeekTaskSheet: View {
                 .scaledFont(11, weight: .semibold, maxScale: 1.2)
                 .foregroundStyle(WeekStyle.secondary).tracking(0.5)
             // A single-line placeholder that grows as the name wraps, so the cursor sits on the same line as the hint.
-            TextField("Explore Python data types", text: $activity.title, axis: .vertical)
+            TextField(TaskIdeas.title(for: activity.subject, level: state.child.level, slot: 0), text: $activity.title, axis: .vertical)
                 .scaledFont(28, weight: .bold, maxScale: 1.2)
                 .lineLimit(1...4)
                 .fixedSize(horizontal: false, vertical: true)
