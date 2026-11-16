@@ -127,7 +127,7 @@ private struct WeekPlanPage: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
         }
-        .scrollTitleBar(isSheet ? "Activity plan" : "Your week")
+        .scrollTitleBar(isSheet ? "Your plan" : "Your week")
         .scrollIndicators(.hidden)
         .background(Theme.background)
         .foregroundStyle(Theme.ink)
@@ -189,6 +189,9 @@ private struct WeekPlanPage: View {
 
     private var plannerIntro: some View {
         VStack(alignment: .leading, spacing: 8) {
+            Text("Your plan")
+                .pageTitle()
+                .foregroundStyle(Theme.ink)
             HStack(spacing: 6) {
                 Text(child.displayName)
                 Text("·")
@@ -427,7 +430,7 @@ private struct WeekPlanPage: View {
                 Button {
                     taskEditor = TaskEditorRequest(activity: WeekActivity(date: plan.date(for: selectedDay)), isEditing: false)
                 } label: {
-                    Label("Add an activity", systemImage: "plus")
+                    Text("Add a task")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.primaryHomeschool)
