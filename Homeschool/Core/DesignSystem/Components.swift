@@ -60,6 +60,25 @@ struct AvatarView: View {
 
 // MARK: - Titles that appear when the page scrolls
 
+/// The blurred bar behind a page title, like the collapsed bar in the iOS Settings app: the content
+/// scrolls under it and shows through, blurred, with a hairline along the bottom. It reaches up
+/// under the status bar.
+struct TranslucentBarBackground: View {
+    var showsDivider = true
+
+    var body: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial.opacity(0.85))
+            .overlay(alignment: .bottom) {
+                if showsDivider {
+                    Rectangle().fill(Color.primary.opacity(0.14)).frame(height: 0.5)
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+    }
+}
+
+
 /// For pages with their own big heading and no navigation bar: once the content scrolls under the
 /// status bar, a blurred bar with the page title fades in, like the collapsed bar on Profile.
 /// Apply it directly to the `ScrollView`.
@@ -81,12 +100,37 @@ private struct ScrollTitleBar: ViewModifier {
                     .foregroundStyle(Theme.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
-                    .background(.bar)   // reaches up under the status bar
+                    .background { TranslucentBarBackground() }
                     // On iPad the page has a real navigation bar, so this bar isn't needed.
                     .opacity(isScrolled && sizeClass != .regular ? 1 : 0)
                     .animation(.easeInOut(duration: 0.2), value: isScrolled)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+            }
+    }
+}
+
+/// For pages with their own fixed header (back button, share, close ...): the header stays on top and
+/// gets the same blurred bar as the collapsed bar in iOS Settings once the content scrolls under it.
+private struct ScrollBlurHeader<Bar: View>: ViewModifier {
+    let bar: Bar
+    @State private var scrollProgress: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                let offsetY = geometry.contentOffset.y + geometry.contentInsets.top
+                // Adjust divisor (e.g., 12.0) to control how fast the blur fades in
+                let progress = offsetY / 12.0
+                return min(max(progress, 0), 1) // Clamp between 0 and 1
+            } action: { _, progress in
+                scrollProgress = progress
+            }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                bar.background {
+                    TranslucentBarBackground()
+                        .opacity(scrollProgress) // Smooth continuous opacity
+                }
             }
     }
 }
@@ -123,6 +167,7 @@ private struct ScrollNavigationTitle: ViewModifier {
 
 extension View {
     func scrollTitleBar(_ title: String) -> some View { modifier(ScrollTitleBar(title: title)) }
+    func scrollBlurHeader<Bar: View>(@ViewBuilder _ bar: () -> Bar) -> some View { modifier(ScrollBlurHeader(bar: bar())) }
     func scrollNavigationTitle(_ title: String) -> some View { modifier(ScrollNavigationTitle(title: title)) }
 }
 

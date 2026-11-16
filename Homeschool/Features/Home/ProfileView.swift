@@ -31,9 +31,13 @@ struct ProfileView: View {
     @State private var showParentEdit = false
     @State private var showLocationPicker = false
     @State private var goToChildren = false
-    @State private var levelTarget: Child?
-    /// Set when a level changed, so the subjects page opens once the level sheet has closed.
-    @State private var pendingSubjectsEdit: Child?
+    @State private var showRename = false
+    @State private var renameID: Child.ID?
+    @State private var renameText = ""
+    @State private var showRemove = false
+    @State private var showCannotRemove = false
+    @State private var removeID: Child.ID?
+    @State private var removeName = ""
 
     var body: some View {
         ScrollView {
@@ -63,6 +67,7 @@ struct ProfileView: View {
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
+        .scrollTitleBar(pageTitle)
         .background(Theme.background)
         .overlay(alignment: .topLeading) { backButton }
         // No navigation bar at all: the page has its own heading and a floating back button.
@@ -80,13 +85,26 @@ struct ProfileView: View {
             LocationPickerSheet(allowsWorld: false, selection: state.homeLocation,
                                 home: state.homeLocation) { state.homeLocation = $0 }
         }
-        .sheet(item: $levelTarget, onDismiss: {
-            if let changed = pendingSubjectsEdit {
-                pendingSubjectsEdit = nil
-                editTarget = EditTarget(child: changed, step: 2, singleStep: true)
+        .alert("Edit name", isPresented: $showRename) {
+            TextField("Name", text: $renameText)
+                .textInputAutocapitalization(.words)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") { saveName() }
+        } message: {
+            Text("A nickname is absolutely fine.")
+        }
+        .alert("Can't remove this child", isPresented: $showCannotRemove) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Add another child first. At least one child is needed.")
+        }
+        .alert("Remove \(removeName)?", isPresented: $showRemove) {
+            Button("Remove", role: .destructive) {
+                if let id = removeID { state.removeChild(id) }
             }
-        }) { child in
-            LevelPickerSheet(child: child) { pendingSubjectsEdit = $0 }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Their plan, subjects and progress will be deleted from this device. This can't be undone.")
         }
         .onChange(of: state.locationService.status) { _, status in
             // If location access was refused, the switch goes back off and a city is needed.
@@ -515,10 +533,13 @@ struct ProfileView: View {
             ProfileDivider()
 
             VStack(spacing: 4) {
-                editRow("graduationcap", "NIOS level", levelText(child)) { levelTarget = child }
-                editRow("calendar", "Date of birth", dobText(child)) {
-                    editTarget = EditTarget(child: child, step: 1, singleStep: false)
+                editRow("person", "Name", child.displayName) {
+                    renameID = child.id
+                    renameText = child.name
+                    showRename = true
                 }
+                levelMenuRow(child)
+                ChildDOBRow(child: child) { openSubjects(for: $0) }
                 editRow("books.vertical", "Subjects", subjectsText(child)) {
                     editTarget = EditTarget(child: child, step: 2, singleStep: true)
                 }
@@ -554,15 +575,60 @@ struct ProfileView: View {
                 ExamRows(child: child)
             }
 
-            Button { editTarget = EditTarget(child: child, step: 1, singleStep: false) } label: {
-                Label("Edit all details", systemImage: "pencil")
+            Button {
+                if state.children.count < 2 {
+                    showCannotRemove = true
+                } else {
+                    removeID = child.id
+                    removeName = child.displayName
+                    showRemove = true
+                }
+            } label: {
+                Label("Remove child", systemImage: "trash")
                     .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Theme.ink)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(Capsule().fill(Theme.chipFill))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// Same picker as the child setup page. A new level clears the subjects, so they open next.
+    private func levelMenuRow(_ child: Child) -> some View {
+        ProfileInfoRow(symbol: "graduationcap", title: "NIOS level", value: levelText(child))
+            .overlay {
+                Menu {
+                    ForEach(Curriculum.levels, id: \.self) { level in
+                        Button("\(Curriculum.displayName(for: level)) · \(AgeRules.rule(for: level)?.grade ?? "")") {
+                            if let changed = state.changeLevel(of: child.id, to: level) {
+                                openSubjects(for: changed)
+                            }
+                        }
+                    }
+                } label: {
+                    Color.clear.contentShape(Rectangle())
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens a list of levels")
+    }
+
+    /// Opens the subjects page once the menu or calendar has closed.
+    private func openSubjects(for child: Child) {
+        Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            editTarget = EditTarget(child: child, step: 2, singleStep: true)
+        }
+    }
+
+    private func saveName() {
+        let trimmed = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let id = renameID,
+              var changed = state.children.first(where: { $0.id == id }) else { return }
+        changed.name = trimmed
+        state.updateChild(changed)
     }
 
     private func editRow(_ symbol: String, _ title: String, _ value: String,
@@ -587,11 +653,6 @@ struct ProfileView: View {
         return Curriculum.displayName(for: child.level)
     }
 
-    private func dobText(_ child: Child) -> String {
-        guard let birthDate = child.birthDate else { return "Not set" }
-        return birthDate.formatted(date: .long, time: .omitted)
-    }
-
     private func subjectsText(_ child: Child) -> String {
         let names = child.subjectNames
         guard !names.isEmpty else { return "None chosen yet" }
@@ -604,6 +665,63 @@ struct ProfileView: View {
         let days = order.filter { child.learningDays.contains($0) }
         guard !days.isEmpty else { return "No days chosen" }
         return "\(days.count) days · \(child.hoursPerDay)h"
+    }
+}
+
+// MARK: - Date of birth row
+
+/// Tapping the row opens the calendar straight away, like the child setup page.
+private struct ChildDOBRow: View {
+    let child: Child
+    /// Called when the new date moved the child to another level, so the subjects need choosing again.
+    let onLevelChanged: (Child) -> Void
+
+    @Environment(AppState.self) private var state
+    @State private var showCalendar = false
+    @State private var draftDate = Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
+
+    private var text: String {
+        guard let date = child.birthDate else { return "Not set" }
+        return date.formatted(date: .long, time: .omitted)
+    }
+
+    private var binding: Binding<Date> {
+        Binding(
+            get: { child.birthDate ?? draftDate },
+            set: { newValue in
+                draftDate = newValue
+                var updated = child
+                updated.birthDate = newValue
+                var levelChanged = false
+                if !updated.levelChosenManually {
+                    let suggested = AgeRules.suggestedLevel(for: newValue)
+                    if suggested != updated.level {
+                        updated.level = suggested
+                        updated.selectedSubjects = []
+                        levelChanged = true
+                    }
+                }
+                state.updateChild(updated)
+                showCalendar = false
+                if levelChanged { onLevelChanged(updated) }
+            }
+        )
+    }
+
+    var body: some View {
+        Button { showCalendar = true } label: {
+            ProfileInfoRow(symbol: "calendar", title: "Date of birth", value: text)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Date of birth, \(text). Edit")
+        .popover(isPresented: $showCalendar) {
+            DatePicker("Date of birth", selection: binding, in: ...Date(), displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .padding(12)
+                .frame(width: 330)
+                .presentationCompactAdaptation(.popover)
+        }
     }
 }
 

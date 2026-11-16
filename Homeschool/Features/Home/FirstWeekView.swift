@@ -46,7 +46,6 @@ private struct WeekPlanPage: View {
         let isEditing: Bool
     }
     @State private var taskEditor: TaskEditorRequest?
-    @State private var showTimes = false
     @State private var saved = false
     @State private var showCompleted = false
     @State private var removedActivity: WeekActivity?
@@ -128,6 +127,7 @@ private struct WeekPlanPage: View {
             .padding(.top, 8)
             .padding(.bottom, 8)
         }
+        .scrollTitleBar(isSheet ? "Activity plan" : "Your week")
         .scrollIndicators(.hidden)
         .background(Theme.background)
         .foregroundStyle(Theme.ink)
@@ -149,14 +149,6 @@ private struct WeekPlanPage: View {
             .presentationDetents(isSheet ? [.large] : [.fraction(0.82), .large])
             .presentationDragIndicator(.visible)
             .presentationCornerRadius(28)
-        }
-        .sheet(isPresented: $showTimes) {
-            DayStartTimeSheet(day: WeeklyPlan.fullDayNames[dayIndex],
-                              initialTime: plan.startTimes[selectedDay]) { time in
-                plan.startTimes[selectedDay] = time
-            }
-            .presentationDetents([.height(340)])
-            .presentationDragIndicator(.visible)
         }
         .onChange(of: plan) { _, _ in
             state.saveWeek(plan, for: child.id)
@@ -330,14 +322,6 @@ private struct WeekPlanPage: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(isSheet ? "Your activities" : WeeklyPlan.fullDayNames[dayIndex]).sectionTitle()
-                Spacer()
-                Button { showTimes = true } label: {
-                    Label(plan.startTimes[selectedDay] == nil ? "Set times" : "Edit times", systemImage: "clock")
-                        .scaledFont(13, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(WeekStyle.secondary)
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
             }
             Text(Self.duration(dailyMinutes) + " learning" + (completed.isEmpty ? "" : " · \(remaining.count) left"))
                 .scaledFont(14, maxScale: 1.2).foregroundStyle(WeekStyle.secondary)
@@ -622,31 +606,6 @@ enum WeekStyle {
     static let purple = Color.adaptive(0x2B2859, 0xD4C8F4)
     static let border = Color.adaptive(0xDFDDED, 0x40384F)
     static let taskGrey = Color.adaptive(0xF0EFF2, 0x2A2830)
-}
-
-private struct DayStartTimeSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let day: String
-    let onSave: (Date?) -> Void
-    @State private var time: Date
-
-    init(day: String, initialTime: Date?, onSave: @escaping (Date?) -> Void) {
-        self.day = day
-        self.onSave = onSave
-        _time = State(initialValue: initialTime ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: .now)!)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("\(day)’s start time").sectionTitle()
-            Text("Tasks without a set time follow in order from here.").caption()
-            DatePicker("Start learning", selection: $time, displayedComponents: .hourAndMinute)
-            Button("Set times") { onSave(time); dismiss() }.buttonStyle(.primaryHomeschool)
-            Button("Keep it flexible") { onSave(nil); dismiss() }.frame(maxWidth: .infinity)
-        }
-        .padding(24)
-        .background(Theme.background)
-    }
 }
 
 /// Only unused weekdays are offered, so a seven-day routine never shows an extra add tile.

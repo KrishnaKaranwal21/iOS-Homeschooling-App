@@ -62,7 +62,7 @@ struct EventDetailView: View {
                 .frame(maxWidth: .infinity)
             }
             .background(Theme.background.ignoresSafeArea())
-            .safeAreaInset(edge: .top, spacing: 0) { fixedHeader }
+            .scrollBlurHeader { fixedHeader }
             .safeAreaInset(edge: .bottom, spacing: 0) { attendanceBar(proxy) }
             .navigationBarBackButtonHidden(true)
             .toolbarVisibility(.hidden, for: .navigationBar)

@@ -33,9 +33,28 @@ struct GatherView: View {
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+            LazyVStack(spacing: 0) {
                 Color.clear.frame(height: 0).id(Self.topID)
-                discoveryControls.padding(.bottom, 20)
+                VStack(spacing: 0) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            Text("Gather").pageTitle().fixedSize()
+                            Spacer(minLength: 8)
+                            likedEventsButton
+                            hostEventButton
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Gather").pageTitle()
+                                Spacer()
+                                likedEventsButton
+                            }
+                            hostEventButton.frame(maxWidth: .infinity, alignment: .trailing)
+                        }
+                    }
+                    .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 12)
+                    discoveryControls.padding(.bottom, 20)
+                }
                 Section {
                     if events.isEmpty {
                         emptyState.padding(.top, 44)
@@ -62,26 +81,7 @@ struct GatherView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    Text("Gather").pageTitle().fixedSize()
-                    Spacer(minLength: 8)
-                    likedEventsButton
-                    hostEventButton
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Gather").pageTitle()
-                        Spacer()
-                        likedEventsButton
-                    }
-                    hostEventButton.frame(maxWidth: .infinity, alignment: .trailing)
-                }
-            }
-            .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, 12)
-            .background(Theme.background)
-        }
+        .scrollTitleBar("Gather")
         .toolbarVisibility(.hidden, for: .navigationBar)
         .navigationDestination(for: Event.self) { EventDetailView(event: $0) }
         .navigationDestination(isPresented: $showHost) { HostEventView() }
@@ -199,7 +199,6 @@ struct GatherView: View {
         }
         .scrollIndicators(.hidden)
         .padding(.vertical, 8)
-        .background(Theme.background)
     }
 
     private var filtersSheet: some View {
