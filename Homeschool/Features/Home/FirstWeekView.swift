@@ -82,8 +82,9 @@ private struct WeekPlanPage: View {
                 if isSheet {
                     plannerHeader
                     plannerIntro
-                    rhythm.padding(12)
-                        .background(Theme.pink.opacity(0.65), in: .rect(cornerRadius: 24))
+                    plannerRhythm
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .background(Theme.pink, in: .rect(cornerRadius: 28))
                 } else {
                 header
                 Text("YOUR WEEK")
@@ -290,6 +291,57 @@ private struct WeekPlanPage: View {
         }
     }
 
+    /// Day tiles for the planner sheet: white tiles with a coral outline when selected, exactly like Home.
+    private var plannerRhythm: some View {
+        GeometryReader { geometry in
+            let count = CGFloat(max(1, plan.days.count))
+            let width = plan.days.count <= 4 ? min(82, max(48, (geometry.size.width - (count - 1) * 6 - 6) / count)) : 74
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(plan.days.enumerated()), id: \.element) { index, day in
+                            let selected = selectedDay == day
+                            Button { selectedDay = day } label: {
+                                VStack(spacing: 6) {
+                                    Text(day.uppercased()).scaledFont(17, weight: .heavy, maxScale: 1.15)
+                                    Capsule().fill(Color(hex: 0xF0959F)).frame(width: 22, height: 5)
+                                    Text(LearningProgress.duration(plan.minutes(on: day)))
+                                        .scaledFont(14, weight: .medium, maxScale: 1.2)
+                                        .foregroundStyle(Theme.secondary).lineLimit(1).minimumScaleFactor(0.65)
+                                }
+                                .frame(width: width, height: 76)
+                                .background(Theme.surface, in: .rect(cornerRadius: 14))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .strokeBorder(selected ? Color.adaptive(0xB46759, 0xF0ADAA).opacity(0.85) : .clear, lineWidth: 1.25)
+                                }
+                                .shadow(color: Color.adaptive(0xB46759, 0xF0ADAA).opacity(selected ? 0.08 : 0), radius: 4, y: 2)
+                                .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(WeeklyPlan.fullDayNames[WeeklyPlan.dayNames.firstIndex(of: day)!]), \(LearningProgress.duration(plan.minutes(on: day))) planned")
+                            .accessibilityAddTraits(selected ? .isSelected : [])
+                            .id(day)
+                        }
+                        AddLearningDayButton(days: plan.days) { day in
+                            guard let date = state.addLearningDay(day, for: child.id),
+                                  let updated = state.weeklyPlans[child.id.uuidString] else { return }
+                            plan = updated
+                            selectedDay = plan.day(for: date)
+                        }
+                    }
+                    .padding(.horizontal, 3).padding(.vertical, 7)
+                }
+                .scrollIndicators(.hidden)
+                .onAppear { proxy.scrollTo(selectedDay, anchor: .center) }
+                .onChange(of: selectedDay) { _, day in
+                    withAnimation(reduceMotion ? nil : rowAnimation) { proxy.scrollTo(day, anchor: .center) }
+                }
+            }
+        }
+        .frame(height: 90)
+    }
+
     private var dayHeading: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
@@ -318,9 +370,10 @@ private struct WeekPlanPage: View {
                 HStack(spacing: 10) {
                     Text("\(activity.minutes) min")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                        .foregroundStyle(activity.subject.lowercased().contains("math") ? Color.adaptive(0x8D4540, 0xF2ABA3) : WeekStyle.purple)
+                        .foregroundStyle(isSheet ? palette.ink : (activity.subject.lowercased().contains("math") ? Color.adaptive(0x8D4540, 0xF2ABA3) : WeekStyle.purple))
                         .frame(width: 62, height: 32)
-                        .background(activity.subject.lowercased().contains("math") ? WeekStyle.pink : Theme.field, in: Capsule())
+                        .background(isSheet ? palette.paper : (activity.subject.lowercased().contains("math") ? WeekStyle.pink : Theme.field), in: Capsule())
+                        .overlay { if isSheet { Capsule().strokeBorder(palette.ink.opacity(0.14), lineWidth: 0.8) } }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(activity.subject.uppercased())
                             .scaledFont(9, weight: .medium, maxScale: 1.3).foregroundStyle(WeekStyle.secondary)
@@ -381,7 +434,7 @@ private struct WeekPlanPage: View {
         }
         .padding(.leading, isSheet ? 14 : 11).padding(.trailing, 5).padding(.vertical, isSheet ? 12 : 3)
         .frame(minHeight: 52)
-        .background(isSheet ? palette.paper : Theme.surface, in: .rect(cornerRadius: isSheet ? 20 : 11))
+        .background(isSheet ? WeekStyle.taskGrey : Theme.surface, in: .rect(cornerRadius: isSheet ? 20 : 11))
         .overlay(RoundedRectangle(cornerRadius: isSheet ? 20 : 11).strokeBorder(isSheet ? Theme.surface : WeekStyle.border, lineWidth: 0.8))
     }
 
@@ -584,6 +637,7 @@ enum WeekStyle {
     static let secondary = Color.adaptive(0x817D9F, 0xAEA6C3)
     static let purple = Color.adaptive(0x2B2859, 0xD4C8F4)
     static let border = Color.adaptive(0xDFDDED, 0x40384F)
+    static let taskGrey = Color.adaptive(0xF0EFF2, 0x2A2830)
 }
 
 private struct DayStartTimeSheet: View {
