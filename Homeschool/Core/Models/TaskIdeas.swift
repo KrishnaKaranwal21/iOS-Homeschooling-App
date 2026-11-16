@@ -1,17 +1,17 @@
 import Foundation
 
-/// Starter task titles for every subject a family can choose in setup.
-/// The weekly plan draws from these, so Home, the week planner and Progress always show
-/// work that belongs to the child's own subjects instead of generic placeholders.
+/// Task titles for every subject a family can choose in setup.
+/// To-dos come from the bundled NIOS syllabus (`NIOSSyllabus`), so Home, the week planner, Progress and the
+/// Syllabus tab always name the same topics. Where the catalogue has no verified topics (source-only subjects),
+/// titles stay generic and subject-named rather than inventing chapters.
 enum TaskIdeas {
-    /// All starter titles for a subject. Unknown subjects still get sensible, subject-named titles.
-    /// With a NIOS level, titles follow that level's syllabus (Level A/B/C, Secondary, Senior Secondary).
+    /// Titles for a subject, in syllabus order when the child's level has verified topics for it.
+    /// Without a level, or without verified topics, they are generic and subject-named.
     static func titles(for subject: String, level: String? = nil) -> [String] {
-        let key = LearningProgress.subjectKey(subject)
-        if let level, let list = levelBank[level]?[key] { return list }
-        if let list = bank[key] { return list }
-        let name = subject.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return ["Explore \(name)", "Practise \(name)", "Review \(name) notes"]
+        if let level, let topics = NIOSSyllabus.subject(named: subject, level: level)?.planningTopics, !topics.isEmpty {
+            return topics.map(\.title)
+        }
+        return genericTitles(for: subject)
     }
 
     /// Picks a title by rotating through the subject's list, so a subject does not repeat the same task every day.
@@ -20,22 +20,31 @@ enum TaskIdeas {
         return list[((slot % list.count) + list.count) % list.count]
     }
 
-    /// True for titles the planner generated itself (including ones saved by earlier versions).
-    static func isStock(title: String, subject: String) -> Bool {
+    /// Neutral titles that claim no particular chapter, for subjects without a verified outline.
+    static func genericTitles(for subject: String) -> [String] {
         let name = subject.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if titles(for: subject).contains(title) || title == "Explore \(name)" { return true }
-        let key = LearningProgress.subjectKey(subject)
-        return levelBank.values.contains { $0[key]?.contains(title) == true }
+        return ["Explore \(name)", "Practise \(name)", "Review \(name) notes"]
     }
 
-    // MARK: - Bank
+    /// True for titles the planner generated itself without a syllabus link, including the hand-written
+    /// titles earlier versions saved. Those pending tasks are rebuilt from the syllabus when the plan is reconciled.
+    static func isStock(title: String, subject: String) -> Bool {
+        if genericTitles(for: subject).contains(title) { return true }
+        let key = LearningProgress.subjectKey(subject)
+        if legacyBank[key]?.contains(title) == true { return true }
+        return legacyLevelBank.values.contains { $0[key]?.contains(title) == true }
+    }
+
+    // MARK: - Legacy titles (recognition only)
+    // Earlier versions generated these hand-written titles, which did not follow the NIOS syllabus.
+    // They are no longer offered; they are kept only so saved weeks containing them are recognised and rebuilt.
 
     private static let languageNames = [
         "Hindi", "Sanskrit", "Urdu", "Regional language", "Bengali", "Marathi", "Telugu", "Gujarati",
         "Punjabi", "Assamese", "Nepali", "Odia", "Malayalam", "Kannada", "Arabic", "Persian", "Tamil"
     ]
 
-    private static let bank: [String: [String]] = {
+    private static let legacyBank: [String: [String]] = {
         var list: [String: [String]] = [
             // Core academics
             "mathematics": ["Fractions in practice", "Number patterns and puzzles", "Solve a real-life word problem", "Shapes and measurement"],
@@ -117,7 +126,7 @@ enum TaskIdeas {
         }
     }
 
-    private static let levelBank: [String: [String: [String]]] = {
+    private static let legacyLevelBank: [String: [String: [String]]] = {
         var levels: [String: [String: [String]]] = [
             // Open Basic Education, Level A (Classes 1 to 3)
             "Level A": [

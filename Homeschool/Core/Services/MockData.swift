@@ -1,6 +1,11 @@
 import Foundation
 
 enum MockData {
+    /// Offline NIOS catalogue; only the active child's registered subjects and level are returned.
+    static func syllabus(for child: Child) -> [SyllabusSubject] {
+        NIOSSyllabus.selectedSubjects(for: child)
+    }
+
     static let tasks = [
         TaskItem(subject: "Maths", title: "Lets learn about Factorization"),
         TaskItem(subject: "English", title: "Adverbs the essentials"),

@@ -5,6 +5,7 @@ struct WeekTaskSheet: View {
     @Environment(AppState.self) private var state
     let week: WeeklyPlan
     let isEditing: Bool
+    private let originalActivity: WeekActivity
     let onSave: (WeekActivity) -> Void
     @State private var activity: WeekActivity
     @State private var hasTime: Bool
@@ -15,6 +16,12 @@ struct WeekTaskSheet: View {
     @State private var showSteps = false
     @State private var showNotes = false
     @State private var durationEditor: DurationField?
+    @State private var source: TaskSource?
+    @State private var showTopicPicker = false
+    @State private var manualDraft = ""
+
+    /// Where a new task's topic comes from: the child's NIOS syllabus, or typed in by the parent.
+    private enum TaskSource { case syllabus, manual }
 
     private enum DurationField: String, Identifiable {
         case learning, help
@@ -24,6 +31,7 @@ struct WeekTaskSheet: View {
     init(activity: WeekActivity, week: WeeklyPlan, isEditing: Bool, onSave: @escaping (WeekActivity) -> Void) {
         self.week = week
         self.isEditing = isEditing
+        self.originalActivity = activity
         self.onSave = onSave
         _activity = State(initialValue: activity)
         _hasTime = State(initialValue: activity.time != nil)
@@ -38,8 +46,58 @@ struct WeekTaskSheet: View {
     private var subjectOptions: [String] {
         var options = childSubjects
         let current = activity.subject.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !current.isEmpty, isEditing, !options.contains(current) { options.append(current) }
+        if !current.isEmpty, (isEditing || activity.syllabusTopicID != nil), !options.contains(current) { options.append(current) }
         return options
+    }
+
+    // MARK: Syllabus choice
+
+    private var syllabusSubjects: [SyllabusSubject] { MockData.syllabus(for: state.child).filter(\.hasOutline) }
+    /// Only brand-new tasks offer the syllabus; edits and tasks already planned from a topic keep the plain form.
+    private var canPickFromSyllabus: Bool {
+        !isEditing && originalActivity.syllabusTopicID == nil && !syllabusSubjects.isEmpty
+    }
+    private var activeSource: TaskSource { source ?? (canPickFromSyllabus ? .syllabus : .manual) }
+    private var syllabusSubject: SyllabusSubject? {
+        let key = NIOSSyllabus.subjectKey(activity.subject)
+        return syllabusSubjects.first { NIOSSyllabus.subjectKey($0.name) == key } ?? syllabusSubjects.first
+    }
+    private var chosenTopic: SyllabusTopic? {
+        guard let id = activity.syllabusTopicID else { return nil }
+        return syllabusSubject?.topics.first { $0.id == id }
+    }
+    private var chosenChapter: SyllabusChapter? {
+        guard let chosenTopic else { return nil }
+        return syllabusSubject?.chapters.first { $0.topics.contains(chosenTopic) }
+    }
+
+    private func setSource(_ newSource: TaskSource) {
+        guard newSource != activeSource else { return }
+        withAnimation(.snappy(duration: 0.25)) {
+            if newSource == .syllabus {
+                manualDraft = activity.title
+                activity.title = ""
+                if let subject = syllabusSubject { activity.subject = subject.name }
+            } else {
+                activity.syllabusTopicID = nil
+                activity.title = manualDraft
+            }
+            source = newSource
+        }
+    }
+
+    private func chooseSyllabusSubject(_ name: String) {
+        guard name != activity.subject else { return }
+        activity.subject = name
+        activity.syllabusTopicID = nil
+        activity.title = ""
+    }
+
+    private func choose(_ topic: SyllabusTopic, in subject: SyllabusSubject) {
+        activity.subject = subject.name
+        activity.title = topic.title
+        activity.syllabusTopicID = topic.id
+        showTopicPicker = false
     }
 
     var body: some View {
@@ -61,7 +119,8 @@ struct WeekTaskSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    activityCard
+                    if canPickFromSyllabus { sourcePicker }
+                    if activeSource == .syllabus { syllabusCard } else { activityCard }
                     Text("When").sectionTitle().padding(.top, 2)
                     scheduleCard
                     HStack(spacing: 10) {
@@ -85,6 +144,13 @@ struct WeekTaskSheet: View {
                 .presentationDetents([.height(310)])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showTopicPicker) {
+            if let subject = syllabusSubject {
+                SyllabusTopicPicker(subject: subject, childID: state.child.id,
+                                    selectedID: activity.syllabusTopicID) { choose($0, in: subject) }
+                    .presentationDragIndicator(.visible)
+            }
+        }
         .onChange(of: activity.reminder) { _, enabled in
             guard enabled else { return }
             Task { @MainActor in
@@ -98,7 +164,7 @@ struct WeekTaskSheet: View {
         }
         .onAppear {
             // New tasks start on one of the child's own subjects instead of a generic default.
-            guard !isEditing, !childSubjects.isEmpty, !childSubjects.contains(activity.subject) else { return }
+            guard !isEditing, activity.syllabusTopicID == nil, !childSubjects.isEmpty, !childSubjects.contains(activity.subject) else { return }
             let key = LearningProgress.subjectKey(activity.subject)
             activity.subject = childSubjects.first { LearningProgress.subjectKey($0) == key } ?? childSubjects[0]
         }
@@ -131,6 +197,87 @@ struct WeekTaskSheet: View {
                 .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
             }
             .accessibilityLabel("Subject, \(activity.subject)")
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: 0xEEEEEE), in: .rect(cornerRadius: 16))
+    }
+
+    private var sourcePicker: some View {
+        HStack(spacing: 4) {
+            sourceOption("From syllabus", symbol: "books.vertical", for: .syllabus)
+            sourceOption("My own", symbol: "pencil", for: .manual)
+        }
+        .padding(4)
+        .background(WeekStyle.field, in: Capsule())
+        .padding(.bottom, 2)
+    }
+
+    private func sourceOption(_ title: String, symbol: String, for option: TaskSource) -> some View {
+        let selected = activeSource == option
+        return Button { setSource(option) } label: {
+            Label(title, systemImage: symbol)
+                .scaledFont(14, weight: .semibold, maxScale: 1.2)
+                .foregroundStyle(selected ? Theme.ink : WeekStyle.secondary)
+                .frame(maxWidth: .infinity).frame(height: 38)
+                .background(selected ? Theme.surface : Color.clear, in: Capsule())
+                .shadow(color: .black.opacity(selected ? 0.06 : 0), radius: 3, y: 1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var syllabusCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SYLLABUS TOPIC")
+                .scaledFont(11, weight: .semibold, maxScale: 1.2)
+                .foregroundStyle(WeekStyle.secondary).tracking(0.5)
+            Menu {
+                Picker("Subject", selection: Binding(get: { syllabusSubject?.name ?? activity.subject },
+                                                     set: chooseSyllabusSubject)) {
+                    ForEach(syllabusSubjects) { Text($0.name).tag($0.name) }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: SubjectCardPalette.symbol(for: syllabusSubject?.name ?? activity.subject))
+                    Text(syllabusSubject?.name ?? activity.subject)
+                    Image(systemName: "chevron.down").font(.system(size: 11))
+                }
+                .scaledFont(14, weight: .medium, maxScale: 1.2)
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color(hex: 0xECEAF6), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white, lineWidth: 1))
+            }
+            .accessibilityLabel("Subject, \(syllabusSubject?.name ?? activity.subject)")
+
+            Button { showTopicPicker = true } label: {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let chosenTopic {
+                            if let chapter = chosenChapter {
+                                Text(chapter.title).scaledFont(12, weight: .medium, maxScale: 1.25)
+                                    .foregroundStyle(WeekStyle.secondary).lineLimit(1)
+                            }
+                            Text(chosenTopic.title)
+                                .scaledFont(24, weight: .bold, maxScale: 1.2)
+                                .multilineTextAlignment(.leading)
+                        } else {
+                            Text("Choose a topic")
+                                .scaledFont(24, weight: .bold, maxScale: 1.2)
+                                .foregroundStyle(WeekStyle.secondary.opacity(0.7))
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.up.chevron.down").font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(WeekStyle.secondary)
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.surface, in: .rect(cornerRadius: 12))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(chosenTopic.map { "Topic, \($0.title)" } ?? "Choose a topic")
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -257,6 +404,11 @@ struct WeekTaskSheet: View {
             Button {
                 activity.title = title
                 activity.time = hasTime ? chosenTime : nil
+                let choseFromSyllabus = activeSource == .syllabus && activity.syllabusTopicID != nil
+                if !choseFromSyllabus, activity.title != originalActivity.title || activity.subject != originalActivity.subject {
+                    activity.syllabusTopicID = nil
+                }
+                activity.isSyllabusGenerated = false
                 onSave(activity)
                 dismiss()
             } label: {
@@ -323,5 +475,66 @@ private extension View {
     func weekFormCard() -> some View {
         background(Theme.surface, in: .rect(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(WeekStyle.border, lineWidth: 0.8))
+    }
+}
+
+/// A searchable list of one subject's chapters and topics, used when adding a task from the syllabus.
+private struct SyllabusTopicPicker: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    let subject: SyllabusSubject
+    let childID: Child.ID
+    let selectedID: String?
+    let onSelect: (SyllabusTopic) -> Void
+    @State private var query = ""
+
+    private var progress: SyllabusProgress { SyllabusProgress(plans: state.learningPlans(for: childID)) }
+    private func topics(in chapter: SyllabusChapter) -> [SyllabusTopic] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? chapter.topics : chapter.topics.filter { $0.title.localizedCaseInsensitiveContains(text) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(subject.chapters.filter { !topics(in: $0).isEmpty }) { chapter in
+                    Section {
+                        ForEach(topics(in: chapter)) { topic in
+                            Button { onSelect(topic) } label: { row(topic) }
+                        }
+                    } header: {
+                        Text("\(chapter.kind == "competency" ? "Area" : "Chapter") \(chapter.number) · \(chapter.title)\(chapter.isOptional == true ? " (optional)" : "")")
+                            .textCase(nil)
+                    }
+                }
+            }
+            .searchable(text: $query, prompt: "Search topics")
+            .overlay {
+                if !query.isEmpty, !subject.chapters.contains(where: { !topics(in: $0).isEmpty }) {
+                    ContentUnavailableView.search(text: query)
+                }
+            }
+            .navigationTitle(subject.name).navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+    }
+
+    private func row(_ topic: SyllabusTopic) -> some View {
+        let status = progress.status(of: topic, subject: subject)
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(topic.title).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                if status != .notStarted {
+                    Text(status.rawValue).font(.caption)
+                        .foregroundStyle(status == .completed ? Color(hex: 0x386553) : Theme.accent)
+                }
+            }
+            Spacer(minLength: 0)
+            if topic.id == selectedID {
+                Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(Theme.accent)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(topic.id == selectedID ? .isSelected : [])
     }
 }
