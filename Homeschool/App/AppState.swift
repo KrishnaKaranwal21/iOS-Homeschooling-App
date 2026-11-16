@@ -105,9 +105,12 @@ final class AppState {
         guard let child = children.first(where: { $0.id == childID }) else { return }
         let key = childID.uuidString
         let previous = weeklyPlans[key]
-        let current = WeeklyPlan.homeWeek(for: child, savedPlan: previous, now: today)
+        let completedTopics = Set(learningPlans(for: childID).flatMap(\.activities)
+            .filter(\.isDone).compactMap(\.syllabusTopicID))
+        let current = WeeklyPlan.homeWeek(for: child, savedPlan: previous, now: today, completedTopicIDs: completedTopics)
         guard current != previous else { return }
-        if let previous {
+        // Rebuilding the same calendar week (syllabus migration) updates it in place; only a new week archives the old one.
+        if let previous, !Calendar.current.isDate(previous.weekStart, inSameDayAs: current.weekStart) {
             let archiveKey = "history|\(key)|\(Int(previous.weekStart.timeIntervalSince1970))"
             weeklyPlans[archiveKey] = previous
         }
@@ -120,6 +123,55 @@ final class AppState {
         let history = weeklyPlans.filter { $0.key.hasPrefix("history|\(key)|") }
             .map(\.value).sorted { $0.weekStart > $1.weekStart }
         return weeklyPlans[key].map { [$0] + history } ?? history
+    }
+
+    /// Ticks a syllabus topic complete, or takes it back, straight from the syllabus page.
+    /// Activities already tied to the topic follow it; a topic with none gets one completed entry for today.
+    @discardableResult
+    func setSyllabusTopicCompleted(_ topic: SyllabusTopic, subject: SyllabusSubject,
+                                   completed: Bool, for childID: Child.ID) -> Bool {
+        guard let child = children.first(where: { $0.id == childID }),
+              MockData.syllabus(for: child).contains(where: { $0.id == subject.id && $0.topics.contains(topic) }) else { return false }
+        let childKey = childID.uuidString
+        let subjectKey = NIOSSyllabus.subjectKey(subject.name)
+        func isLinked(_ activity: WeekActivity) -> Bool {
+            activity.syllabusTopicID == topic.id && NIOSSyllabus.subjectKey(activity.subject) == subjectKey
+        }
+        var foundLinked = false
+        let keys = [childKey] + weeklyPlans.keys.filter { $0.hasPrefix("history|\(childKey)|") }.sorted()
+        for key in keys {
+            guard var plan = weeklyPlans[key] else { continue }
+            var changed = false
+            if completed {
+                for index in plan.activities.indices where isLinked(plan.activities[index]) {
+                    foundLinked = true
+                    if !plan.activities[index].isDone { plan.activities[index].setCompleted(true); changed = true }
+                }
+            } else {
+                for index in plan.activities.indices.reversed() where isLinked(plan.activities[index]) && plan.activities[index].isDone {
+                    foundLinked = true
+                    if plan.activities[index].isQuickCompletion == true { plan.activities.remove(at: index) }
+                    else { plan.activities[index].setCompleted(false) }
+                    changed = true
+                }
+            }
+            if changed { if key == childKey { saveWeek(plan, for: childID) } else { weeklyPlans[key] = plan } }
+        }
+        guard completed, !foundLinked else { return true }
+        prepareHomeWeek(for: childID)
+        guard var plan = weeklyPlans[childKey] else { return false }
+        let today = Calendar.current.startOfDay(for: .now)
+        var activity = WeekActivity(title: topic.title, subject: subject.name,
+                                    date: max(plan.weekStart, min(today, plan.weekEnd)), syllabusTopicID: topic.id)
+        activity.isSyllabusGenerated = false
+        activity.isQuickCompletion = true
+        let existing = Set(plan.activities.map(\.id))
+        plan.add(activity)
+        for index in plan.activities.indices where !existing.contains(plan.activities[index].id) {
+            plan.activities[index].setCompleted(true)
+        }
+        saveWeek(plan, for: childID)
+        return true
     }
 
     /// Completion from a historical chart updates that saved week without replacing the current plan.
@@ -520,7 +572,9 @@ final class AppState {
         // A saved week from an earlier calendar week is archived and rebuilt from the updated profile.
         prepareHomeWeek(for: child.id)
         guard let saved = weeklyPlans[key] else { return }
-        let updated = saved.reconciled(with: child)
+        let completedTopics = Set(learningPlans(for: child.id).flatMap(\.activities)
+            .filter(\.isDone).compactMap(\.syllabusTopicID))
+        let updated = saved.reconciled(with: child, completedTopicIDs: completedTopics)
         if updated != saved { saveWeek(updated, for: child.id) }
     }
 
@@ -681,17 +735,23 @@ final class AppState {
 
     /// Parents I sent a connection request to.
     var requestedParents: Set<Parent.ID> = []
+    var requestIntroductions: [Parent.ID: String] = [:]
     /// Parents I am connected with, so I can message them.
     var connectedParents: Set<Parent.ID> = MockData.initiallyConnected
 
     // Records a pending community connection locally by parent ID; this does not send a server request.
-    func sendRequest(to parent: Parent) {
+    @discardableResult
+    func sendRequest(to parent: Parent, note: String = "") -> Bool {
+        guard !requestedParents.contains(parent.id), !connectedParents.contains(parent.id) else { return false }
         // Adds the parent ID to the local pending-connection set without sending a network request.
         requestedParents.insert(parent.id)
+        requestIntroductions[parent.id] = String(note.trimmingCharacters(in: .whitespacesAndNewlines).prefix(300))
+        return true
     }
     
     func withdrawRequest(to parent: Parent) {
         requestedParents.remove(parent.id)
+        requestIntroductions.removeValue(forKey: parent.id)
     }
 
     // MARK: Notifications and pop-ups

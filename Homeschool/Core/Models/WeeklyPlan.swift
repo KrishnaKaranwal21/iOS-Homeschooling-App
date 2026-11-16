@@ -14,6 +14,11 @@ struct WeekActivity: Identifiable, Codable, Equatable {
     var notes = ""
     var isDone = false
     var completedAt: Date? = nil
+    /// Stable NIOS topic identity; absent in plans saved before the syllabus feature.
+    var syllabusTopicID: String? = nil
+    var isSyllabusGenerated: Bool? = nil
+    /// Made by ticking a topic's circle on the syllabus page, so un-ticking it removes it again.
+    var isQuickCompletion: Bool? = nil
 
     /// Older saves have no completion timestamp; retain their original scheduled-day credit.
     var creditDate: Date? { isDone ? (completedAt ?? date) : nil }
@@ -22,7 +27,7 @@ struct WeekActivity: Identifiable, Codable, Equatable {
     /// completed and hand-made tasks never do.
     var isAutoPlanned: Bool {
         !isDone && time == nil && smallSteps.isEmpty && notes.isEmpty && !reminder
-            && TaskIdeas.isStock(title: title, subject: subject)
+            && (isSyllabusGenerated == true || (syllabusTopicID == nil && TaskIdeas.isStock(title: title, subject: subject)))
     }
 
     mutating func setCompleted(_ completed: Bool, at date: Date = .now) {
@@ -141,26 +146,28 @@ struct WeeklyPlan: Codable, Equatable {
         days.sort { Self.dayNames.firstIndex(of: $0)! < Self.dayNames.firstIndex(of: $1)! }
     }
 
-    static func firstWeek(for child: Child, now: Date = .now) -> WeeklyPlan {
+    static func firstWeek(for child: Child, now: Date = .now, completedTopicIDs: Set<String> = []) -> WeeklyPlan {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         let mondayOffset = (calendar.component(.weekday, from: today) + 5) % 7
         let start = calendar.date(byAdding: .day, value: -mondayOffset, to: today)!
         let days = dayNames.filter { child.learningDays.contains($0) }
         var plan = WeeklyPlan(weekStart: start, days: days, hoursPerDay: child.hoursPerDay, activities: [])
-        plan.activities = generatedActivities(for: child, days: days, in: plan, keeping: [], reusing: [])
+        plan.activities = generatedActivities(for: child, days: days, in: plan, keeping: [], reusing: [], completedTopicIDs: completedTopicIDs)
         return plan
     }
 
     /// Starter tasks built only from the subjects the family chose: one task per subject on every learning day,
-    /// sharing the child's hours per day. Task titles rotate through each subject's ideas.
+    /// sharing the child's hours per day. Verified syllabus topics are used in order when available.
     /// `kept` are activities that stay (completed or hand-made); they use up time and subjects first.
     /// `reusing` lets regenerated tasks keep their old IDs so an unchanged plan stays equal to the saved one.
     fileprivate static func generatedActivities(for child: Child, days: [String], in plan: WeeklyPlan,
                                                 keeping kept: [WeekActivity],
-                                                reusing old: [WeekActivity]) -> [WeekActivity] {
+                                                reusing old: [WeekActivity], completedTopicIDs: Set<String> = []) -> [WeekActivity] {
         let calendar = Calendar.current
-        let subjects = child.subjectNames
+        let syllabusSubjects = NIOSSyllabus.selectedSubjects(for: child)
+        let subjects = Array(Set(child.subjectNames + syllabusSubjects.map(\.name))).sorted()
+        var usedTopics = completedTopicIDs.union(kept.compactMap(\.syllabusTopicID))
         guard !subjects.isEmpty, !days.isEmpty else { return [] }
         let total = child.hoursPerDay * 60
         let week = calendar.component(.weekOfYear, from: plan.weekStart)
@@ -187,7 +194,21 @@ struct WeeklyPlan: Codable, Equatable {
                         && LearningProgress.subjectKey($0.subject) == LearningProgress.subjectKey(subject)
                 }) {
                     activity.id = previous.id
+                    if let topicID = previous.syllabusTopicID,
+                       let topic = NIOSSyllabus.subject(named: subject, level: child.level)?.planningTopics.first(where: { $0.id == topicID }),
+                       !usedTopics.contains(topicID) {
+                        activity.title = topic.title
+                        activity.syllabusTopicID = topic.id
+                        activity.isSyllabusGenerated = true
+                    }
                 }
+                if activity.syllabusTopicID == nil,
+                   let topic = NIOSSyllabus.subject(named: subject, level: child.level)?.planningTopics.first(where: { !usedTopics.contains($0.id) }) {
+                    activity.title = topic.title
+                    activity.syllabusTopicID = topic.id
+                    activity.isSyllabusGenerated = true
+                }
+                if let topicID = activity.syllabusTopicID { usedTopics.insert(topicID) }
                 result.append(activity)
             }
         }
@@ -197,14 +218,15 @@ struct WeeklyPlan: Codable, Equatable {
     /// Brings this week in line with an edited child profile (learning days, hours per day, subjects).
     /// Completed tasks and tasks the family wrote themselves stay; auto-planned pending tasks are rebuilt
     /// from the child's current subjects. Running it twice gives the same plan.
-    func reconciled(with child: Child) -> WeeklyPlan {
+    func reconciled(with child: Child, completedTopicIDs: Set<String> = []) -> WeeklyPlan {
         var plan = self
         let wanted = Self.dayNames.filter { child.learningDays.contains($0) }
         let stock = activities.filter(\.isAutoPlanned)
         let kept = activities.filter { !$0.isAutoPlanned }
         plan.hoursPerDay = child.hoursPerDay
         plan.activities = kept
-        let generated = Self.generatedActivities(for: child, days: wanted, in: plan, keeping: kept, reusing: stock)
+        let generated = Self.generatedActivities(for: child, days: wanted, in: plan, keeping: kept, reusing: stock,
+                                                  completedTopicIDs: completedTopicIDs)
         plan.activities = kept + generated
         let calendar = Calendar.current
         plan.days = Self.dayNames.filter { name in
@@ -214,12 +236,23 @@ struct WeeklyPlan: Codable, Equatable {
     }
 
     /// Reuses this calendar week's saved edits and completion; a new week starts from the child's current curriculum and rhythm.
-    static func homeWeek(for child: Child, savedPlan: WeeklyPlan?, now: Date = .now) -> WeeklyPlan {
-        let generated = firstWeek(for: child, now: now)
+    static func homeWeek(for child: Child, savedPlan: WeeklyPlan?, now: Date = .now, completedTopicIDs: Set<String> = []) -> WeeklyPlan {
+        let generated = firstWeek(for: child, now: now, completedTopicIDs: completedTopicIDs)
         if let savedPlan, Calendar.current.isDate(savedPlan.weekStart, inSameDayAs: generated.weekStart) {
-            return savedPlan
+            // Weeks saved before to-dos followed the syllabus are rebuilt once; edits and completions stay.
+            return savedPlan.hasOffSyllabusAutoTasks(for: child)
+                ? savedPlan.reconciled(with: child, completedTopicIDs: completedTopicIDs) : savedPlan
         }
         return generated
+    }
+
+    /// True when a pending, untouched planner task names something the child's syllabus does not:
+    /// an old hand-written title, or a title that no longer matches the subject's verified topics.
+    func hasOffSyllabusAutoTasks(for child: Child) -> Bool {
+        activities.contains { activity in
+            activity.isAutoPlanned && activity.syllabusTopicID == nil
+                && !TaskIdeas.titles(for: activity.subject, level: child.level).contains(activity.title)
+        }
     }
 }
 

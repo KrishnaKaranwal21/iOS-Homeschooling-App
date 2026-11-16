@@ -389,9 +389,16 @@ private struct ProgressLearningPage: View {
                 HStack {
                     Text("Subject progress").sectionTitle()
                     Spacer()
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 19, weight: .medium))
-                        .foregroundStyle(ProgressPalette.purple)
+                    NavigationLink {
+                        SyllabusDashboardView()
+                    } label: {
+                        Text("View syllabus")
+                            .scaledFont(14, weight: .medium, maxScale: 1.2)
+                            .padding(.horizontal, 16).frame(height: 44)
+                            .gatherGlass(in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("progress.viewSyllabus")
                 }
                 Text(range == .month ? "Pick a card. Explore your month." : "Pick a card. Explore your week.")
                     .scaledFont(13, maxScale: 1.25).foregroundStyle(Theme.muted)

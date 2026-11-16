@@ -293,7 +293,7 @@ struct ReturningHomeView: View {
                             do { try await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 280)) }
                             catch { return }
                             guard !Task.isCancelled, completingActivities.contains(task.id) else { return }
-                            withAnimation(motion) { completingActivities.remove(task.id) }
+                            withAnimation(motion) { _ = completingActivities.remove(task.id) }
                             if completingActivities.isEmpty { requestWrapUpIfFinished(in: plan) }
                         }
                 }
