@@ -142,6 +142,10 @@ struct ReturningHomeView: View {
         .sensoryFeedback(.success, trigger: completionFeedback)
         .sensoryFeedback(.selection, trigger: undoFeedback)
         .sensoryFeedback(.selection, trigger: selectedDate)
+        .overlay {
+            CompletionConfetti(trigger: completionFeedback)
+                .ignoresSafeArea()
+        }
     }
 
     private var weekCard: some View {
@@ -320,7 +324,7 @@ struct ReturningHomeView: View {
         }
     }
 
-    /// A plain to-do row inside the subject's coloured box: tick on the left, topic name beside it.
+    /// Subject icon and title lead the card; the completion control stays on the right.
     /// Tapping the tick completes the task; tapping the box opens its description.
     private func subjectCard(_ task: HomeLearningTask) -> some View {
         let index = task.subjectIndex
@@ -329,6 +333,33 @@ struct ReturningHomeView: View {
         let completing = completingActivities.contains(task.id)
         let tickMotion: Animation = reduceMotion ? .easeOut(duration: 0.15) : .smooth(duration: 0.2)
         return HStack(spacing: 8) {
+            Button {
+                activeSubject = HomeSubjectSelection(activity: task.activity)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
+                        .font(.system(size: 25, weight: .regular))
+                        .foregroundStyle(palette.ink)
+                        .frame(width: 46, height: 46)
+                        .background(Theme.surface.opacity(0.65), in: .rect(cornerRadius: 15))
+                        .accessibilityHidden(true)
+                    Text(task.activity.title)
+                        .scaledFont(18, weight: .semibold, maxScale: 1.25)
+                        .foregroundStyle(Theme.ink)
+                        .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 14)
+                .frame(minHeight: 76)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(HomeSubjectPressStyle(reduceMotion: reduceMotion))
+            .disabled(completing)
+            .accessibilityLabel("\(task.activity.title), \(task.subjectName)")
+            .accessibilityValue(finished ? "Completed" : "Not complete")
+            .accessibilityHint("Open the task description")
+            .accessibilityIdentifier("home.activity.\(task.id)")
+
             Button { toggle(task.activity) } label: {
                 // Both symbols share a fixed box, so the check never changes the button's layout or position.
                 ZStack {
@@ -349,38 +380,9 @@ struct ReturningHomeView: View {
             .accessibilityLabel(finished ? "Mark \(task.activity.title) not complete" : "Mark \(task.activity.title) complete")
             .accessibilityIdentifier("home.tick.\(task.id)")
 
-            Button {
-                activeSubject = HomeSubjectSelection(activity: task.activity)
-            } label: {
-                Text(task.activity.title)
-                    .scaledFont(18, weight: .semibold, maxScale: 1.25)
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 18)
-                    .frame(minHeight: 72)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(HomeSubjectPressStyle(reduceMotion: reduceMotion))
-            .disabled(completing)
-            .accessibilityLabel("\(task.activity.title), \(task.subjectName)")
-            .accessibilityValue(finished ? "Completed" : "Not complete")
-            .accessibilityHint("Open the task description")
-            .accessibilityIdentifier("home.activity.\(task.id)")
         }
-        .padding(.leading, 12).padding(.trailing, 18)
-        .background {
-            ZStack(alignment: .trailing) {
-                palette.paper
-                Image(systemName: SubjectCardPalette.symbol(for: task.subjectName))
-                    .font(.system(size: 62, weight: .ultraLight))
-                    .foregroundStyle(palette.ink.opacity(0.08))
-                    .rotationEffect(.degrees(-15))
-                    .padding(.trailing, 16)
-                    .accessibilityHidden(true)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 27))
-        }
+        .padding(.horizontal, 16)
+        .background(palette.paper, in: .rect(cornerRadius: 27))
         .overlay(RoundedRectangle(cornerRadius: 27).strokeBorder(Theme.surface.opacity(0.9), lineWidth: 1.5))
         .shadow(color: palette.ink.opacity(0.06), radius: 6, y: 3)
         .rotationEffect(.degrees(reduceMotion ? 0 : (index.isMultiple(of: 2) ? -0.6 : 0.6)))
