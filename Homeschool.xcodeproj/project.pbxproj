@@ -27,11 +27,6 @@
 			path = Homeschool;
 			sourceTree = "<group>";
 		};
-		A10C0DE0000000000000A003 /* HomeschoolTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = HomeschoolTests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,7 +47,6 @@
 			isa = PBXGroup;
 			children = (
 				17D9F55B308A12D1001C4F10 /* Homeschool */,
-				A10C0DE0000000000000A003 /* HomeschoolTests */,
 				17D9F55A308A12D1001C4F10 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -99,9 +93,6 @@
 			);
 			dependencies = (
 				A10C0DE0000000000000A007 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				A10C0DE0000000000000A003 /* HomeschoolTests */,
 			);
 			name = HomeschoolTests;
 			productName = HomeschoolTests;

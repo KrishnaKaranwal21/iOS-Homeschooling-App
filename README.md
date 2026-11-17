@@ -25,10 +25,9 @@ Homeschool/
 │   └── Auth · Onboarding · ChildSetup · Home · Planner · Progress · Syllabus
 │       Gather · Community · Chats · Profile
 ├── Resources/      NIOSSyllabus.json
-├── Localizable.xcstrings   String Catalog (English source, Hindi and Tamil starters)
+├── Localizable.xcstrings   String Catalog (English only)
 ├── PrivacyInfo.xcprivacy   Privacy manifest (UserDefaults access, no tracking, no data collected)
 └── Assets.xcassets
-HomeschoolTests/    XCTest unit tests (run with ⌘U)
 Docs/               Design notes and syllabus sources
 ```
 
@@ -45,25 +44,6 @@ Members that the extensions share are internal, not `private`.
   cannot show. `// MARK: -` separates sections, `// TODO:` marks prototype-only code.
 - Views never talk to `UserDefaults`, Keychain or notifications directly; they go through `AppState` or a service.
 
-## Tests
-
-The **Homeschool** scheme has a `HomeschoolTests` unit-test target. Press ⌘U, or:
-
-```sh
-xcodebuild test -project Homeschool.xcodeproj -scheme Homeschool \
-  -destination 'platform=iOS Simulator,name=iPhone 16'
-```
-
-| Test class | Covers |
-|---|---|
-| `BookingTicketTests` | Booking QR payload, privacy of its contents, stability. The Vision scan test is skipped on the simulator and runs on a device. |
-| `GatherFilterTests` | Gather filters, search, categories, date text, distances, registration counts |
-| `HomeLearningTaskTests` | Home task cards, completion, repeats |
-| `ReturningHomeTests` | The weekly plan on Home |
-| `ProgressTimelineTests` | Day, week and month totals |
-| `FunctionalStateTests` | `AppState`: per-child plans, notifications, community places |
-| `LocalContentTests`, `LocalPersistenceTests` | Saving chats, photos, events and preferences per account |
-
 ## Appearance, accessibility and localisation
 
 - **Light appearance only, on purpose.** The pastel palette and illustrations were designed on a warm off-white page and
@@ -74,8 +54,8 @@ xcodebuild test -project Homeschool.xcodeproj -scheme Homeschool \
   at standard sizes and is lifted to at least 2x once an accessibility size is chosen. A few sizes are deliberately
   proportional to their container (avatar initials, event artwork) and do not scale.
 - **VoiceOver.** Icon-only buttons carry an `accessibilityLabel`; decorative chevrons are hidden.
-- **Localisation.** `Localizable.xcstrings` lists the literal UI strings. Hindi and Tamil are filled in for the most common
-  ones only and need review by a native speaker. Strings with interpolation are added by Xcode on the next build.
+- **Localisation.** `Localizable.xcstrings` lists the literal UI strings. The app is English only for now; add a language
+  in the catalog and the project's Localizations list when that changes. Strings with interpolation are added by Xcode on the next build.
 - **Privacy.** `PrivacyInfo.xcprivacy` declares `UserDefaults` access (reason `CA92.1`). Update it if you add a server,
   analytics or any other required-reason API.
 
