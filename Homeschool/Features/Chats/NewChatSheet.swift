@@ -1,6 +1,7 @@
+
 import SwiftUI
 
-/// Start a chat: a "New group" row on top, then parents listed A to Z, like a messenger's contact list.
+/// Start a chat: a "New group" row on top, then parents listed A to Z.
 struct NewChatSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
@@ -10,14 +11,23 @@ struct NewChatSheet: View {
 
     private var parents: [Parent] {
         MockData.parents
-            .filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .filter {
+                query.isEmpty ||
+                $0.name.localizedCaseInsensitiveContains(query)
+            }
+            .sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
     }
 
     /// Parents grouped under the first letter of their name.
     private var sections: [(letter: String, parents: [Parent])] {
-        let grouped = Dictionary(grouping: parents) { String($0.name.prefix(1)).uppercased() }
-        return grouped.keys.sorted().map { ($0, grouped[$0] ?? []) }
+        let grouped = Dictionary(grouping: parents) {
+            String($0.name.prefix(1)).uppercased()
+        }
+        return grouped.keys.sorted().map {
+            ($0, grouped[$0] ?? [])
+        }
     }
 
     var body: some View {
@@ -28,10 +38,19 @@ struct NewChatSheet: View {
                         NavigationLink {
                             NewGroupView(onOpen: onOpen)
                         } label: {
-                            actionRow(symbol: "person.3.fill", title: "New group")
+                            actionRow(
+                                symbol: "person.3.fill",
+                                title: "New group"
+                            )
                         }
-                        ShareLink(item: "Join me on Homeschool to meet families near you.") {
-                            actionRow(symbol: "square.and.arrow.up", title: "Invite parents")
+
+                        ShareLink(
+                            item: "Join me on Homeschool to meet families near you."
+                        ) {
+                            actionRow(
+                                symbol: "square.and.arrow.up",
+                                title: "Invite parents"
+                            )
                         }
                     }
                     .listRowBackground(Color.clear)
@@ -65,8 +84,18 @@ struct NewChatSheet: View {
             .background(Theme.background)
             .navigationTitle("New chat")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search parents")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search parents"
+            )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 
@@ -77,6 +106,7 @@ struct NewChatSheet: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Theme.lavender))
+
             Text(title).rowTitle()
         }
         .padding(.vertical, 2)
@@ -89,12 +119,18 @@ struct NewChatSheet: View {
                 .foregroundStyle(Theme.ink)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Theme.lavender))
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(parent.name).rowTitle()
-                Text(parent.place.isEmpty ? parent.role : "\(parent.role) · \(parent.place)")
-                    .rowDetail()
-                    .lineLimit(1)
+
+                // Only show location. Do not show Mum/Dad role.
+                if !parent.place.isEmpty {
+                    Text(parent.place)
+                        .rowDetail()
+                        .lineLimit(1)
+                }
             }
+
             Spacer(minLength: 0)
         }
         .padding(.vertical, 2)
@@ -110,7 +146,8 @@ private struct NewGroupView: View {
     @State private var selected: Set<String> = []
 
     private var canCreate: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && !selected.isEmpty
+        !name.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !selected.isEmpty
     }
 
     var body: some View {
@@ -119,11 +156,15 @@ private struct NewGroupView: View {
                 TextField("Group name", text: $name)
                     .scaledFont(17, maxScale: 1.3)
             }
+
             Section("Add members") {
                 ForEach(MockData.parents) { parent in
                     Button {
-                        if selected.contains(parent.name) { selected.remove(parent.name) }
-                        else { selected.insert(parent.name) }
+                        if selected.contains(parent.name) {
+                            selected.remove(parent.name)
+                        } else {
+                            selected.insert(parent.name)
+                        }
                     } label: {
                         HStack(spacing: 14) {
                             Text(String(parent.name.prefix(2)).uppercased())
@@ -131,14 +172,27 @@ private struct NewGroupView: View {
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Theme.lavender))
+
                             Text(parent.name).rowTitle()
+
                             Spacer()
-                            Image(systemName: selected.contains(parent.name) ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selected.contains(parent.name) ? Theme.tabSelected : Theme.dotInactive)
-                                .scaledFont(22)
+
+                            Image(
+                                systemName: selected.contains(parent.name)
+                                ? "checkmark.circle.fill"
+                                : "circle"
+                            )
+                            .foregroundStyle(
+                                selected.contains(parent.name)
+                                ? Theme.tabSelected
+                                : Theme.dotInactive
+                            )
+                            .scaledFont(22)
                         }
                     }
-                    .accessibilityAddTraits(selected.contains(parent.name) ? .isSelected : [])
+                    .accessibilityAddTraits(
+                        selected.contains(parent.name) ? .isSelected : []
+                    )
                 }
             }
         }
@@ -150,8 +204,16 @@ private struct NewGroupView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Create") {
-                    let members = MockData.parents.map(\.name).filter { selected.contains($0) }
-                    onOpen(state.chats.createGroup(title: name.trimmingCharacters(in: .whitespaces), members: members))
+                    let members = MockData.parents
+                        .map(\.name)
+                        .filter { selected.contains($0) }
+
+                    onOpen(
+                        state.chats.createGroup(
+                            title: name.trimmingCharacters(in: .whitespaces),
+                            members: members
+                        )
+                    )
                 }
                 .disabled(!canCreate)
             }
