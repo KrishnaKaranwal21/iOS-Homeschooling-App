@@ -28,7 +28,6 @@ struct ConnectView: View {
                 ProfileHero(initial: String(parent.name.prefix(1)).uppercased(),
                             photoName: parent.photoName,
                             title: parent.name,
-                            subtitle: parent.role,
                             chips: heroChips)
 
                 ProfileCard(symbol: "text.quote", title: "A little about us") {
@@ -40,8 +39,8 @@ struct ConnectView: View {
 
                 if !parent.children.isEmpty { meetCard }
 
-                // Interests belong to each child (shown on their tile). Only when none are given per child
-                // is one combined list shown.
+                // Interests belong to each child (shown on their tile). Only when none are given per child is one
+                // combined list shown.
                 if !parent.interests.isEmpty && parent.children.allSatisfy({ $0.interests.isEmpty }) {
                     interestsCard
                 }
@@ -112,7 +111,7 @@ struct ConnectView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 14) {
                             Text(String(child.name.prefix(1)).uppercased())
-                                .font(.system(size: 20, weight: .bold))
+                                .scaledFont(20, weight: .bold)
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 48, height: 48)
                                 .background(Circle().fill(Theme.pink))
@@ -143,7 +142,7 @@ struct ConnectView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.pink_light, in: .rect(cornerRadius: 18))
+                    .background(Theme.pinkLight, in: .rect(cornerRadius: 18))
                     .accessibilityElement(children: .combine)
                 }
 
@@ -159,7 +158,7 @@ struct ConnectView: View {
     private var sharedLegend: some View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
-                .font(.system(size: 12, weight: .semibold))
+                .scaledFont(12, weight: .semibold)
             Text("Also one of your family’s interests")
         }
         .scaledFont(13, maxScale: 1.3)
@@ -221,5 +220,51 @@ struct ConnectView: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(.bar)
+    }
+}
+
+/// The optional introduction uses the original Community request flow.
+struct CommunityRequestSheet: View {
+    @Environment(AppState.self) private var state
+    @Environment(\.dismiss) private var dismiss
+    let parent: Parent
+    @State private var note = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    HStack(spacing: 14) {
+                        ParentAvatar(parent: parent, size: 64)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Say hello to \(parent.firstName)").sectionTitle()
+                            Text("A small introduction can start a lovely connection.").rowDetail()
+                        }
+                    }
+                    ProfileCard(symbol: "text.bubble", title: "Your introduction", subtitle: "Optional · up to 300 characters") {
+                        TextField("What would your family like to connect for?", text: $note, axis: .vertical)
+                            .lineLimit(3...5)
+                            .onChange(of: note) { _, value in note = String(value.prefix(300)) }
+                        Text("\(note.count)/300").font(.caption).foregroundStyle(Theme.secondary)
+                    }
+                    Text("You can start chatting once \(parent.firstName) accepts your request.")
+                        .font(.footnote).foregroundStyle(Theme.secondary)
+                }.padding(24)
+            }
+            .safeAreaInset(edge: .bottom) {
+                Button("Send request") {
+                    if state.sendRequest(to: parent, note: note) { dismiss() }
+                }
+                .buttonStyle(.primaryHomeschool)
+                .padding(.horizontal, 24).padding(.vertical, 12).background(.bar)
+            }
+            .background(Theme.background)
+            .navigationTitle("Connect").navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }

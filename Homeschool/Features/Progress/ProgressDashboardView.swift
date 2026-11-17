@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// The Progress tab; rebuilds its page whenever the selected child changes.
 struct ProgressDashboardView: View {
     @Environment(AppState.self) private var state
     @State private var showAddChild = false
@@ -11,6 +12,7 @@ struct ProgressDashboardView: View {
     }
 }
 
+/// The Progress page for one child: a day, week or month timeline and per-subject cards.
 private struct ProgressLearningPage: View {
     @Environment(AppState.self) private var state
     let child: Child
@@ -142,7 +144,7 @@ private struct ProgressLearningPage: View {
                 HStack(spacing: 8) {
                     AvatarView(initials: String(state.child.displayName.prefix(1)).uppercased(), color: Theme.lavender, size: 27)
                     Text(state.child.displayName).scaledFont(15, weight: .medium, maxScale: 1.2).lineLimit(1)
-                    Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                    Image(systemName: "chevron.down").accessibilityHidden(true).scaledFont(10, weight: .semibold)
                 }
                 .padding(.leading, 6).padding(.trailing, 12).padding(.vertical, 7)
                 .gatherGlass(in: Capsule())
@@ -274,7 +276,7 @@ private struct ProgressLearningPage: View {
                                     .overlay(alignment: .top) {
                                         if bucket.isComplete && loggedHeight >= plannedHeight && loggedHeight >= 24 && range != .month {
                                             Image(systemName: "checkmark")
-                                                .font(.system(size: 12, weight: .bold))
+                                                .scaledFont(12, weight: .bold)
                                                 .foregroundStyle(Theme.background)
                                                 .padding(.top, 10)
                                         }
@@ -436,8 +438,14 @@ private struct ProgressLearningPage: View {
 
 }
 
+/// Purples used only on the Progress screen.
 enum ProgressPalette {
     static let background = Color(hex: 0xE6DEFF)
     static let purple = Color(hex: 0x4430A5)
     static let logged = Color(hex: 0xA99BC9)
+}
+
+#Preview("Progress") {
+    ProgressDashboardView()
+        .environment(AppState())
 }

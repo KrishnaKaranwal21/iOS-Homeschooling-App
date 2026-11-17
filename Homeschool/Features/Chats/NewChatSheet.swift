@@ -73,7 +73,7 @@ struct NewChatSheet: View {
     private func actionRow(symbol: String, title: String) -> some View {
         HStack(spacing: 14) {
             Image(systemName: symbol)
-                .font(.system(size: 18, weight: .semibold))
+                .scaledFont(18, weight: .semibold)
                 .foregroundStyle(Theme.ink)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Theme.lavender))
@@ -85,7 +85,7 @@ struct NewChatSheet: View {
     private func parentRow(_ parent: Parent) -> some View {
         HStack(spacing: 14) {
             Text(String(parent.name.prefix(2)).uppercased())
-                .font(.system(size: 16, weight: .bold))
+                .scaledFont(16, weight: .bold)
                 .foregroundStyle(Theme.ink)
                 .frame(width: 48, height: 48)
                 .background(Circle().fill(Theme.lavender))
@@ -127,7 +127,7 @@ private struct NewGroupView: View {
                     } label: {
                         HStack(spacing: 14) {
                             Text(String(parent.name.prefix(2)).uppercased())
-                                .font(.system(size: 15, weight: .bold))
+                                .scaledFont(15, weight: .bold)
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Theme.lavender))
@@ -135,7 +135,7 @@ private struct NewGroupView: View {
                             Spacer()
                             Image(systemName: selected.contains(parent.name) ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selected.contains(parent.name) ? Theme.tabSelected : Theme.dotInactive)
-                                .font(.system(size: 22))
+                                .scaledFont(22)
                         }
                     }
                     .accessibilityAddTraits(selected.contains(parent.name) ? .isSelected : [])

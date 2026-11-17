@@ -373,7 +373,7 @@ struct RegistrationView: View {
         Button { isOn.wrappedValue.toggle() } label: {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 15, weight: .bold))
+                    .scaledFont(15, weight: .bold)
                     .foregroundStyle(Theme.ink)
                     .opacity(isOn.wrappedValue ? 1 : 0)
                     .frame(width: 30, height: 30)

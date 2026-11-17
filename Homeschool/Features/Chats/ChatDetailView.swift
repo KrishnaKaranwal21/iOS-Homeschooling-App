@@ -64,8 +64,8 @@ struct ChatDetailView: View {
             if isSearching { searchBar }
             messageList(thread)
         }
-        // The message bar sits in the bottom safe area, so it rises with the keyboard
-        // and stays clear of the home indicator. The title bar stays clear of the Dynamic Island.
+        // The message bar sits in the bottom safe area, so it rises with the keyboard and stays clear of the home
+        // indicator. The title bar stays clear of the Dynamic Island.
         .safeAreaInset(edge: .bottom, spacing: 0) { composerArea(thread) }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -281,7 +281,7 @@ struct ChatDetailView: View {
                     Spacer(minLength: 0)
                     if message.isStarred {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 10))
+                            .scaledFont(10)
                             .foregroundStyle(Theme.secondary)
                             .accessibilityLabel("Starred")
                     }
@@ -324,7 +324,8 @@ struct ChatDetailView: View {
         }
     }
 
-    // PROTOTYPE ONLY: shows how a received message looks. Remove with `ChatStore.simulateIncoming`.
+    /// Shows how a received message looks.
+    // TODO: Prototype only. Remove together with `ChatStore.simulateIncoming`.
     private var prototypeButton: some View {
         Button { state.chats.simulateIncoming(in: threadID) } label: {
             Label("Prototype: show incoming message", systemImage: "arrow.down.left.circle")
@@ -366,7 +367,7 @@ struct ChatDetailView: View {
                 HStack(alignment: .bottom, spacing: 10) {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Image(systemName: "plus")
-                            .font(.system(size: 18, weight: .semibold))
+                            .scaledFont(18, weight: .semibold)
                             .foregroundStyle(Theme.ink)
                             .frame(width: 42, height: 42)
                             .background(Circle().fill(Theme.field))
@@ -387,7 +388,7 @@ struct ChatDetailView: View {
                     if hasText {
                         Button(action: sendDraft) {
                             Image(systemName: "arrow.up")
-                                .font(.system(size: 17, weight: .bold))
+                                .scaledFont(17, weight: .bold)
                                 .foregroundStyle(Color.white)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Theme.buttonFill))
@@ -400,7 +401,7 @@ struct ChatDetailView: View {
                             Task { if !(await recorder.start()) { micDenied = true } }
                         } label: {
                             Image(systemName: "mic.fill")
-                                .font(.system(size: 17, weight: .semibold))
+                                .scaledFont(17, weight: .semibold)
                                 .foregroundStyle(Theme.ink)
                                 .frame(width: 42, height: 42)
                                 .background(Circle().fill(Theme.lavender))
@@ -421,7 +422,7 @@ struct ChatDetailView: View {
         HStack(spacing: 10) {
             Button { recorder.cancel() } label: {
                 Image(systemName: "trash")
-                    .font(.system(size: 17, weight: .semibold))
+                    .scaledFont(17, weight: .semibold)
                     .foregroundStyle(Color.red)
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Theme.field))
@@ -446,7 +447,7 @@ struct ChatDetailView: View {
 
             Button(action: sendRecording) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 17, weight: .bold))
+                    .scaledFont(17, weight: .bold)
                     .foregroundStyle(Color.white)
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Theme.buttonFill))
@@ -457,8 +458,10 @@ struct ChatDetailView: View {
     }
 
     private func sendRecording() {
-        guard let note = recorder.stop() else { return }
-        state.chats.sendVoiceNote(note.data, duration: note.duration, in: threadID)
+        Task {
+            guard let note = await recorder.stop() else { return }
+            state.chats.sendVoiceNote(note.data, duration: note.duration, in: threadID)
+        }
     }
 
     private func sendDraft() {

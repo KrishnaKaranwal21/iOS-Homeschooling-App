@@ -1,12 +1,18 @@
 import SwiftUI
 
+// MARK: - AppTab
+
 enum AppTab: Hashable {
     case home, progress, gather, community, chats
 }
 
-private struct OpenTabKey: EnvironmentKey {
+// MARK: - OpenTabKey
+
+struct OpenTabKey: EnvironmentKey {
     static let defaultValue: (AppTab) -> Void = { _ in }
 }
+
+// MARK: - EnvironmentValues extensions
 
 extension EnvironmentValues {
     /// Lets any screen jump to another tab, for example a Home card opening Gather.
@@ -15,6 +21,8 @@ extension EnvironmentValues {
         set { self[OpenTabKey.self] = newValue }
     }
 }
+
+// MARK: - MainTabView
 
 /// The system tab bar: a bottom bar on iPhone and the floating bar at the top on iPad.
 /// Only the colours are customised: muted purple for the current page, and a softer purple for the rest.
@@ -29,7 +37,7 @@ struct MainTabView: View {
         @Bindable var bindableState = state
         return TabView(selection: $selection) {
             Tab(value: AppTab.home) {
-                NavigationStack { HomeView() }.id(resetCounts[.home, default: 0])
+                NavigationStack { HomeView().id(state.child.id) }.id(resetCounts[.home, default: 0])
             } label: {
                 label("Home", symbol: "house.fill", tab: .home)
             }
@@ -86,8 +94,6 @@ struct MainTabView: View {
         .onChange(of: selection) { old, new in
             // An event opened from a notification shouldn't stay open once you leave Gatherings.
             if old == .gather { state.gatherPath = NavigationPath() }
-            // Records the first Home visit; returning-session routing is decided separately when logging in or restoring the app.
-            if old == .home && new != .home { state.markFirstHomeSeen() }
             // Coming back to a tab shows its first page, not the last page you had open.
             resetCounts[old, default: 0] += 1
         }
@@ -110,7 +116,7 @@ struct MainTabView: View {
         let color = isSelected ? Theme.tabSelected : Theme.tabUnselectedIcon
         let renderer = ImageRenderer(content:
             Image(systemName: symbol)
-                .font(.system(size: 21, weight: .semibold))
+                .scaledFont(21, weight: .semibold)
                 .foregroundStyle(color)
                 .environment(\.colorScheme, .light)
                 .padding(2))
@@ -120,65 +126,7 @@ struct MainTabView: View {
     }
 }
 
-// MARK: - Pop-up over the app
-
-/// A card over the whole app, like "Learning, wrapped up", for news the person should not miss.
-struct AppPopupView: View {
-    let popup: AppPopup
-    let onDismiss: () -> Void
-    let onOpen: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.35)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onDismiss)
-
-            VStack(spacing: 16) {
-                Text(popup.title)
-                    .scaledFont(30, weight: .bold, maxScale: 1.15)
-                    .tracking(-0.8)
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
-
-                HomeMascotView()
-                    .frame(height: 120)
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 4) {
-                    Text(popup.headline)
-                        .scaledFont(17, weight: .semibold, maxScale: 1.25)
-                        .foregroundStyle(Theme.ink)
-                        .multilineTextAlignment(.center)
-                    Text(popup.detail)
-                        .scaledFont(14, maxScale: 1.3)
-                        .foregroundStyle(Theme.gatherText)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .background(Theme.lavender.opacity(0.55), in: .rect(cornerRadius: 20))
-
-                Text(popup.message)
-                    .scaledFont(15, maxScale: 1.3)
-                    .foregroundStyle(Theme.gatherText)
-                    .multilineTextAlignment(.center)
-
-                Button(popup.buttonTitle, action: onOpen)
-                    .buttonStyle(.primaryHomeschool)
-
-                Button("Not now", action: onDismiss)
-                    .scaledFont(15, weight: .medium, maxScale: 1.25)
-                    .foregroundStyle(Theme.gatherText)
-                    .frame(minHeight: 36)
-            }
-            .padding(24)
-            .frame(maxWidth: 420)
-            .background(Theme.surface, in: .rect(cornerRadius: 40))
-            .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
-            .padding(.horizontal, 28)
-            .accessibilityElement(children: .contain)
-            .accessibilityAddTraits(.isModal)
-        }
-    }
+#Preview("Main tabs") {
+    MainTabView()
+        .environment(AppState())
 }

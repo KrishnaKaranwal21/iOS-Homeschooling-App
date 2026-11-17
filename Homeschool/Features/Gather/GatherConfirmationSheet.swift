@@ -1,44 +1,5 @@
 import SwiftUI
 
-/// "Attending" / "Hosting" pill shown on an event cover.
-/// A white pill with dark text stays readable over any event cover.
-struct EventAttendingBadge: View {
-    var title = "Going"
-    var symbol = "checkmark.circle.fill"
-    var tint = Color(hex: 0x3F9E7E)
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: symbol)
-                .foregroundColor(tint)
-            Text(title)
-                .foregroundColor(Color(hex: 0x2B2840))
-                .lineLimit(1)
-        }
-        .scaledFont(13, weight: .semibold, maxScale: 1.3)
-        .fixedSize()
-        .padding(.horizontal, 11).padding(.vertical, 8)
-        .background(Capsule().fill(Color.white))
-        .overlay(Capsule().stroke(Color(hex: 0xDDD7F5), lineWidth: 1))
-        .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
-        .environment(\.colorScheme, .light)
-        .accessibilityElement(children: .combine)
-    }
-}
-
-struct EventModeBadge: View {
-    let mode: Event.Mode
-
-    var body: some View {
-        Label(mode.rawValue, systemImage: mode == .online ? "video.fill" : "mappin")
-            .scaledFont(11, weight: .semibold, maxScale: 1.25)
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 8).padding(.vertical, 4)
-            .background(Theme.field, in: Capsule())
-            .fixedSize()
-    }
-}
-
 /// The saved registration remains available from the event, feed and tickets.
 struct GatherConfirmationSheet: View {
     let event: Event
@@ -146,7 +107,7 @@ struct GatherConfirmationSheet: View {
     private var header: some View {
         HStack {
             Button { dismiss() } label: {
-                Image(systemName: "chevron.left").font(.system(size: 21, weight: .light))
+                Image(systemName: "chevron.left").accessibilityHidden(true).scaledFont(21, weight: .light)
                     .foregroundStyle(Theme.ink).frame(width: 44, height: 44)
                     .gatherGlass(in: Circle())
             }.buttonStyle(.plain).accessibilityLabel("Back to event")
@@ -192,7 +153,7 @@ struct GatherConfirmationSheet: View {
 
     private func summaryRow(_ icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon).font(.system(size: 17, weight: .regular)).frame(width: 22)
+            Image(systemName: icon).scaledFont(17, weight: .regular).frame(width: 22)
             Text(text).scaledFont(15, maxScale: 1.35).fixedSize(horizontal: false, vertical: true)
         }.foregroundStyle(Theme.secondary)
     }
