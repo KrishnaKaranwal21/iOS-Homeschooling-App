@@ -80,11 +80,13 @@ struct GatherInfoRow: View {
 
 // MARK: - GatherSegmented
 
-/// Capsule switch with a sliding highlight, e.g. Gathering / Workshop.
+/// Native segmented control. On iOS 26 and newer it renders as Liquid Glass with a white sliding
+/// highlight, matching the "Tuesday / Whole week" switch on the Progress page.
 struct GatherSegmented<Value: Hashable>: View {
     let options: [Value]
     @Binding var selection: Value
     let title: (Value) -> String
+
     var body: some View {
         Picker("Selection", selection: $selection) {
             ForEach(options, id: \.self) { option in
@@ -93,8 +95,8 @@ struct GatherSegmented<Value: Hashable>: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .frame(minHeight: 44)
-        .gatherGlass(in: Capsule(), tint: Theme.lilac.opacity(0.25))
+        .tint(.white)
+        .frame(height: 48)
         .sensoryFeedback(.selection, trigger: selection)
     }
 }

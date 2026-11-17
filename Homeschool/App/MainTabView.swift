@@ -37,7 +37,7 @@ struct MainTabView: View {
         @Bindable var bindableState = state
         return TabView(selection: $selection) {
             Tab(value: AppTab.home) {
-                NavigationStack { HomeView() }.id(resetCounts[.home, default: 0])
+                NavigationStack { HomeView().id(state.child.id) }.id(resetCounts[.home, default: 0])
             } label: {
                 label("Home", symbol: "house.fill", tab: .home)
             }
@@ -94,9 +94,6 @@ struct MainTabView: View {
         .onChange(of: selection) { old, new in
             // An event opened from a notification shouldn't stay open once you leave Gatherings.
             if old == .gather { state.gatherPath = NavigationPath() }
-            // Records the first Home visit; returning-session routing is decided separately when logging in or
-            // restoring the app.
-            if old == .home && new != .home { state.markFirstHomeSeen() }
             // Coming back to a tab shows its first page, not the last page you had open.
             resetCounts[old, default: 0] += 1
         }
