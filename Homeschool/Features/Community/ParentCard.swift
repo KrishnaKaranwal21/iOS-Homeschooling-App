@@ -174,13 +174,6 @@ struct ParentCard: View {
                     )
                     .accessibilityAddTraits(.isHeader)
 
-                Text(parent.role)
-                    .scaledFont(14, maxScale: 1.3)
-                    .foregroundStyle(Theme.secondary)
-                    .fixedSize(
-                        horizontal: false,
-                        vertical: true
-                    )
 
                 if !parent.place.isEmpty {
                     Label(

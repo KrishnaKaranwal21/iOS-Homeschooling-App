@@ -16,7 +16,6 @@ struct ProfileHero: View {
     /// Name of a photo in the asset catalog. Without it the initial is shown.
     var photoName: String? = nil
     let title: String
-    let subtitle: String
     var chips: [ProfileHeroChip] = []
     /// A round button in the corner, such as "Edit".
     var actionSymbol: String? = nil
@@ -33,15 +32,6 @@ struct ProfileHero: View {
                         .foregroundStyle(Theme.ink)
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
-                    if !subtitle.isEmpty {
-                        // One line: a long email shrinks a little or is cut in the middle, never wrapped.
-                        Text(subtitle)
-                            .scaledFont(15, maxScale: 1.3)
-                            .foregroundStyle(Theme.gatherText)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .truncationMode(.middle)
-                    }
                 }
                 Spacer(minLength: 0)
             }

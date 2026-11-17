@@ -186,51 +186,87 @@ struct HomeView: View {
         }
     }
 
+    
     private var rhythm: some View {
         GeometryReader { geometry in
             let count = CGFloat(max(1, plan.days.count))
-            let width = plan.days.count <= 4 ? min(82, max(48, (geometry.size.width - (count - 1) * 6 - 6) / count)) : 74
+            let width = plan.days.count <= 4
+                ? min(82, max(48, (geometry.size.width - (count - 1) * 6 - 6) / count))
+                : 74
+
             ScrollViewReader { scrollProxy in
                 ScrollView(.horizontal) {
                     HStack(spacing: 6) {
                         ForEach(Array(plan.days.enumerated()), id: \.element) { index, name in
                             let date = plan.date(for: name)
                             let selected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                            Button { withAnimation(motion) { selectedDate = date } } label: {
+
+                            Button {
+                                withAnimation(motion) {
+                                    selectedDate = date
+                                }
+                            } label: {
                                 VStack(spacing: 6) {
-                                    Text(name.uppercased()).scaledFont(17, weight: .heavy, maxScale: 1.15)
-                                    Capsule().fill(Color(hex: 0xF0959F)).frame(width: 22, height: 5)
+                                    Text(name.uppercased())
+                                        .scaledFont(17, weight: .heavy, maxScale: 1.15)
+
+                                    Capsule()
+                                        .fill(Color(hex: 0xF0959F))
+                                        .frame(width: 22, height: 5)
+
                                     Text(LearningProgress.duration(plan.minutes(on: name)))
                                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                                        .foregroundStyle(Theme.secondary).lineLimit(1).minimumScaleFactor(0.65)
+                                        .foregroundStyle(Theme.secondary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.65)
                                 }
                                 .frame(width: width, height: 76)
                                 .background(Theme.surface, in: .rect(cornerRadius: 14))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 14)
-                                        .strokeBorder(selected ? HomePalette.coral.opacity(0.85) : .clear, lineWidth: 1.25)
+                                        .strokeBorder(
+                                            selected ? HomePalette.coral.opacity(0.85) : .clear,
+                                            lineWidth: 1.25
+                                        )
                                 }
-                                .shadow(color: HomePalette.coral.opacity(selected ? 0.08 : 0), radius: 4, y: 2)
+                                .shadow(
+                                    color: HomePalette.coral.opacity(selected ? 0.08 : 0),
+                                    radius: 4,
+                                    y: 2
+                                )
                                 .rotationEffect(.degrees([-3, 2, -2, 3][index % 4]))
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("\(date.formatted(.dateTime.weekday(.wide))), \(LearningProgress.duration(plan.minutes(on: name))) planned")
+                            .accessibilityLabel(
+                                "\(date.formatted(.dateTime.weekday(.wide))), \(LearningProgress.duration(plan.minutes(on: name))) planned"
+                            )
                             .accessibilityAddTraits(selected ? .isSelected : [])
                             .accessibilityIdentifier("home.day.\(name)")
                             .id(name)
                         }
                     }
-                    .padding(.horizontal, 3).padding(.vertical, 7)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 7)
+                    // Center the cards when there are 3 or fewer days.
+                    .frame(
+                        minWidth: plan.days.count <= 3 ? geometry.size.width : 0,
+                        alignment: .center
+                    )
                 }
                 .scrollIndicators(.hidden)
-                .onAppear { scrollProxy.scrollTo(selectedDay, anchor: .center) }
+                .onAppear {
+                    scrollProxy.scrollTo(selectedDay, anchor: .center)
+                }
                 .onChange(of: selectedDate) { _, _ in
-                    withAnimation(motion) { scrollProxy.scrollTo(selectedDay, anchor: .center) }
+                    withAnimation(motion) {
+                        scrollProxy.scrollTo(selectedDay, anchor: .center)
+                    }
                 }
             }
         }
         .frame(height: 90)
     }
+
 
     private var todoHeading: some View {
         HStack(alignment: .center, spacing: 11) {

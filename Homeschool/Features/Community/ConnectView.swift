@@ -28,7 +28,6 @@ struct ConnectView: View {
                 ProfileHero(initial: String(parent.name.prefix(1)).uppercased(),
                             photoName: parent.photoName,
                             title: parent.name,
-                            subtitle: parent.role,
                             chips: heroChips)
 
                 ProfileCard(symbol: "text.quote", title: "A little about us") {

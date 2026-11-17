@@ -209,70 +209,107 @@ struct SyllabusSubjectView: View {
     // MARK: Chapter card
     // Same look as the task rows on Home: a quiet grey card with only the pill coloured.
 
+
     private func chapterCard(_ chapter: SyllabusChapter) -> some View {
         let cp = palette(forChapter: chapter)
         let isOpen = expanded.contains(chapter.id)
-        let done = chapter.topics.filter { progress.status(of: $0, subject: subject) == .completed }.count
+
+        let done = chapter.topics.filter {
+            progress.status(of: $0, subject: subject) == .completed
+        }.count
+
         let finished = !chapter.topics.isEmpty && done == chapter.topics.count
         let isArea = chapter.kind == "competency"
-        let label = [chapter.isOptional == true ? "Optional" : nil,
-                     chapter.module.flatMap { $0.isEmpty ? nil : $0 } ?? (isArea ? "Learning area" : "Chapter")]
-            .compactMap { $0 }.joined(separator: " · ")
+
+        let label = [
+            chapter.isOptional == true ? "Optional" : nil,
+            chapter.module.flatMap { $0.isEmpty ? nil : $0 }
+                ?? (isArea ? "Learning area" : "Chapter")
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+
         return VStack(spacing: 0) {
+
+            // MARK: Header
+
             Button {
                 withAnimation(motion) {
-                    if isOpen { expanded.remove(chapter.id) } else { expanded.insert(chapter.id) }
+                    if isOpen {
+                        expanded.remove(chapter.id)
+                    } else {
+                        expanded.insert(chapter.id)
+                    }
                 }
             } label: {
                 HStack(spacing: 10) {
                     Text(finished ? "Done" : "\(isArea ? "Area" : "Ch") \(chapter.number)")
                         .scaledFont(14, weight: .medium, maxScale: 1.2)
-                        .lineLimit(1).minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                         .foregroundStyle(cp.ink)
                         .padding(.horizontal, 10)
                         .frame(minWidth: 62, minHeight: 32)
                         .background(cp.paper, in: Capsule())
-                        .overlay(Capsule().strokeBorder(cp.ink.opacity(0.14), lineWidth: 0.8))
+                        .overlay(
+                            Capsule().strokeBorder(cp.ink.opacity(0.14), lineWidth: 0.8)
+                        )
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(label.uppercased())
-                            .scaledFont(9, weight: .medium, maxScale: 1.3).foregroundStyle(Theme.secondary)
-                            .multilineTextAlignment(.leading)
-                        Text(chapter.title).scaledFont(15, weight: .semibold, maxScale: 1.25)
+                            .scaledFont(9, weight: .medium, maxScale: 1.3)
+                            .foregroundStyle(Theme.secondary)
+
+                        Text(chapter.title)
+                            .scaledFont(15, weight: .semibold, maxScale: 1.25)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
+
                         Text("\(done) of \(chapter.topics.count) topics")
-                            .scaledFont(11, maxScale: 1.2).foregroundStyle(Theme.secondary)
+                            .scaledFont(11, maxScale: 1.2)
+                            .foregroundStyle(Theme.secondary)
                     }
+
                     Spacer(minLength: 4)
-                    Image(systemName: "chevron.down").accessibilityHidden(true)
-                        .scaledFont(14, weight: .semibold).foregroundStyle(cp.ink)
+
+                    Image(systemName: "chevron.down")
+                        .scaledFont(14, weight: .semibold)
+                        .foregroundStyle(cp.ink)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                         .frame(width: 32, height: 44)
                 }
-                .padding(.horizontal, 14).padding(.vertical, 12)
-                .contentShape(RoundedRectangle(cornerRadius: 24))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
             }
             .buttonStyle(SyllabusPressStyle(reduceMotion: reduceMotion))
             .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
             .accessibilityHint(isOpen ? "Close chapter" : "Show topics")
 
+            // MARK: Topics
+
             if isOpen {
                 VStack(spacing: 8) {
                     ForEach(visibleTopics(in: chapter)) { topic in
-                        SyllabusTopicRow(topic: topic, ink: cp.ink,
-                                         status: progress.status(of: topic, subject: subject),
-                                         onToggle: { toggleCompletion(topic) },
-                                         onOpen: { selectedTopic = topic })
+                        SyllabusTopicRow(
+                            topic: topic,
+                            ink: cp.ink,
+                            status: progress.status(of: topic, subject: subject),
+                            onToggle: { toggleCompletion(topic) },
+                            onOpen: { selectedTopic = topic }
+                        )
                     }
                 }
-                .padding(.horizontal, 10).padding(.bottom, 10)
-                .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                .padding(.horizontal, 10)
+                .padding(.bottom, 10)
             }
         }
         .foregroundStyle(Theme.ink)
-        .background(Theme.field, in: .rect(cornerRadius: 24))
+        .background(Theme.field)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
         .sensoryFeedback(.selection, trigger: isOpen)
     }
+
 }
 
 struct SyllabusPressStyle: ButtonStyle {
