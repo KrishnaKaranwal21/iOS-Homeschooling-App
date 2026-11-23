@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A card over the whole app, like "Learning, wrapped up", for news the person should not miss.
+/// A card over the whole app, like "Learning, wrapped up"-for news the person should not miss.
 struct AppPopupView: View {
     let popup: AppPopup
     let onDismiss: () -> Void
