@@ -33,36 +33,51 @@ extension SubjectLearningCard {
                     : "Complete \(activity.title)"
                 )
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(activity.title)
-                        .scaledFont(14, weight: .semibold, maxScale: 1.25)
-                        .foregroundStyle(
-                            activity.isDone
-                            ? palette.ink.opacity(0.65)
-                            : Theme.ink
-                        )
-                        .strikethrough(activity.isDone)
-                        .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    detailActivity = activity
+                } label: {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(activity.title)
+                                .scaledFont(14, weight: .semibold, maxScale: 1.25)
+                                .foregroundStyle(
+                                    activity.isDone
+                                    ? palette.ink.opacity(0.65)
+                                    : Theme.ink
+                                )
+                                .strikethrough(activity.isDone)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
 
-                    HStack(spacing: 6) {
-                        Text("\(activity.minutes) min")
+                            HStack(spacing: 6) {
+                                Text("\(activity.minutes) min")
 
-                        if let time = activity.time {
-                            Text(
-                                "· \(time.formatted(date: .omitted, time: .shortened))"
-                            )
+                                if let time = activity.time {
+                                    Text(
+                                        "· \(time.formatted(date: .omitted, time: .shortened))"
+                                    )
+                                }
+
+                                if activity.isDone {
+                                    Text("· Done")
+                                }
+                            }
+                            .scaledFont(10, weight: .medium, maxScale: 1.25)
+                            .foregroundStyle(palette.ink.opacity(0.8))
                         }
-
-                        if activity.isDone {
-                            Text("· Done")
-                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .scaledFont(11, weight: .semibold, maxScale: 1.25)
+                            .foregroundStyle(palette.ink.opacity(0.4))
+                            .accessibilityHidden(true)
                     }
-                    .scaledFont(10, weight: .medium, maxScale: 1.25)
-                    .foregroundStyle(palette.ink.opacity(0.8))
+                    .padding(.vertical, 10).padding(.trailing, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .padding(.vertical, 10)
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the task description")
 
-                Spacer(minLength: 0)
             }
 
             Button {

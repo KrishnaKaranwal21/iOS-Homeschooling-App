@@ -17,6 +17,8 @@ struct SubjectLearningCard: View {
 
     @State var showWholeWeek: Bool
     @State var expandedActivityID: WeekActivity.ID?
+    /// The activity whose full task page is open.
+    @State var detailActivity: WeekActivity?
 
     init(
         subject: SubjectLearningProgress,
@@ -152,6 +154,13 @@ struct SubjectLearningCard: View {
         )
         .padding(.vertical, 3)
         .sensoryFeedback(.selection, trigger: isExpanded)
+        .sheet(item: $detailActivity) { activity in
+            TaskDetailSheet(content: TaskDetailContent(activity: activity, paletteIndex: index),
+                            onToggle: { onToggleActivity(activity) })
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+        }
         .onChange(of: selectedDate) { _, _ in
             showWholeWeek = today.isEmpty
             expandedActivityID = nil

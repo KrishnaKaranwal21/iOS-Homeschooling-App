@@ -50,13 +50,16 @@ struct SyllabusTopicRow: View {
     }
 }
 
-/// Topic details, laid out like the activity details on Home.
+/// Topic details. This uses the shared `TaskDetailSheet`, so a topic opens the same page as a task on Home or Progress;
+/// this wrapper only gathers the topic's content and handles ticking it off and planning it.
 struct SyllabusTopicSheet: View {
     @Environment(AppState.self) private var state
     @Environment(\.dismiss) private var dismiss
     let topic: SyllabusTopic
     let subject: SyllabusSubject
     let childID: Child.ID
+    /// Matches the subject's colour on the syllabus page it was opened from.
+    var paletteIndex = 0
     @State private var showPlanner = false
     @State private var saveError = false
 
@@ -68,103 +71,51 @@ struct SyllabusTopicSheet: View {
     private var guide: ActivityGuide {
         .suggested(for: linked.first ?? WeekActivity(title: topic.title, subject: subject.name, date: .now, syllabusTopicID: topic.id))
     }
-    private var customSteps: String? {
-        linked.map(\.smallSteps).first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var customSteps: [String] {
+        linked.lazy.map { TaskDetailContent.lines(of: $0.smallSteps) }.first { !$0.isEmpty } ?? []
     }
     private var customNotes: String? {
         linked.map(\.notes).first { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
-    private var statusTint: Color { status == .completed ? Color(hex: 0x386553) : Theme.accent }
+
+    private var content: TaskDetailContent {
+        let chapterText = chapter.map {
+            "\($0.kind == "competency" ? "Area" : "Chapter") \($0.number) · \($0.title)"
+        }
+        let symbol: String
+        switch status {
+        case .completed: symbol = "checkmark"
+        case .planned: symbol = "calendar"
+        case .notStarted: symbol = "circle.dashed"
+        }
+        return TaskDetailContent(
+            subject: subject.name, title: topic.title, detail: chapterText,
+            statusText: status.rawValue, statusSymbol: symbol, isDone: status == .completed,
+            minutes: linked.first?.minutes, helpMinutes: linked.first?.helpMinutes,
+            overview: guide.overview,
+            stepsTitle: customSteps.isEmpty ? "Try it step by step" : "Your steps",
+            steps: customSteps.isEmpty ? guide.steps : customSteps,
+            materialsTitle: customNotes == nil ? "What you’ll need" : "Your notes",
+            materials: customNotes ?? guide.materials,
+            materialsSymbol: customNotes == nil ? "backpack" : "note.text",
+            paletteIndex: paletteIndex,
+            link: URL(string: topic.sourceURL), linkTitle: "Read the NIOS material")
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(subject.name.uppercased())
-                    .scaledFont(11, weight: .semibold, maxScale: 1.25)
-                    .tracking(0.5).foregroundStyle(Theme.secondary)
-                Spacer(minLength: 12)
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark").scaledFont(17, weight: .medium)
-                        .frame(width: 44, height: 44).gatherGlass(in: Circle(), tint: Theme.lilac.opacity(0.35))
-                }
-                .accessibilityLabel("Close topic")
-            }
-            .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 16)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text(topic.title).detailTitle()
-                        if let chapter {
-                            Label("\(chapter.kind == "competency" ? "Area" : "Chapter") \(chapter.number) · \(chapter.title)",
-                                  systemImage: "book.closed").bodyText()
-                        }
-                        Label(status.rawValue, systemImage: status == .completed ? "checkmark.circle.fill" : "circle")
-                            .bodyText().foregroundStyle(statusTint)
-                    }
-                    Text(guide.overview).bodyText().fixedSize(horizontal: false, vertical: true)
-                    VStack(alignment: .leading, spacing: 14) {
-                        Text(customSteps == nil ? "Try it step by step" : "Your steps").cardTitle()
-                        if let customSteps {
-                            Text(customSteps).bodyText()
-                        } else {
-                            ForEach(Array(guide.steps.enumerated()), id: \.offset) { index, step in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text("\(index + 1)")
-                                        .scaledFont(12, weight: .semibold, maxScale: 1.3)
-                                        .foregroundStyle(Theme.accent)
-                                        .frame(width: 26, height: 26)
-                                        .background(Theme.lilac, in: Circle())
-                                        .accessibilityHidden(true)
-                                    Text(step).bodyText().frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(customNotes == nil ? "What you’ll need" : "Your notes").cardTitle()
-                        Text(customNotes ?? guide.materials).bodyText()
-                    }
-                    if let url = URL(string: topic.sourceURL) {
-                        Link(destination: url) {
-                            Label("Read the NIOS material", systemImage: "arrow.up.right.square")
-                                .scaledFont(15, weight: .semibold, maxScale: 1.25).foregroundStyle(Theme.accent)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 24).padding(.bottom, 24)
-            }
-            .scrollIndicators(.hidden)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 6) {
-                Button {
-                    _ = state.setSyllabusTopicCompleted(topic, subject: subject, completed: status != .completed, for: childID)
-                    dismiss()
-                } label: {
-                    Label(status == .completed ? "Mark incomplete" : "Mark complete",
-                          systemImage: status == .completed ? "arrow.uturn.backward" : "checkmark")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.primaryHomeschool)
-
-                Button {
-                    state.prepareHomeWeek(for: childID)
-                    showPlanner = true
-                } label: {
-                    Label(status == .planned ? "Planned this week" : status == .completed ? "Practise again" : "Plan this topic",
-                          systemImage: status == .planned ? "calendar.badge.checkmark" : "plus")
-                        .scaledFont(16, weight: .semibold, maxScale: 1.25)
-                        .foregroundStyle(status == .planned ? Theme.secondary : Theme.accent)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .contentShape(Rectangle())
-                }
-                .disabled(status == .planned)
-            }
-            .padding(.horizontal, 24).padding(.top, 12).padding(.bottom, 10)
-            .background(Theme.background)
-        }
+        TaskDetailSheet(
+            content: content,
+            secondary: TaskDetailAction(
+                title: status == .planned ? "Planned this week" : status == .completed ? "Practise again" : "Plan this topic",
+                systemImage: status == .planned ? "calendar.badge.checkmark" : "plus",
+                isDisabled: status == .planned
+            ) {
+                state.prepareHomeWeek(for: childID)
+                showPlanner = true
+            },
+            onToggle: {
+                _ = state.setSyllabusTopicCompleted(topic, subject: subject, completed: status != .completed, for: childID)
+            })
         .sheet(isPresented: $showPlanner) {
             if let week = currentWeek {
                 let date = max(week.weekStart, min(Calendar.current.startOfDay(for: .now), week.weekEnd))
@@ -180,7 +131,6 @@ struct SyllabusTopicSheet: View {
         .alert("The week changed", isPresented: $saveError) {
             Button("OK", role: .cancel) { }
         } message: { Text("Open the planner again to add this topic to the current week.") }
-        .foregroundStyle(Theme.ink).background(Theme.background).buttonStyle(.plain)
         .presentationDragIndicator(.visible)
         .onChange(of: state.child.id) { _, id in if id != childID { dismiss() } }
     }

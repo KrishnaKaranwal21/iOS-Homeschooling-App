@@ -50,7 +50,7 @@ struct SyllabusSubjectView: View {
         .onAppear { expandMatches() }
         .onChange(of: filter) { _, _ in expandMatches() }
         .sheet(item: $selectedTopic) { topic in
-            SyllabusTopicSheet(topic: topic, subject: subject, childID: childID)
+            SyllabusTopicSheet(topic: topic, subject: subject, childID: childID, paletteIndex: paletteIndex)
         }
         .sensoryFeedback(.success, trigger: tickFeedback)
         .onChange(of: state.child.id) { _, id in if id != childID { dismiss() } }

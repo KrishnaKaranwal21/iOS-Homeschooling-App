@@ -114,9 +114,10 @@ struct HomeView: View {
             pendingCompletion = nil
             toggle(activity)
         }) { selection in
-            HomeActivitySheet(activity: selection.activity,
-                              onToggle: { pendingCompletion = selection.activity },
-                              onDelete: { pendingDeletion = selection.activity })
+            TaskDetailSheet(content: TaskDetailContent(activity: selection.activity,
+                                                       paletteIndex: homeTasks.first(where: { $0.id == selection.activity.id })?.subjectIndex ?? 0),
+                            onToggle: { pendingCompletion = selection.activity },
+                            onDelete: { pendingDeletion = selection.activity })
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
