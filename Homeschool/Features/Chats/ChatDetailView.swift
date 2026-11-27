@@ -59,56 +59,86 @@ struct ChatDetailView: View {
 
     // MARK: Layout
 
+
     private func content(_ thread: ChatThread) -> some View {
         VStack(spacing: 0) {
-            if isSearching { searchBar }
+            if isSearching {
+                searchBar
+            }
+
             messageList(thread)
         }
-        // The message bar sits in the bottom safe area, so it rises with the keyboard and stays clear of the home
-        // indicator. The title bar stays clear of the Dynamic Island.
-        .safeAreaInset(edge: .bottom, spacing: 0) { composerArea(thread) }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            composerArea(thread)
+        }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Button { showInfo = true } label: {
+                Button {
+                    showInfo = true
+                } label: {
                     HStack(spacing: 10) {
                         ChatAvatar(thread: thread, size: 36)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(thread.title)
-                                .scaledFont(17, weight: .bold, maxScale: 1.15)
-                                .foregroundStyle(Theme.ink)
-                                .lineLimit(1)
-                            if !thread.subtitle.isEmpty {
-                                Text(thread.subtitle)
-                                    .scaledFont(12, maxScale: 1.15)
-                                    .foregroundStyle(Theme.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
+
+                        Text(thread.title)
+                            .scaledFont(17, weight: .bold, maxScale: 1.15)
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
                     }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(thread.title). Chat info")
             }
+
             if !thread.isGroup {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button { callMode = .video } label: { Image(systemName: "video") }
-                        .accessibilityLabel("Video call")
-                    Button { callMode = .voice } label: { Image(systemName: "phone") }
-                        .accessibilityLabel("Voice call")
+                    Button {
+                        callMode = .video
+                    } label: {
+                        Image(systemName: "video")
+                    }
+                    .accessibilityLabel("Video call")
+
+                    Button {
+                        callMode = .voice
+                    } label: {
+                        Image(systemName: "phone")
+                    }
+                    .accessibilityLabel("Voice call")
                 }
             }
+
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { showInfo = true } label: {
-                        Label(thread.isGroup ? "Group info" : "View info", systemImage: "info.circle")
+                    Button {
+                        showInfo = true
+                    } label: {
+                        Label(
+                            thread.isGroup ? "Group info" : "View info",
+                            systemImage: "info.circle"
+                        )
                     }
-                    Button { startSearch() } label: { Label("Search", systemImage: "magnifyingglass") }
-                    Button { state.chats.toggleMute(threadID) } label: {
-                        Label(thread.isMuted ? "Unmute notifications" : "Mute notifications",
-                              systemImage: thread.isMuted ? "bell" : "bell.slash")
+
+                    Button {
+                        startSearch()
+                    } label: {
+                        Label("Search", systemImage: "magnifyingglass")
                     }
-                    Button(role: .destructive) { state.chats.clear(threadID) } label: {
+
+                    Button {
+                        state.chats.toggleMute(threadID)
+                    } label: {
+                        Label(
+                            thread.isMuted
+                                ? "Unmute notifications"
+                                : "Mute notifications",
+                            systemImage: thread.isMuted ? "bell" : "bell.slash"
+                        )
+                    }
+
+                    Button(role: .destructive) {
+                        state.chats.clear(threadID)
+                    } label: {
                         Label("Clear chat", systemImage: "trash")
                     }
                 } label: {
@@ -118,20 +148,26 @@ struct ChatDetailView: View {
             }
         }
         .navigationDestination(isPresented: $showInfo) {
-            ChatInfoView(threadID: threadID) { startSearch() }
+            ChatInfoView(threadID: threadID) {
+                startSearch()
+            }
         }
         .fullScreenCover(item: $callMode) { mode in
             CallView(thread: thread, mode: mode)
         }
         .alert("Microphone is off", isPresented: $micDenied) {
             Button("Open Settings") {
-                if let url = URL(string: "app-settings:") { openURL(url) }
+                if let url = URL(string: "app-settings:") {
+                    openURL(url)
+                }
             }
+
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Allow microphone access in Settings to send voice messages.")
         }
     }
+
 
     private var searchBar: some View {
         HStack(spacing: 10) {

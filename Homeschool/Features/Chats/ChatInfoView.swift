@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 /// Chat settings, laid out like a messenger's contact or group info page.
@@ -13,7 +14,9 @@ struct ChatInfoView: View {
     @State private var showAddMembers = false
     @State private var showLabels = false
 
-    private var thread: ChatThread? { state.chats.thread(threadID) }
+    private var thread: ChatThread? {
+        state.chats.thread(threadID)
+    }
 
     var body: some View {
         Group {
@@ -25,7 +28,11 @@ struct ChatInfoView: View {
                         mediaCard(thread)
                         chatToolsCard(thread)
                         settingsCard(thread)
-                        if thread.isGroup { membersCard(thread) }
+
+                        if thread.isGroup {
+                            membersCard(thread)
+                        }
+
                         dangerCard(thread)
                     }
                     .padding(.horizontal, 18)
@@ -39,20 +46,41 @@ struct ChatInfoView: View {
         .background(Theme.background)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .onAppear { state.tabBarHideCount += 1 }
-        .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
-        .onChange(of: thread == nil) { _, isGone in
-            if isGone { dismiss() }
+        .onAppear {
+            state.tabBarHideCount += 1
         }
-        .confirmationDialog("Clear all messages?", isPresented: $confirmClear, titleVisibility: .visible) {
-            Button("Clear chat", role: .destructive) { state.chats.clear(threadID) }
+        .onDisappear {
+            state.tabBarHideCount = max(0, state.tabBarHideCount - 1)
+        }
+        .onChange(of: thread == nil) { _, isGone in
+            if isGone {
+                dismiss()
+            }
+        }
+        .confirmationDialog(
+            "Clear all messages?",
+            isPresented: $confirmClear,
+            titleVisibility: .visible
+        ) {
+            Button("Clear chat", role: .destructive) {
+                state.chats.clear(threadID)
+            }
             Button("Cancel", role: .cancel) {}
         }
-        .confirmationDialog(thread?.isGroup == true ? "Exit this group?" : "Delete this chat?",
-                            isPresented: $confirmExit, titleVisibility: .visible) {
-            Button(thread?.isGroup == true ? "Exit group" : "Delete chat", role: .destructive) {
+        .confirmationDialog(
+            thread?.isGroup == true
+                ? "Exit this group?"
+                : "Delete this chat?",
+            isPresented: $confirmExit,
+            titleVisibility: .visible
+        ) {
+            Button(
+                thread?.isGroup == true ? "Exit group" : "Delete chat",
+                role: .destructive
+            ) {
                 state.chats.delete(threadID)
             }
+
             Button("Cancel", role: .cancel) {}
         }
         .sheet(isPresented: $showAddMembers) {
@@ -69,13 +97,12 @@ struct ChatInfoView: View {
         VStack(spacing: 8) {
             ChatAvatar(thread: thread, size: 112)
                 .padding(.top, 6)
+
             Text(thread.title)
                 .detailTitle()
                 .multilineTextAlignment(.center)
-            if !thread.subtitle.isEmpty {
-                Text(thread.subtitle)
-                    .rowDetail()
-            }
+
+            // Subtitle intentionally removed.
         }
         .frame(maxWidth: .infinity)
     }
@@ -85,25 +112,43 @@ struct ChatInfoView: View {
             if let parent = communityParent(for: thread) {
                 profileTile(parent)
             }
+
             actionTile(icon: "magnifyingglass", title: "Search") {
                 dismiss()
                 onSearch()
             }
-            actionTile(icon: thread.isMuted ? "bell.slash.fill" : "bell", title: thread.isMuted ? "Unmute" : "Mute") {
+
+            actionTile(
+                icon: thread.isMuted ? "bell.slash.fill" : "bell",
+                title: thread.isMuted ? "Unmute" : "Mute"
+            ) {
                 state.chats.toggleMute(threadID)
             }
-            actionTile(icon: thread.isPinned ? "pin.fill" : "pin", title: thread.isPinned ? "Unpin" : "Pin") {
+
+            actionTile(
+                icon: thread.isPinned ? "pin.fill" : "pin",
+                title: thread.isPinned ? "Unpin" : "Pin"
+            ) {
                 state.chats.togglePin(threadID)
             }
+
             if thread.isGroup {
-                actionTile(icon: "person.badge.plus", title: "Add") { showAddMembers = true }
+                actionTile(icon: "person.badge.plus", title: "Add") {
+                    showAddMembers = true
+                }
             }
         }
     }
 
-    private func actionTile(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { tileLabel(icon: icon, title: title) }
-            .buttonStyle(.plain)
+    private func actionTile(
+        icon: String,
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            tileLabel(icon: icon, title: title)
+        }
+        .buttonStyle(.plain)
     }
 
     private func tileLabel(icon: String, title: String) -> some View {
@@ -111,6 +156,7 @@ struct ChatInfoView: View {
             Image(systemName: icon)
                 .scaledFont(20, weight: .medium)
                 .foregroundStyle(Theme.tabSelected)
+
             Text(title)
                 .scaledFont(13, weight: .medium, maxScale: 1.15)
                 .foregroundStyle(Theme.ink)
@@ -120,25 +166,36 @@ struct ChatInfoView: View {
         .background(Theme.surface, in: .rect(cornerRadius: 18))
     }
 
-    /// The person's community profile, the page seen when connecting from Community.
+    /// The person's community profile.
     /// It opens inside this stack, so Back returns to this page.
     private func profileTile(_ parent: Parent) -> some View {
         NavigationLink {
             ConnectView(parent: parent, hidesConnectBar: true)
                 .toolbar(.hidden, for: .tabBar)
-                .onAppear { state.tabBarHideCount += 1 }
-                .onDisappear { state.tabBarHideCount = max(0, state.tabBarHideCount - 1) }
+                .onAppear {
+                    state.tabBarHideCount += 1
+                }
+                .onDisappear {
+                    state.tabBarHideCount = max(
+                        0,
+                        state.tabBarHideCount - 1
+                    )
+                }
         } label: {
             tileLabel(icon: "person.crop.circle", title: "Profile")
         }
         .buttonStyle(.plain)
     }
 
-    /// One-to-one chats are started from a community profile, so the title is the parent's name.
-    /// Groups and chats with someone who has no community profile get no Profile button.
+    /// One-to-one chats are started from a community profile.
     private func communityParent(for thread: ChatThread) -> Parent? {
-        guard !thread.isGroup else { return nil }
-        return MockData.parents.first { $0.name == thread.title }
+        guard !thread.isGroup else {
+            return nil
+        }
+
+        return MockData.parents.first {
+            $0.name == thread.title
+        }
     }
 
     // MARK: Cards
@@ -148,8 +205,12 @@ struct ChatInfoView: View {
             NavigationLink {
                 MediaGalleryView(threadID: threadID)
             } label: {
-                row(icon: "photo.on.rectangle", title: "Media",
-                    trailing: "\(thread.mediaMessages.count)", showsChevron: true)
+                row(
+                    icon: "photo.on.rectangle",
+                    title: "Media",
+                    trailing: "\(thread.mediaMessages.count)",
+                    showsChevron: true
+                )
             }
             .buttonStyle(.plain)
 
@@ -160,7 +221,11 @@ struct ChatInfoView: View {
                             if let picked = item.image {
                                 Color.clear
                                     .frame(width: 84, height: 84)
-                                    .overlay { picked.image.resizable().scaledToFill() }
+                                    .overlay {
+                                        picked.image
+                                            .resizable()
+                                            .scaledToFill()
+                                    }
                                     .clipShape(.rect(cornerRadius: 12))
                                     .accessibilityLabel("Photo")
                             }
@@ -178,60 +243,117 @@ struct ChatInfoView: View {
     private func chatToolsCard(_ thread: ChatThread) -> some View {
         card {
             Menu {
-                Picker("Media visibility", selection: Binding(
-                    get: { thread.hidesMedia },
-                    set: { state.chats.setHidesMedia($0, for: threadID) })) {
+                Picker(
+                    "Media visibility",
+                    selection: Binding(
+                        get: { thread.hidesMedia },
+                        set: {
+                            state.chats.setHidesMedia(
+                                $0,
+                                for: threadID
+                            )
+                        }
+                    )
+                ) {
                     Text("Show media").tag(false)
                     Text("Hide media").tag(true)
                 }
             } label: {
-                row(icon: "photo", title: "Media visibility",
-                    trailing: thread.hidesMedia ? "Hidden" : "Shown", showsChevron: true)
+                row(
+                    icon: "photo",
+                    title: "Media visibility",
+                    trailing: thread.hidesMedia ? "Hidden" : "Shown",
+                    showsChevron: true
+                )
             }
             .buttonStyle(.plain)
+
             separator
 
-            NavigationLink { StarredMessagesView(threadID: threadID) } label: {
-                row(icon: "star", title: "Starred messages",
-                    trailing: thread.starredMessages.isEmpty ? nil : "\(thread.starredMessages.count)",
-                    showsChevron: true)
+            NavigationLink {
+                StarredMessagesView(threadID: threadID)
+            } label: {
+                row(
+                    icon: "star",
+                    title: "Starred messages",
+                    trailing: thread.starredMessages.isEmpty
+                        ? nil
+                        : "\(thread.starredMessages.count)",
+                    showsChevron: true
+                )
             }
             .buttonStyle(.plain)
+
             separator
 
-            NavigationLink { DisappearingMessagesView(threadID: threadID) } label: {
-                row(icon: "timer", title: "Disappearing messages",
-                    trailing: DisappearingMessagesView.title(for: thread.disappearAfter), showsChevron: true)
+            NavigationLink {
+                DisappearingMessagesView(threadID: threadID)
+            } label: {
+                row(
+                    icon: "timer",
+                    title: "Disappearing messages",
+                    trailing: DisappearingMessagesView.title(
+                        for: thread.disappearAfter
+                    ),
+                    showsChevron: true
+                )
             }
             .buttonStyle(.plain)
+
             separator
 
-            toggleRow(icon: "lock", title: "Chat lock",
-                      subtitle: "Lock and hide this chat on this device.",
-                      isOn: Binding(
-                        get: { thread.isLocked },
-                        set: { wantsLock in
-                            guard wantsLock != thread.isLocked else { return }
-                            if wantsLock {
-                                Task {
-                                    if await ChatAuth.unlock(reason: "Lock this chat") {
-                                        state.chats.toggleLock(threadID)
-                                    }
+            toggleRow(
+                icon: "lock",
+                title: "Chat lock",
+                subtitle: "Lock and hide this chat on this device.",
+                isOn: Binding(
+                    get: { thread.isLocked },
+                    set: { wantsLock in
+                        guard wantsLock != thread.isLocked else {
+                            return
+                        }
+
+                        if wantsLock {
+                            Task {
+                                if await ChatAuth.unlock(
+                                    reason: "Lock this chat"
+                                ) {
+                                    state.chats.toggleLock(threadID)
                                 }
-                            } else {
-                                state.chats.toggleLock(threadID)
                             }
-                        }))
+                        } else {
+                            state.chats.toggleLock(threadID)
+                        }
+                    }
+                )
+            )
         }
     }
 
     private func settingsCard(_ thread: ChatThread) -> some View {
         card {
-            toggleRow(icon: "heart", title: "Add to Favourites", isOn: Binding(
-                get: { thread.isFavourite }, set: { _ in state.chats.toggleFavourite(threadID) }))
+            toggleRow(
+                icon: "heart",
+                title: "Add to Favourites",
+                isOn: Binding(
+                    get: { thread.isFavourite },
+                    set: { _ in
+                        state.chats.toggleFavourite(threadID)
+                    }
+                )
+            )
+
             separator
-            Button { showLabels = true } label: {
-                row(icon: "tag", title: "Lists", trailing: labelNames(for: thread), showsChevron: true)
+
+            Button {
+                showLabels = true
+            } label: {
+                row(
+                    icon: "tag",
+                    title: "Lists",
+                    trailing: labelNames(for: thread),
+                    showsChevron: true
+                )
             }
             .buttonStyle(.plain)
         }
@@ -243,39 +365,68 @@ struct ChatInfoView: View {
                 .scaledFont(14, weight: .medium, maxScale: 1.2)
                 .foregroundStyle(Theme.secondary)
                 .padding(.horizontal, 6)
+
             card {
-                Button { showAddMembers = true } label: {
-                    row(icon: "person.badge.plus", title: "Add members", trailing: nil, showsChevron: false)
+                Button {
+                    showAddMembers = true
+                } label: {
+                    row(
+                        icon: "person.badge.plus",
+                        title: "Add members",
+                        trailing: nil,
+                        showsChevron: false
+                    )
                 }
                 .buttonStyle(.plain)
+
                 separator
-                memberRow(name: "You", detail: "Group admin", canRemove: false)
+
+                memberRow(
+                    name: "You",
+                    detail: "Group admin",
+                    canRemove: false
+                )
+
                 ForEach(thread.members, id: \.self) { member in
                     separator
-                    memberRow(name: member, detail: nil, canRemove: true)
+
+                    memberRow(
+                        name: member,
+                        detail: nil,
+                        canRemove: true
+                    )
                 }
             }
         }
     }
 
-    private func memberRow(name: String, detail: String?, canRemove: Bool) -> some View {
+    private func memberRow(
+        name: String,
+        detail: String?,
+        canRemove: Bool
+    ) -> some View {
         HStack(spacing: 12) {
             Text(String(name.prefix(1)).uppercased())
                 .scaledFont(15, weight: .bold)
                 .foregroundStyle(Theme.ink)
                 .frame(width: 38, height: 38)
                 .background(Circle().fill(Theme.lavender))
+
             Text(name)
                 .scaledFont(16, maxScale: 1.25)
                 .foregroundStyle(Theme.ink)
+
             Spacer()
+
             if let detail {
                 Text(detail)
                     .scaledFont(12, weight: .medium, maxScale: 1.2)
                     .foregroundStyle(Theme.tabSelected)
                     .padding(.horizontal, 10)
                     .frame(height: 24)
-                    .background(Capsule().fill(Color(hex: 0xEFEDFB)))
+                    .background(
+                        Capsule().fill(Color(hex: 0xEFEDFB))
+                    )
             }
         }
         .padding(.horizontal, 14)
@@ -283,9 +434,15 @@ struct ChatInfoView: View {
         .contextMenu {
             if canRemove {
                 Button(role: .destructive) {
-                    state.chats.removeMember(name, from: threadID)
+                    state.chats.removeMember(
+                        name,
+                        from: threadID
+                    )
                 } label: {
-                    Label("Remove from group", systemImage: "person.badge.minus")
+                    Label(
+                        "Remove from group",
+                        systemImage: "person.badge.minus"
+                    )
                 }
             }
         }
@@ -293,62 +450,118 @@ struct ChatInfoView: View {
 
     private func dangerCard(_ thread: ChatThread) -> some View {
         card {
-            Button { confirmClear = true } label: {
-                row(icon: "trash", title: "Clear chat", trailing: nil, showsChevron: false, destructive: true)
+            Button {
+                confirmClear = true
+            } label: {
+                row(
+                    icon: "trash",
+                    title: "Clear chat",
+                    trailing: nil,
+                    showsChevron: false,
+                    destructive: true
+                )
             }
             .buttonStyle(.plain)
+
             separator
+
             if !thread.isGroup {
-                Button { state.chats.toggleBlock(threadID) } label: {
-                    row(icon: "nosign", title: thread.isBlocked ? "Unblock \(thread.title)" : "Block \(thread.title)",
-                        trailing: nil, showsChevron: false, destructive: !thread.isBlocked)
+                Button {
+                    state.chats.toggleBlock(threadID)
+                } label: {
+                    row(
+                        icon: "nosign",
+                        title: thread.isBlocked
+                            ? "Unblock \(thread.title)"
+                            : "Block \(thread.title)",
+                        trailing: nil,
+                        showsChevron: false,
+                        destructive: !thread.isBlocked
+                    )
                 }
                 .buttonStyle(.plain)
+
                 separator
             }
-            Button { confirmExit = true } label: {
-                row(icon: thread.isGroup ? "rectangle.portrait.and.arrow.right" : "xmark.bin",
-                    title: thread.isGroup ? "Exit group" : "Delete chat",
-                    trailing: nil, showsChevron: false, destructive: true)
+
+            Button {
+                confirmExit = true
+            } label: {
+                row(
+                    icon: thread.isGroup
+                        ? "rectangle.portrait.and.arrow.right"
+                        : "xmark.bin",
+                    title: thread.isGroup
+                        ? "Exit group"
+                        : "Delete chat",
+                    trailing: nil,
+                    showsChevron: false,
+                    destructive: true
+                )
             }
             .buttonStyle(.plain)
         }
     }
 
     private func labelNames(for thread: ChatThread) -> String? {
-        let names = state.chats.customLabels.filter { thread.labelIDs.contains($0.id) }.map(\.name)
+        let names = state.chats.customLabels
+            .filter { thread.labelIDs.contains($0.id) }
+            .map(\.name)
+
         return names.isEmpty ? "None" : names.joined(separator: ", ")
     }
 
     // MARK: Building blocks
 
-    private func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+    private func card<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(spacing: 0, content: content)
-            .background(Theme.surface, in: .rect(cornerRadius: 22))
+            .background(
+                Theme.surface,
+                in: .rect(cornerRadius: 22)
+            )
     }
 
     private var separator: some View {
-        Rectangle().fill(Theme.ink.opacity(0.06)).frame(height: 1).padding(.leading, 52)
+        Rectangle()
+            .fill(Theme.ink.opacity(0.06))
+            .frame(height: 1)
+            .padding(.leading, 52)
     }
 
-    private func row(icon: String, title: String, trailing: String?, showsChevron: Bool,
-                     destructive: Bool = false) -> some View {
+    private func row(
+        icon: String,
+        title: String,
+        trailing: String?,
+        showsChevron: Bool,
+        destructive: Bool = false
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .scaledFont(17, weight: .medium)
-                .foregroundStyle(destructive ? Color.red : Theme.tabSelected)
+                .foregroundStyle(
+                    destructive ? Color.red : Theme.tabSelected
+                )
                 .frame(width: 28)
+
             Text(title)
                 .scaledFont(16, maxScale: 1.25)
-                .foregroundStyle(destructive ? Color.red : Theme.ink)
+                .foregroundStyle(
+                    destructive ? Color.red : Theme.ink
+                )
+
             Spacer(minLength: 8)
+
             if let trailing {
                 Text(trailing)
                     .scaledFont(15, maxScale: 1.25)
                     .foregroundStyle(Theme.secondary)
             }
+
             if showsChevron {
-                Image(systemName: "chevron.right").accessibilityHidden(true)
+                Image(systemName: "chevron.right")
+                    .accessibilityHidden(true)
                     .scaledFont(13, weight: .semibold)
                     .foregroundStyle(Theme.dotInactive)
             }
@@ -358,18 +571,24 @@ struct ChatInfoView: View {
         .contentShape(Rectangle())
     }
 
-    private func toggleRow(icon: String, title: String, subtitle: String? = nil,
-                           isOn: Binding<Bool>) -> some View {
+    private func toggleRow(
+        icon: String,
+        title: String,
+        subtitle: String? = nil,
+        isOn: Binding<Bool>
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .scaledFont(17, weight: .medium)
                 .foregroundStyle(Theme.tabSelected)
                 .frame(width: 28)
+
             Toggle(isOn: isOn) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .scaledFont(16, maxScale: 1.25)
                         .foregroundStyle(Theme.ink)
+
                     if let subtitle {
                         Text(subtitle)
                             .scaledFont(13, maxScale: 1.25)
